@@ -27,6 +27,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [accountStatus, setAccountStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const isMockRef = useRef(false);
+  const hasLoadedRef = useRef(false);
+  const currentUserIdRef = useRef<string | null>(null);
 
   const fetchUserRole = async (userId: string) => {
     try {
@@ -143,22 +145,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       async (event, session) => {
         if (isMockRef.current) return;
 
+        console.log("Auth state change event:", event, session?.user?.id);
+
+        const prevUserId = currentUserIdRef.current;
+        const currentUserId = session?.user?.id ?? null;
+        currentUserIdRef.current = currentUserId;
+
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // Keep loading true while fetching user data
-          setLoading(true);
+          // Only show loading spinner if:
+          // 1. We haven't loaded the initial data yet
+          // 2. OR the user ID changed (different user logging in)
+          const isNewUser = prevUserId !== currentUserId;
+          const shouldShowLoading = !hasLoadedRef.current || isNewUser;
+
+          if (shouldShowLoading) {
+            setLoading(true);
+          }
+
           try {
             await fetchUserData(session.user.id);
+            hasLoadedRef.current = true;
           } catch (error) {
             console.error("Error fetching user data on auth change:", error);
           } finally {
-            setLoading(false);
+            if (shouldShowLoading) {
+              setLoading(false);
+            }
           }
         } else {
           setRole(null);
           setOrganizationId(null);
+          hasLoadedRef.current = false;
           setLoading(false);
         }
       }
@@ -168,16 +188,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (isMockRef.current) return;
 
+      console.log("Initial getSession session user:", session?.user?.id);
+
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
+        currentUserIdRef.current = session.user.id;
+        
+        // Only show loading spinner if we haven't loaded yet
+        const shouldShowLoading = !hasLoadedRef.current;
+        if (shouldShowLoading) {
+          setLoading(true);
+        }
+
         try {
           await fetchUserData(session.user.id);
+          hasLoadedRef.current = true;
         } catch (error) {
           console.error("Error fetching user data on initial load:", error);
         } finally {
-          setLoading(false);
+          if (shouldShowLoading) {
+            setLoading(false);
+          }
         }
       } else {
         setLoading(false);
@@ -215,6 +248,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     isMockRef.current = false;
+    currentUserIdRef.current = null;
+    hasLoadedRef.current = false;
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
