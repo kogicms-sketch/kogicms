@@ -1,0 +1,1 @@
+REVOKE UPDATE ON public.voter_registry FROM sandbox_exec;

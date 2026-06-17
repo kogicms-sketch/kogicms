@@ -1,0 +1,18 @@
+Polling_Unit_Code,Polling_Unit_Name,Ward,LGA,Registered_Voters,Status,Notes
+KT/01/001/001,Central Primary School PU 1,Ward 1,Bakori,537,Active,
+KT/01/001/002,Central Primary School PU 2,Ward 1,Bakori,537,Active,
+KT/01/001/003,Bakori Town Hall,Ward 1,Bakori,659,Active,
+KT/01/001/004,Dispensary Junction,Ward 1,Bakori,450,Active,
+KT/01/001/005,Market Square,Ward 1,Bakori,612,Active,
+KT/01/002/001,Ward 2 Primary School,Ward 2,Bakori,537,Active,
+KT/01/002/002,Community Center,Ward 2,Bakori,395,Active,
+KT/01/002/003,Village Head Compound,Ward 2,Bakori,680,Active,
+KT/01/003/001,New Polling Unit A,Ward 3,Bakori,45,Active,Low registration - new unit
+KT/01/003/002,New Polling Unit B,Ward 3,Bakori,28,Active,Low registration - new unit
+KT/01/003/003,Ward 3 Primary School,Ward 3,Bakori,705,Active,
+KT/02/001/001,Batagarawa Central,Ward 1,Batagarawa,590,Active,
+KT/02/001/002,Primary Health Center,Ward 1,Batagarawa,488,Active,
+KT/02/001/003,Motor Park,Ward 1,Batagarawa,635,Active,
+KT/03/001/001,Batsari Township,Ward 1,Batsari,420,Security Affected,Telecom suspension area
+KT/03/001/002,Border Checkpoint Area,Ward 1,Batsari,385,Security Affected,Telecom suspension area
+KT/03/001/003,Batsari Market,Ward 1,Batsari,550,Security Affected,Telecom suspension area

@@ -1,0 +1,19 @@
+"use client";
+
+import { Suspense } from "react";
+import Component from "@/views/SupportGroupDetail";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+
+export default function Page() {
+  return (
+    <ProtectedRoute>
+      <Suspense fallback={
+        <div className="flex items-center justify-center h-screen bg-background">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      }>
+        <Component />
+      </Suspense>
+    </ProtectedRoute>
+  );
+}

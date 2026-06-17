@@ -1,0 +1,1 @@
+UPDATE public.voter_registry SET photo_url='https://ltpsylgqcwxaprsvabap.supabase.co/storage/v1/object/public/voter-photos/20-17-04-014/030DEFE01F296732782.jpeg' WHERE vin='030DEFE01F296732782';

@@ -1,0 +1,1 @@
+ALTER VIEW public.voter_pu_counts SET (security_invoker = true);

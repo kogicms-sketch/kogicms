@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Arimo:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  body{margin:0;background:#445;padding:30px;}
+  .wrap{width:900px;}
+  .card{position:relative;width:100%;aspect-ratio:1570/1002;overflow:hidden;container-type:inline-size;user-select:none;}
+  .card img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;}
+  .abs{position:absolute;}
+  .row{display:flex;align-items:baseline;white-space:nowrap;}
+</style></head>
+<body>
+<div class="wrap">
+<div class="card" id="card">
+  <img class="bg" src="https://id-preview--5a841a3e-8503-40cd-bf7e-d9cb0db9d57b.lovable.app/__l5e/assets-v1/abb725cc-1adb-4055-94fd-75d066052c1d/inec-blank-template-v2.png">
+</div>
+</div>
+<script>
+const FONT="'Arimo',Arial,'Liberation Sans',sans-serif",INK="#111";
+const ilab=`font-family:${FONT};font-weight:700;color:${INK};font-size:2.5cqw;letter-spacing:.2px`;
+const flab=`font-family:${FONT};font-weight:400;color:${INK};font-size:2.5cqw;letter-spacing:.2px`;
+const val=`font-family:${FONT};font-weight:700;color:${INK};font-size:2.7cqw;letter-spacing:.2px;line-height:1.05`;
+const code="M1-11-10-0068",state="CROSS RIVER",lga="IKOM",ward="OBULUKO",name="EMMANUEL, NDUEGHE EDET",dob="08-02-1987",gender="MALE",occ="STUDENT",addr="PLAY GROUND AKAM",vinGroups=["90F5","B036","2D29","5790","094"];
+const c=document.getElementById('card');
+c.insertAdjacentHTML('beforeend',`
+<div class="abs row" style="left:5%;top:25.5%"><span style="${ilab}">CODE:</span><span style="${val};margin-left:3cqw">${code}</span></div>
+<div class="abs row" style="left:42%;top:25.5%;right:3%"><span style="${ilab}">VIN:</span><div style="display:flex;flex:1;justify-content:space-between;margin-left:2cqw">${vinGroups.map(g=>`<span style="${val}">${g}</span>`).join('')}</div></div>
+<div class="abs" style="left:5.2%;top:30.5%;width:30.6%;height:57%;background:#e7eae6"></div>
+<div class="abs" style="left:42%;top:34%;right:3%">
+  <div class="row"><span style="${ilab}">DELIM:</span><span style="${val};margin-left:2cqw">${state}</span><span style="${val};margin-left:3cqw">|</span><span style="${val};margin-left:3cqw">${lga}</span></div>
+  <p style="${val};margin:1cqw 0 0">${ward}</p>
+</div>
+<p class="abs" style="${val};font-size:3.3cqw;left:42%;top:47.5%;right:3%">${name}</p>
+<div class="abs" style="left:42%;top:58.5%"><p style="${flab};margin:0">DATE OF BIRTH</p><p style="${val};margin-top:.8cqw">${dob}</p></div>
+<div class="abs" style="right:4%;top:58.5%;text-align:right"><p style="${flab};margin:0">GENDER</p><p style="${val};margin-top:.8cqw">${gender}</p></div>
+<div class="abs" style="left:42%;top:70.5%"><p style="${flab};margin:0">OCCUPATION</p><p style="${val};margin-top:.8cqw">${occ}</p></div>
+<div class="abs" style="left:42%;top:82%;right:3%"><p style="${flab};margin:0">ADDRESS</p><p style="${val};margin-top:.8cqw">${addr}</p></div>`);
+</script>
+</body></html>

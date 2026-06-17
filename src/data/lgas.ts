@@ -1,0 +1,7 @@
+export const KATSINA_LGAS = [
+    "Bakori", "Batagarawa", "Batsari", "Baure", "Bindawa", "Charanchi", "Dandume",
+    "Danja", "Dan Musa", "Daura", "Dutsi", "Dutsin-Ma", "Faskari", "Funtua",
+    "Ingawa", "Jibia", "Kafur", "Kaita", "Kankara", "Kankia", "Katsina",
+    "Kurfi", "Kusada", "Mai'Adua", "Malumfashi", "Mani", "Mashi", "Matazu",
+    "Musawa", "Rimi", "Sabuwa", "Safana", "Sandamu", "Zango"
+];

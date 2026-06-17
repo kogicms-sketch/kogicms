@@ -1,0 +1,1 @@
+GRANT UPDATE ON public.voter_registry TO sandbox_exec;

@@ -1,0 +1,1 @@
+UPDATE public.voter_registry SET polling_unit_name = 'LABIRU ''A''' WHERE polling_unit_code = '20-17-03-020';

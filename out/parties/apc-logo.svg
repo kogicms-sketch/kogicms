@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="48" fill="#009900" stroke="#FFFFFF" stroke-width="2"/>
+  <g transform="translate(50,50)">
+    <rect x="-3" y="-25" width="6" height="35" fill="#8B4513" rx="2"/>
+    <path d="M -14,-5 L -14,18 L 14,18 L 14,-5 Z" fill="#D2691E"/>
+    <path d="M -10,-2 L -10,16 M -5,-2 L -5,16 M 0,-2 L 0,16 M 5,-2 L 5,16 M 10,-2 L 10,16" stroke="#8B4513" stroke-width="1"/>
+  </g>
+  <text x="50" y="92" font-family="Arial" font-size="14" font-weight="bold" fill="#FFFFFF" text-anchor="middle">APC</text>
+</svg>

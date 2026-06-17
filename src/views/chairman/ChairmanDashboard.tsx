@@ -1,0 +1,390 @@
+"use client";
+import DashboardLayout from "@/components/layout/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useChairman, useChairmanDashboardStats } from "@/hooks/useChairmen";
+import { Users, MapPin, Building2, UserCheck, Globe, TrendingUp, Shield, ChevronRight, Star, ShieldCheck, Clock, Vote, Navigation } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useRouter } from 'next/navigation';
+import { APCBanner } from "@/components/branding/APCBanner";
+import { APCFlag } from "@/components/branding/APCFlag";
+
+const ChairmanDashboard = () => {
+    const router = useRouter();
+  const navigate = (path, options) => { if (path === -1) router.back(); else router.push(path); };
+    const { data: chairman, isLoading: chairmanLoading } = useChairman();
+    const { data: stats, isLoading: statsLoading } = useChairmanDashboardStats();
+
+    if (chairmanLoading || statsLoading) {
+        return (
+            <DashboardLayout>
+                <div className="flex items-center justify-center min-h-[60vh]">
+                    <div className="text-center space-y-4">
+                        <div className="relative mx-auto w-16 h-16">
+                            <div className="animate-spin rounded-full h-16 w-16 border-4 border-apc-green/20 border-t-apc-green" />
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <Shield className="h-6 w-6 text-apc-green" />
+                            </div>
+                        </div>
+                        <p className="text-muted-foreground font-medium">Loading dashboard...</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
+
+    if (!chairman) {
+        return (
+            <DashboardLayout>
+                <div className="flex items-center justify-center min-h-[60vh] p-6">
+                    <div className="text-center space-y-4 max-w-sm">
+                        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto">
+                            <Shield className="h-8 w-8 text-red-500" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-red-600">Access Denied</h2>
+                        <p className="text-muted-foreground">You are not registered as an LGA Chairman.</p>
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
+
+    const statCards = [
+        {
+            label: "Total Wards",
+            value: stats?.totalWards || 0,
+            sub: "Electoral wards",
+            icon: MapPin,
+            color: "green",
+            bg: "from-apc-green/10 to-white",
+            border: "border-l-apc-green",
+            iconBg: "bg-apc-green/10",
+            iconColor: "text-apc-green",
+            valColor: "text-apc-green",
+        },
+        {
+            label: "Polling Units",
+            value: stats?.totalPollingUnits || 0,
+            sub: "Total in LGA",
+            icon: Building2,
+            color: "blue",
+            bg: "from-blue-50 to-white",
+            border: "border-l-blue-600",
+            iconBg: "bg-blue-100",
+            iconColor: "text-blue-600",
+            valColor: "text-blue-700",
+        },
+        {
+            label: "Registered Voters",
+            value: stats?.totalRegisteredVoters || 0,
+            sub: "INEC registered",
+            icon: Vote,
+            color: "purple",
+            bg: "from-purple-50 to-white",
+            border: "border-l-purple-500",
+            iconBg: "bg-purple-100",
+            iconColor: "text-purple-600",
+            valColor: "text-purple-700",
+        },
+        {
+            label: "App Members",
+            value: stats?.totalMembers || 0,
+            sub: "Total registered",
+            icon: Users,
+            color: "indigo",
+            bg: "from-indigo-50 to-white",
+            border: "border-l-indigo-500",
+            iconBg: "bg-indigo-100",
+            iconColor: "text-indigo-600",
+            valColor: "text-indigo-700",
+        },
+        {
+            label: "Verified Members",
+            value: stats?.verifiedMembers || 0,
+            sub: "Field verified",
+            icon: ShieldCheck,
+            color: "green",
+            bg: "from-apc-green/5 to-white",
+            border: "border-l-apc-green",
+            iconBg: "bg-apc-green/10",
+            iconColor: "text-apc-green",
+            valColor: "text-apc-green",
+        },
+        {
+            label: "Pending Verification",
+            value: stats?.pendingVerification || 0,
+            sub: "Awaiting visit",
+            icon: Clock,
+            color: "orange",
+            bg: "from-orange-50 to-white",
+            border: "border-l-orange-500",
+            iconBg: "bg-orange-100",
+            iconColor: "text-orange-600",
+            valColor: "text-orange-700",
+        },
+        {
+            label: "Councillors",
+            value: stats?.totalCouncillors || 0,
+            sub: "Ward councillors",
+            icon: UserCheck,
+            color: "red",
+            bg: "from-red-50 to-white",
+            border: "border-l-apc-red",
+            iconBg: "bg-red-100",
+            iconColor: "text-apc-red",
+            valColor: "text-apc-red",
+        },
+        {
+            label: "Support Groups",
+            value: stats?.totalSupportGroups || 0,
+            sub: "Registered groups",
+            icon: Globe,
+            color: "teal",
+            bg: "from-teal-50 to-white",
+            border: "border-l-teal-500",
+            iconBg: "bg-teal-100",
+            iconColor: "text-teal-600",
+            valColor: "text-teal-700",
+        },
+    ];
+
+    const quickActions = [
+        {
+            label: "View Wards",
+            icon: MapPin,
+            route: "/chairman/wards",
+            bg: "bg-apc-green hover:bg-apc-green-dark",
+            text: "text-white",
+        },
+        {
+            label: "Polling Units",
+            icon: Building2,
+            route: "/chairman/polling-units",
+            bg: "bg-blue-600 hover:bg-blue-700",
+            text: "text-white",
+        },
+        {
+            label: "Councillors",
+            icon: UserCheck,
+            route: "/chairman/councillors",
+            bg: "bg-red-600 hover:bg-red-700",
+            text: "text-white",
+        },
+        {
+            label: "Support Groups",
+            icon: Globe,
+            route: "/support-groups",
+            bg: "bg-teal-600 hover:bg-teal-700",
+            text: "text-white",
+        },
+        {
+            label: "Agent Reports",
+            icon: Navigation,
+            route: "/polling-units-reports",
+            bg: "bg-purple-600 hover:bg-purple-700",
+            text: "text-white",
+        },
+    ];
+
+    return (
+        <DashboardLayout>
+            <div className="space-y-4 sm:space-y-6 animate-fade-in">
+
+                {/* ── APC HERO BANNER ── */}
+                <div className="relative overflow-hidden rounded-xl sm:rounded-2xl shadow-xl">
+                    {/* APC tri-color top stripe */}
+                    <div className="flex h-2 sm:h-3">
+                        <div className="flex-1 bg-apc-green" />
+                        <div className="flex-1 bg-white border-y border-gray-200" />
+                        <div className="flex-1 bg-apc-red" />
+                    </div>
+
+                    {/* Main banner body */}
+                    <div className="bg-gradient-to-br from-apc-green via-[#006600] to-[#004d00] p-5 sm:p-7 lg:p-10 relative">
+                        {/* Decorative circles */}
+                        <div className="absolute -top-10 -right-10 w-48 h-48 sm:w-72 sm:h-72 rounded-full bg-white/5 pointer-events-none" />
+                        <div className="absolute -bottom-8 -left-8 w-40 h-40 rounded-full bg-white/5 pointer-events-none" />
+
+                        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+                            {/* Flag */}
+                            <div className="flex-shrink-0 hidden sm:block">
+                                <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center border-2 border-white/20 shadow-lg">
+                                    <APCFlag size="sm" variant="full" />
+                                </div>
+                            </div>
+
+                            {/* Text — only LGA name shown */}
+                            <div className="flex-1 min-w-0">
+                                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight tracking-tight">
+                                    {chairman.lga} LGA
+                                </h1>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* APC tri-color bottom stripe */}
+                    <div className="flex h-2 sm:h-3">
+                        <div className="flex-1 bg-apc-green" />
+                        <div className="flex-1 bg-white border-y border-gray-200" />
+                        <div className="flex-1 bg-apc-red" />
+                    </div>
+                </div>
+
+                {/* ── STATS GRID ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-3 sm:gap-4">
+                    {statCards.map(({ label, value, sub, icon: Icon, bg, border, iconBg, iconColor, valColor }) => (
+                        <Card
+                            key={label}
+                            className={`border-l-4 ${border} bg-gradient-to-br ${bg} shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5`}
+                        >
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3 sm:p-4">
+                                <CardTitle className="text-[11px] sm:text-xs font-semibold text-gray-600 leading-tight">
+                                    {label}
+                                </CardTitle>
+                                <div className={`rounded-full ${iconBg} p-1.5 sm:p-2 flex-shrink-0`}>
+                                    <Icon className={`h-3 w-3 sm:h-4 sm:w-4 ${iconColor}`} />
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-3 sm:p-4 pt-0">
+                                <div className={`text-2xl sm:text-3xl font-extrabold ${valColor} tracking-tight`}>
+                                    {value.toLocaleString()}
+                                </div>
+                                <p className={`text-[10px] sm:text-xs ${iconColor} mt-0.5 font-medium`}>{sub}</p>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+
+                {/* ── QUICK ACTIONS ── */}
+                <Card className="border-0 shadow-md overflow-hidden">
+                    <div className="h-1 bg-gradient-to-r from-apc-green via-white to-apc-red" />
+                    <CardHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100">
+                        <div className="flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-apc-green" />
+                            <div>
+                                <CardTitle className="text-base sm:text-lg font-bold">Quick Actions</CardTitle>
+                                <p className="text-xs text-muted-foreground mt-0.5">Manage your LGA operations</p>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-4 sm:p-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            {quickActions.map(({ label, icon: Icon, route, bg, text }) => (
+                                <button
+                                    key={label}
+                                    onClick={() => navigate(route)}
+                                    className={`
+                                        group flex flex-col items-center justify-center gap-2.5 rounded-xl 
+                                        py-4 sm:py-5 px-3 ${bg} ${text}
+                                        shadow-sm hover:shadow-lg transition-all duration-200 
+                                        hover:-translate-y-0.5 active:translate-y-0 active:scale-95
+                                        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-apc-green
+                                    `}
+                                >
+                                    <div className="rounded-full bg-white/20 p-2.5 sm:p-3 group-hover:scale-110 transition-transform">
+                                        <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                                    </div>
+                                    <span className="text-xs sm:text-sm font-semibold text-center leading-tight">{label}</span>
+                                    <ChevronRight className="h-3 w-3 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                                </button>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* ── WARD PERFORMANCE ── */}
+                <Card className="border-0 shadow-md overflow-hidden">
+                    <div className="h-1 bg-gradient-to-r from-apc-green via-white to-apc-red" />
+                    <CardHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100">
+                        <div className="flex items-center gap-2">
+                            <MapPin className="h-5 w-5 text-apc-green" />
+                            <div>
+                                <CardTitle className="text-base sm:text-lg font-bold">Ward Performance Overview</CardTitle>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Member distribution across wards in {chairman.lga} LGA
+                                </p>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-4 sm:p-6">
+                        {stats?.wardPerformance && stats.wardPerformance.length > 0 ? (
+                            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                                {stats.wardPerformance.map((ward) => {
+                                    const avgPerUnit = ward.pollingUnits > 0
+                                        ? (ward.members / ward.pollingUnits).toFixed(1)
+                                        : "0";
+                                    const progress = Math.min(
+                                        (ward.members / (ward.pollingUnits * 10)) * 100,
+                                        100
+                                    );
+                                    return (
+                                        <div
+                                            key={ward.ward}
+                                            className="group bg-white rounded-xl border border-gray-100 hover:border-apc-green/30 p-4 shadow-sm hover:shadow-md transition-all duration-200"
+                                        >
+                                            {/* Ward header */}
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div>
+                                                    <h3 className="font-bold text-sm sm:text-base text-gray-800 leading-snug">
+                                                        {ward.ward}
+                                                    </h3>
+                                                    <span className="text-[10px] text-apc-green font-semibold uppercase tracking-wide">
+                                                        Electoral Ward
+                                                    </span>
+                                                </div>
+                                                <div className="rounded-full bg-apc-green/10 p-1.5 group-hover:bg-apc-green/20 transition-colors">
+                                                    <MapPin className="h-4 w-4 text-apc-green" />
+                                                </div>
+                                            </div>
+
+                                            {/* Stats row */}
+                                            <div className="grid grid-cols-2 gap-2 mb-3">
+                                                <div className="bg-blue-50 rounded-lg p-2.5 text-center">
+                                                    <div className="text-lg font-extrabold text-blue-700">{ward.pollingUnits}</div>
+                                                    <div className="text-[10px] text-blue-500 font-medium">Polling Units</div>
+                                                </div>
+                                                <div className="bg-apc-green/10 rounded-lg p-2.5 text-center">
+                                                    <div className="text-lg font-extrabold text-apc-green">{ward.members}</div>
+                                                    <div className="text-[10px] text-apc-green font-medium">Members</div>
+                                                </div>
+                                            </div>
+
+                                            {/* Progress bar */}
+                                            <div>
+                                                <div className="flex justify-between text-[10px] text-gray-500 mb-1.5">
+                                                    <span className="font-medium">Avg. Members / Unit</span>
+                                                    <span className="font-bold text-gray-700">{avgPerUnit}</span>
+                                                </div>
+                                                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className="h-full rounded-full bg-gradient-to-r from-apc-green to-green-400 transition-all duration-500"
+                                                        style={{ width: `${progress}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                                    <MapPin className="h-7 w-7 text-gray-400" />
+                                </div>
+                                <p className="text-muted-foreground text-sm font-medium">No ward data available</p>
+                                <p className="text-xs text-gray-400 mt-1">Ward performance data will appear here once available</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* ── APC FOOTER BADGE ── */}
+                <div className="flex items-center justify-center gap-3 py-3 opacity-60">
+                    <APCFlag size="sm" variant="horizontal" />
+                </div>
+
+            </div>
+        </DashboardLayout>
+    );
+};
+
+export default ChairmanDashboard;

@@ -1,0 +1,571 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* APC Green Primary - Dominant Color */
+    --background: 220 25% 97%;
+    --foreground: 220 60% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 60% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 60% 10%;
+
+    /* APC Green Primary - Growth & Progress */
+    --primary: 120 100% 30%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Subtle Green Secondary */
+    --secondary: 120 30% 94%;
+    --secondary-foreground: 120 60% 12%;
+
+    --muted: 220 20% 94%;
+    --muted-foreground: 220 15% 45%;
+
+    /* APC Green Accent - Dominant */
+    --accent: 120 100% 30%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders & Inputs */
+    --border: 220 20% 88%;
+    --input: 220 20% 88%;
+    --ring: 120 100% 30%;
+
+    --radius: 0.75rem;
+
+    /* Sidebar - APC Green Brand */
+    --sidebar-background: 120 100% 25%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 120 100% 25%;
+    --sidebar-accent: 120 100% 20%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 120 60% 20%;
+    --sidebar-ring: 0 0% 100%;
+
+    /* Custom tokens - APC Colors */
+    --apc-green: 120 100% 30%;
+    --apc-green-dark: 120 100% 25%;
+    --apc-red: 356 95% 46%;
+    --apc-red-dark: 356 95% 40%;
+    --apc-blue: 207 100% 39%;
+    --apc-blue-dark: 207 100% 33%;
+    --navy-deep: 220 60% 8%;
+    --navy-medium: 220 55% 15%;
+    --navy-light: 220 40% 25%;
+    --success: 145 65% 42%;
+    --warning: 38 95% 55%;
+    --chart-1: 120 100% 30%;
+    --chart-2: 207 100% 39%;
+    --chart-3: 356 95% 46%;
+    --chart-4: 38 95% 55%;
+    --chart-5: 220 40% 50%;
+
+    /* Legacy support - maps power-red to APC green */
+    --power-red: 120 100% 30%;
+
+    /* Brand-generic tokens (overridden at runtime by PartyContext) */
+    --brand: 120 100% 30%;
+    --brand-dark: 120 100% 25%;
+    --brand-foreground: 0 0% 100%;
+    --brand-secondary: 207 100% 39%;
+    --brand-accent: 356 95% 46%;
+  }
+
+  .dark {
+    --background: 220 60% 6%;
+    --foreground: 220 20% 95%;
+
+    --card: 220 55% 10%;
+    --card-foreground: 220 20% 95%;
+
+    --popover: 220 55% 10%;
+    --popover-foreground: 220 20% 95%;
+
+    --primary: 120 100% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 40% 18%;
+    --secondary-foreground: 220 20% 95%;
+
+    --muted: 220 40% 18%;
+    --muted-foreground: 220 15% 60%;
+
+    --accent: 120 100% 35%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 40% 18%;
+    --input: 220 40% 18%;
+    --ring: 120 100% 35%;
+
+    --sidebar-background: 120 100% 22%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 0% 100%;
+    --sidebar-primary-foreground: 120 100% 22%;
+    --sidebar-accent: 120 100% 18%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 120 60% 18%;
+    --sidebar-ring: 0 0% 100%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer components {
+
+  /* Premium KPI Card */
+  .kpi-card {
+    @apply bg-card rounded-xl p-6 shadow-sm border border-border/50 transition-all duration-300 hover:shadow-lg hover:border-border hover:-translate-y-0.5;
+  }
+
+  .kpi-card-accent {
+    @apply bg-gradient-to-br from-[hsl(var(--apc-green))] to-[hsl(var(--apc-green-dark))] text-white rounded-xl p-6 shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+  }
+
+  .kpi-card-danger {
+    @apply bg-gradient-to-br from-[hsl(var(--apc-red))] to-[hsl(var(--apc-red-dark))] text-white rounded-xl p-6 shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+  }
+
+  /* Premium Data Table */
+  .data-table {
+    @apply w-full bg-card rounded-xl border border-border/50 overflow-hidden;
+  }
+
+  .data-table th {
+    @apply bg-muted/50 px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground;
+  }
+
+  .data-table td {
+    @apply px-6 py-4 text-sm border-t border-border/50;
+  }
+
+  .data-table tr:hover td {
+    @apply bg-muted/30;
+  }
+
+  /* Status Badges */
+  .status-active {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[hsl(var(--success)/0.1)] text-[hsl(var(--success))];
+  }
+
+  .status-inactive {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground;
+  }
+
+  .status-pending {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-[hsl(var(--warning)/0.1)] text-[hsl(var(--warning))];
+  }
+
+  /* Sidebar Navigation */
+  .nav-item {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-white/80 transition-all duration-200 hover:bg-white/15 hover:text-white;
+  }
+
+  .nav-item-active {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-lg bg-white text-[hsl(var(--apc-green))] font-semibold border-l-4 border-[#E30613] shadow-sm;
+  }
+
+  /* Premium Button Variants */
+  .btn-command {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[hsl(var(--navy-deep))] to-[hsl(var(--navy-medium))] text-white font-semibold rounded-lg shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  .btn-action {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-[hsl(var(--apc-green))] text-white font-semibold rounded-lg shadow-lg transition-all duration-300 hover:bg-[hsl(var(--apc-green-dark))] hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  /* Chart Container */
+  .chart-container {
+    @apply bg-card rounded-xl p-6 border border-border/50 shadow-sm;
+  }
+
+  /* Premium Input */
+  .input-premium {
+    @apply w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[hsl(var(--navy-medium))] focus:border-transparent transition-all duration-200;
+  }
+}
+
+@layer utilities {
+
+  /* Fade in animation */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out forwards;
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out forwards;
+  }
+
+  .animate-slide-in-left {
+    animation: slideInLeft 0.4s ease-out forwards;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.3s ease-out forwards;
+  }
+
+  /* Staggered children animation */
+  .stagger-children>* {
+    opacity: 0;
+    animation: fadeInUp 0.5s ease-out forwards;
+  }
+
+  .stagger-children>*:nth-child(1) {
+    animation-delay: 0.1s;
+  }
+
+  .stagger-children>*:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .stagger-children>*:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
+  .stagger-children>*:nth-child(4) {
+    animation-delay: 0.4s;
+  }
+
+  .stagger-children>*:nth-child(5) {
+    animation-delay: 0.5s;
+  }
+
+  .stagger-children>*:nth-child(6) {
+    animation-delay: 0.6s;
+  }
+
+  /* Gradient text */
+  .text-gradient-navy {
+    @apply bg-gradient-to-r from-[hsl(var(--navy-deep))] to-[hsl(var(--navy-light))] bg-clip-text text-transparent;
+  }
+
+  /* Glass effect */
+  .glass {
+    @apply bg-white/80 backdrop-blur-xl;
+  }
+
+  .dark .glass {
+    @apply bg-card/80 backdrop-blur-xl;
+  }
+
+  /* Safe area utilities for mobile */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Touch-friendly utilities */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Mobile card styles */
+  .mobile-card {
+    @apply bg-card rounded-xl p-4 border border-border/50 active:scale-[0.98] transition-transform duration-150;
+  }
+
+  /* Responsive text truncation */
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Mobile-first responsive utilities */
+  .mobile-full-width {
+    @apply w-full px-4 sm:px-6 lg:px-8;
+  }
+
+  .mobile-stack {
+    @apply flex flex-col sm:flex-row gap-3 sm:gap-4;
+  }
+
+  .mobile-hide {
+    @apply hidden sm:block;
+  }
+
+  .mobile-show {
+    @apply block sm:hidden;
+  }
+
+  /* Responsive padding */
+  .responsive-p {
+    @apply p-3 sm:p-4 lg:p-6;
+  }
+
+  .responsive-px {
+    @apply px-3 sm:px-4 lg:px-6;
+  }
+
+  .responsive-py {
+    @apply py-3 sm:py-4 lg:py-6;
+  }
+
+  /* Mobile app-like spacing */
+  .app-spacing {
+    @apply space-y-3 sm:space-y-4 lg:space-y-6;
+  }
+
+  /* Grid layouts for mobile */
+  .mobile-grid-2 {
+    @apply grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4;
+  }
+
+  .mobile-grid-1 {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4;
+  }
+
+  /* Responsive text */
+  .responsive-heading {
+    @apply text-xl sm:text-2xl lg:text-3xl font-bold;
+  }
+
+  .responsive-subheading {
+    @apply text-base sm:text-lg lg:text-xl font-semibold;
+  }
+
+  .responsive-text {
+    @apply text-sm sm:text-base;
+  }
+
+  .responsive-small {
+    @apply text-xs sm:text-sm;
+  }
+
+  /* Mobile-optimized buttons */
+  .btn-mobile {
+    @apply min-h-[44px] min-w-[44px] px-4 py-3 text-base;
+  }
+
+  .btn-mobile-sm {
+    @apply min-h-[36px] min-w-[36px] px-3 py-2 text-sm;
+  }
+
+  /* Safe area padding for mobile */
+  .pb-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+  }
+
+  .pt-safe {
+    padding-top: calc(env(safe-area-inset-top) + 1rem);
+  }
+
+  /* Mobile bottom navigation height */
+  .pb-nav {
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+
+  /* Mobile card shadows */
+  .mobile-card-shadow {
+    @apply shadow-sm sm:shadow-md;
+  }
+
+  /* Responsive container */
+  .container-mobile {
+    @apply w-full max-w-none sm:max-w-screen-sm md:max-w-screen-md lg:max-w-screen-lg xl:max-w-screen-xl 2xl:max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Mobile form inputs */
+  .input-mobile {
+    @apply w-full min-h-[48px] px-4 py-3 text-base;
+  }
+
+  /* Responsive gap */
+  .gap-responsive {
+    @apply gap-2 sm:gap-3 lg:gap-4;
+  }
+
+  /* Mobile overflow handling */
+  .mobile-scroll {
+    @apply overflow-x-auto scrollbar-hide;
+  }
+
+  /* Touch-friendly tap targets */
+  .tap-target {
+    @apply min-h-[44px] min-w-[44px] cursor-pointer active:scale-95 transition-transform;
+  }
+
+  /* Mobile navigation item */
+  .mobile-nav-item {
+    @apply flex flex-col items-center justify-center gap-1 px-2 py-2 text-xs font-medium;
+  }
+
+  .mobile-nav-item-active {
+    @apply flex flex-col items-center justify-center gap-1 px-2 py-2 text-xs font-medium text-primary;
+  }
+
+  /* Data table responsive */
+  .table-responsive {
+    @apply w-full overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0;
+  }
+
+  /* Mobile section spacing */
+  .section-mobile {
+    @apply mb-6 sm:mb-8 lg:mb-10;
+  }
+
+  /* Hide/show based on device */
+  .hidden-mobile {
+    @apply hidden md:block;
+  }
+
+  .visible-mobile {
+    @apply block md:hidden;
+  }
+
+  /* Touch action optimization */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  /* Prevent text selection on mobile */
+  .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Mobile-specific animations */
+  .mobile-fade-in {
+    animation: mobileFadeIn 0.3s ease-out;
+  }
+
+  .mobile-slide-up {
+    animation: mobileSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes mobileFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mobileSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
