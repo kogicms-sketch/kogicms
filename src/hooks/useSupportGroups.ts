@@ -27,6 +27,7 @@ export const useSupportGroups = (filters?: {
         .select(`
           *,
           support_group_activities(count),
+          activities:activities!organization_id(count),
           members_org:members!organization_id(count),
           members_sg:members!support_group_id(count)
         `);
@@ -47,9 +48,11 @@ export const useSupportGroups = (filters?: {
       const transformed = data?.map(group => {
         const orgCount = (group as any).members_org?.[0]?.count || 0;
         const sgCount = (group as any).members_sg?.[0]?.count || 0;
+        const sgActivitiesCount = group.support_group_activities?.[0]?.count || 0;
+        const generalActivitiesCount = (group as any).activities?.[0]?.count || 0;
         return {
           ...group,
-          activities_count: group.support_group_activities?.[0]?.count || 0,
+          activities_count: sgActivitiesCount + generalActivitiesCount,
           member_count: orgCount + sgCount,
         };
       }) || [];
@@ -69,7 +72,8 @@ export const useSupportGroup = (id: string) => {
           *,
           members_org:members!organization_id(count),
           members_sg:members!support_group_id(count),
-          activities:support_group_activities(count)
+          support_group_activities(count),
+          activities:activities!organization_id(count)
         `)
         .eq("id", id)
         .maybeSingle();
@@ -77,10 +81,12 @@ export const useSupportGroup = (id: string) => {
       if (error) throw error;
       const orgCount = (data as any).members_org?.[0]?.count || 0;
       const sgCount = (data as any).members_sg?.[0]?.count || 0;
+      const sgActivitiesCount = data.support_group_activities?.[0]?.count || 0;
+      const generalActivitiesCount = (data as any).activities?.[0]?.count || 0;
       return {
         ...data,
         member_count: orgCount + sgCount,
-        activities_count: data.activities?.[0]?.count || 0,
+        activities_count: sgActivitiesCount + generalActivitiesCount,
       } as SupportGroupWithStats;
     },
     enabled: !!id,

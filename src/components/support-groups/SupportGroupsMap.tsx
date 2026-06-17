@@ -95,7 +95,7 @@ interface LGAReport {
 
 export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
   const [mounted, setMounted] = useState(false);
-  const [mapKey, setMapKey] = useState("map-initial");
+  const [mapKey] = useState(() => `map-${Math.random().toString(36).substring(2, 9)}`);
   const [activeTab, setActiveTab] = useState<'all' | CoverageStatus>('all');
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLga, setSelectedLga] = useState<string | null>(null);
@@ -104,7 +104,6 @@ export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
 
   useEffect(() => {
     setMounted(true);
-    setMapKey(`map-${Date.now()}`);
   }, []);
 
   // Process data for all 34 LGAs
@@ -257,9 +256,8 @@ export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
 
       <CardContent className="p-0 relative flex flex-col lg:flex-row h-[520px]">
         {/* Leaflet Map Frame */}
-        <div className="flex-1 h-[320px] lg:h-full relative border-r">
+        <div key={mapKey} className="flex-1 h-[320px] lg:h-full relative border-r">
           <MapContainer 
-            key={mapKey}
             center={mapCenter} 
             zoom={mapZoom} 
             scrollWheelZoom={false}
