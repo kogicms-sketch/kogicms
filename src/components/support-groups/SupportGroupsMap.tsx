@@ -121,10 +121,20 @@ export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
     // Populate counts from registered groups
     groups.forEach(group => {
       const lga = group.lga;
-      if (lga && lgaMap[lga] !== undefined) {
-        lgaMap[lga].count += 1;
-        lgaMap[lga].members += (group.member_count || 0);
-        lgaMap[lga].activities += (group.activities_count || 0);
+      if (lga) {
+        // Normalize the group LGA name for lookup (lowercase, alphanumeric only)
+        const normalizedLga = lga.toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        // Find matching key in lgaCoordinates
+        const matchedKey = Object.keys(lgaCoordinates).find(key => 
+          key.toLowerCase().replace(/[^a-z0-9]/g, '') === normalizedLga
+        );
+
+        if (matchedKey && lgaMap[matchedKey] !== undefined) {
+          lgaMap[matchedKey].count += 1;
+          lgaMap[matchedKey].members += (group.member_count || 0);
+          lgaMap[matchedKey].activities += (group.activities_count || 0);
+        }
       }
     });
 

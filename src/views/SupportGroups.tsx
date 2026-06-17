@@ -88,6 +88,8 @@ const SupportGroups = () => {
 
   const activeLgaFilter = role === "lga_chairman" ? chairman?.lga : (lgaFilter === "all" ? undefined : lgaFilter);
 
+  const { data: allSupportGroups, isLoading: isAllLoading } = useSupportGroups();
+
   const { data: supportGroups, isLoading } = useSupportGroups({
     lga: activeLgaFilter,
     verificationStatus: statusFilter === "all" ? undefined : statusFilter,
@@ -181,13 +183,13 @@ const SupportGroups = () => {
       </div>
 
       {/* Gamification & Visual Analytics */}
-      {!isLoading && filteredGroups && (
+      {!isAllLoading && allSupportGroups && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2">
-            <SupportGroupsMap groups={filteredGroups} />
+            <SupportGroupsMap groups={allSupportGroups} />
           </div>
           <div>
-            <SupportGroupLeaderboard groups={filteredGroups} />
+            <SupportGroupLeaderboard groups={allSupportGroups} />
           </div>
         </div>
       )}
