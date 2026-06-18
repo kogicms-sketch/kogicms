@@ -2,6 +2,7 @@
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useChairman, useChairmanDashboardStats } from "@/hooks/useChairmen";
+import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
 import { Users, MapPin, Building2, UserCheck, Globe, TrendingUp, Shield, ChevronRight, Star, ShieldCheck, Clock, Vote, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from 'next/navigation';
@@ -290,6 +291,12 @@ const ChairmanDashboard = () => {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* ── GRANULAR DEMOGRAPHICS ── */}
+                <GranularDemographics
+                    lga={chairman.lga}
+                    totalRegisteredVoters={stats?.totalRegisteredVoters || 0}
+                />
 
                 {/* ── WARD PERFORMANCE ── */}
                 <Card className="border-0 shadow-md overflow-hidden">

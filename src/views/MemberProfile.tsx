@@ -214,15 +214,17 @@ const MemberProfile = () => {
                     <ArrowLeft className="w-4 h-4" /> Back to Members
                 </Button>
                 <div className="flex gap-2">
-                    <Button variant="outline" className="gap-2" onClick={handleDownloadIdCard}>
-                        <Download className="w-4 h-4" />
-                        Download ID Card
-                    </Button>
+                    {!member.is_deceased && (
+                        <Button variant="outline" className="gap-2" onClick={handleDownloadIdCard}>
+                            <Download className="w-4 h-4" />
+                            Download ID Card
+                        </Button>
+                    )}
                     <Button className="btn-action gap-2" onClick={() => setIsEditModalOpen(true)}>
                         <User className="w-4 h-4" />
                         Edit Profile
                     </Button>
-                    {(!member.is_verified && (
+                    {(!member.is_verified && !member.is_deceased && (
                         userProfile?.role === "super_admin" || 
                         (userProfile?.role === "polling_unit_agent" && (puAgent?.polling_unit_id === member.polling_unit_id || puAgent?.polling_unit_name === member.polling_unit))
                     )) && (
@@ -242,7 +244,7 @@ const MemberProfile = () => {
                 {/* Left Column: ID Card & Info */}
                 <div className="space-y-6">
                     {/* Verification Box for Agents */}
-                    {(!member.is_verified && (
+                    {(!member.is_verified && !member.is_deceased && (
                         userProfile?.role === "super_admin" || 
                         (userProfile?.role === "polling_unit_agent" && (puAgent?.polling_unit_id === member.polling_unit_id || puAgent?.polling_unit_name === member.polling_unit))
                     )) && (
@@ -313,7 +315,11 @@ const MemberProfile = () => {
                                 <Badge variant="secondary" className="bg-navy-deep/10 text-navy-deep">
                                     {member.role || "Member"}
                                 </Badge>
-                                {member.is_verified ? (
+                                {member.is_deceased ? (
+                                    <Badge variant="destructive" className="bg-red-600 text-white gap-1 animate-pulse">
+                                        <AlertCircle className="w-3 h-3" /> Deceased
+                                    </Badge>
+                                ) : member.is_verified ? (
                                     <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200 gap-1">
                                         <ShieldCheck className="w-3 h-3" /> Verified Support
                                     </Badge>
@@ -481,6 +487,42 @@ const MemberProfile = () => {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Demographics & Occupation */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <User className="w-5 h-5 text-primary" />
+                                Demographics & Occupation
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center py-2 border-b border-border">
+                                    <span className="text-sm text-muted-foreground">Marital Status</span>
+                                    <span className="text-sm font-semibold">{member.marital_status || "Not provided"}</span>
+                                </div>
+                                <div className="flex justify-between items-center py-2 border-b border-border">
+                                    <span className="text-sm text-muted-foreground">Primary Occupation</span>
+                                    <span className="text-sm font-semibold">{member.occupation || "Not provided"}</span>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                {member.occupation?.toLowerCase() === "student" && (
+                                    <>
+                                        <div className="flex justify-between items-center py-2 border-b border-border">
+                                            <span className="text-sm text-muted-foreground">School Name</span>
+                                            <span className="text-sm font-semibold">{member.school_name || "Not provided"}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center py-2 border-b border-border">
+                                            <span className="text-sm text-muted-foreground">Level / Year</span>
+                                            <span className="text-sm font-semibold">{member.school_level || "Not provided"}</span>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

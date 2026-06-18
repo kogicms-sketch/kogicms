@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useHouseAssemblyMember, useAssemblyLGAStats } from "@/hooks/useHouseAssemblyMember";
+import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
 import { useJurisdictionTrends } from "@/hooks/useJurisdictionTrends";
 import { VictoryGauge, RegistrationTrendChart } from "@/components/analytics/DashboardCharts";
 import {
@@ -186,6 +187,12 @@ const AssemblyDashboard = () => {
                         </motion.div>
                     ))}
                 </div>
+
+                {/* ── GRANULAR DEMOGRAPHICS ── */}
+                <GranularDemographics
+                    lga={member.lga}
+                    totalRegisteredVoters={totalVoters}
+                />
 
                 {/* ── WARD BREAKDOWN ── */}
                 {stats?.wardPerformance && stats.wardPerformance.length > 0 && (

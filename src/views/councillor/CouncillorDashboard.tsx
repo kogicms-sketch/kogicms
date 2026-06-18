@@ -2,6 +2,7 @@
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCouncillor, useCouncillorWardData } from "@/hooks/useCouncillors";
+import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
 import {
     MapPin, Building2, Users, Activity, ShieldCheck, Clock,
     Shield, Star, Vote, TrendingUp, ChevronRight, Navigation
@@ -354,6 +355,13 @@ const CouncillorDashboard = () => {
                         </motion.div>
                     ))}
                 </div>
+
+                {/* ── GRANULAR DEMOGRAPHICS ── */}
+                <GranularDemographics
+                    lga={councillor.lga}
+                    ward={councillor.ward}
+                    totalRegisteredVoters={totalRegisteredVoters}
+                />
 
                 {/* ── POLLING UNITS & FIELD ACTIVITY GRID ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

@@ -30,6 +30,20 @@ const GENDERS = [
   { value: "female", label: "Female" },
 ];
 
+const COMMON_OCCUPATIONS = [
+  "Student",
+  "Farmer",
+  "Trader",
+  "Teacher",
+  "Civil Servant",
+  "Business Owner",
+  "Artisan",
+  "Housewife",
+  "Unemployed",
+  "Retired",
+  "Other"
+];
+
 export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProps) => {
   const { role } = useAuth();
   const { data: userOrg } = useUserOrganization();
@@ -52,7 +66,17 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
     dateOfBirth: member.date_of_birth || "",
     votersCardId: member.voters_card_id || "",
     pollingUnit: member.polling_unit || "",
+    maritalStatus: member.marital_status || "",
+    occupation: member.occupation || "",
+    schoolName: member.school_name || "",
+    schoolLevel: member.school_level || "",
+    isDeceased: member.is_deceased || false,
   });
+
+  const [showOccupationDropdown, setShowOccupationDropdown] = useState(false);
+  const filteredOccupations = COMMON_OCCUPATIONS.filter(occ => 
+    occ.toLowerCase().includes(formData.occupation.toLowerCase())
+  );
 
   const [votersCardFile, setVotersCardFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -74,6 +98,11 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
         dateOfBirth: member.date_of_birth || "",
         votersCardId: member.voters_card_id || "",
         pollingUnit: member.polling_unit || "",
+        maritalStatus: member.marital_status || "",
+        occupation: member.occupation || "",
+        schoolName: member.school_name || "",
+        schoolLevel: member.school_level || "",
+        isDeceased: member.is_deceased || false,
       });
       setVotersCardFile(null);
     }
@@ -157,6 +186,11 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
         voters_card_id: formData.votersCardId || null,
         voters_card_image_url: voters_card_image_url,
         polling_unit: formData.pollingUnit || null,
+        marital_status: formData.maritalStatus || null,
+        occupation: formData.occupation || null,
+        school_name: formData.occupation.toLowerCase() === "student" ? formData.schoolName || null : null,
+        school_level: formData.occupation.toLowerCase() === "student" ? formData.schoolLevel || null : null,
+        is_deceased: formData.isDeceased,
       };
 
       await updateMember.mutateAsync(memberUpdates);
@@ -239,6 +273,108 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
               />
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Marital Status</label>
+              <select
+                required
+                className="input-premium w-full"
+                value={formData.maritalStatus}
+                onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value })}
+              >
+                <option value="">Select Marital Status</option>
+                <option value="Single">Single</option>
+                <option value="Married">Married</option>
+                <option value="Divorced">Divorced</option>
+                <option value="Widow">Widow</option>
+                <option value="Widower">Widower</option>
+              </select>
+            </div>
+            <div className="space-y-2 relative">
+              <label className="text-sm font-medium">Trade / Occupation</label>
+              <input
+                type="text"
+                required
+                className="input-premium w-full"
+                placeholder="e.g. Student, Trader"
+                value={formData.occupation}
+                onChange={(e) => {
+                  setFormData({
+                    ...formData,
+                    occupation: e.target.value,
+                    ...(e.target.value.toLowerCase() !== "student" ? { schoolName: "", schoolLevel: "" } : {})
+                  });
+                  setShowOccupationDropdown(true);
+                }}
+                onFocus={() => setShowOccupationDropdown(true)}
+                onBlur={() => {
+                  setTimeout(() => setShowOccupationDropdown(false), 200);
+                }}
+              />
+              {showOccupationDropdown && filteredOccupations.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                  {filteredOccupations.map((occ) => (
+                    <button
+                      key={occ}
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                      onMouseDown={() => {
+                        setFormData({
+                          ...formData,
+                          occupation: occ,
+                          ...(occ.toLowerCase() !== "student" ? { schoolName: "", schoolLevel: "" } : {})
+                        });
+                        setShowOccupationDropdown(false);
+                      }}
+                    >
+                      {occ}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {formData.occupation.toLowerCase() === "student" && (
+            <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">School Name</label>
+                <input
+                  required
+                  type="text"
+                  className="input-premium w-full bg-card"
+                  placeholder="e.g. Katsina State University"
+                  value={formData.schoolName}
+                  onChange={(e) => setFormData({ ...formData, schoolName: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Level / Year of Study</label>
+                <select
+                  required
+                  className="input-premium w-full bg-card"
+                  value={formData.schoolLevel}
+                  onChange={(e) => setFormData({ ...formData, schoolLevel: e.target.value })}
+                >
+                  <option value="">Select Level</option>
+                  <option value="100 Level">100 Level</option>
+                  <option value="200 Level">200 Level</option>
+                  <option value="300 Level">300 Level</option>
+                  <option value="400 Level">400 Level</option>
+                  <option value="500 Level">500 Level</option>
+                  <option value="ND 1">ND 1</option>
+                  <option value="ND 2">ND 2</option>
+                  <option value="HND 1">HND 1</option>
+                  <option value="HND 2">HND 2</option>
+                  <option value="Primary School">Primary School</option>
+                  <option value="Secondary School">Secondary School</option>
+                  <option value="Postgraduate">Postgraduate</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -396,6 +532,19 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="flex items-center gap-3 p-3 rounded-lg border border-destructive/30 bg-destructive/5">
+            <input
+              type="checkbox"
+              id="isDeceased"
+              className="w-4 h-4 text-destructive focus:ring-destructive border-border rounded cursor-pointer"
+              checked={formData.isDeceased}
+              onChange={(e) => setFormData({ ...formData, isDeceased: e.target.checked })}
+            />
+            <label htmlFor="isDeceased" className="text-sm font-semibold text-destructive cursor-pointer select-none">
+              Mark Member as Deceased (Voter Attrition)
+            </label>
           </div>
 
           <div className="pt-4 flex justify-end gap-3">

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useFederalRep, useFederalConstituencyData } from "@/hooks/useFederalRep";
+import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
 import { useJurisdictionTrends } from "@/hooks/useJurisdictionTrends";
 import { VictoryGauge, RegistrationTrendChart } from "@/components/analytics/DashboardCharts";
 import {
@@ -198,6 +199,12 @@ const FederalRepDashboard = () => {
                         </motion.div>
                     ))}
                 </div>
+
+                {/* ── GRANULAR DEMOGRAPHICS ── */}
+                <GranularDemographics
+                    lgas={rep.lga_list}
+                    totalRegisteredVoters={totalVoters}
+                />
 
                 {/* ── LGA BREAKDOWN ── */}
                 {constData?.lgaBreakdown && constData.lgaBreakdown.length > 0 && (

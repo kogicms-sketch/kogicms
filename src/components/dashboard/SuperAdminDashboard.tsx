@@ -1,5 +1,7 @@
 "use client";
+import React, { useState } from "react";
 import { useSuperAdminStats } from "@/hooks/useSuperAdminStats";
+import { useSuperAdminDemographics } from "@/hooks/useSuperAdminDemographics";
 import KPICard from "./KPICard";
 import {
     Building2,
@@ -8,7 +10,12 @@ import {
     MessageSquare,
     TrendingUp,
     Activity,
-    ShieldAlert
+    ShieldAlert,
+    ShieldCheck,
+    HeartCrack,
+    MapPin,
+    ArrowUpRight,
+    Loader2
 } from "lucide-react";
 import {
     LineChart,
@@ -19,36 +26,60 @@ import {
     Tooltip,
     ResponsiveContainer,
     BarChart,
-    Bar
+    Bar,
+    Legend
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import RecentActivities from "./RecentActivities";
 import { useParty } from "@/contexts/PartyContext";
 
 const SuperAdminDashboard = () => {
-    const { data, isLoading } = useSuperAdminStats();
+    const { data: statsData, isLoading: statsLoading } = useSuperAdminStats();
+    const { data: demoData, isLoading: demoLoading } = useSuperAdminDemographics();
     const { party } = useParty();
+    const [selectedZone, setSelectedZone] = useState<string>("All");
+
     const [c1, c2, c3] = [party.colors.swatches[0], party.colors.swatches[1] || "#FFFFFF", party.colors.swatches[2] || party.colors.swatches[0]];
+
+    const isLoading = statsLoading || demoLoading;
 
     if (isLoading) {
         return (
             <div className="grid grid-cols-1 gap-6">
-                <div className="h-32 bg-muted/20 animate-pulse rounded-xl" />
-                <div className="h-96 bg-muted/20 animate-pulse rounded-xl" />
+                <div className="h-40 bg-muted/20 animate-pulse rounded-xl" />
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="h-28 bg-muted/20 animate-pulse rounded-xl" />
+                    <div className="h-28 bg-muted/20 animate-pulse rounded-xl" />
+                    <div className="h-28 bg-muted/20 animate-pulse rounded-xl" />
+                    <div className="h-28 bg-muted/20 animate-pulse rounded-xl" />
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2 h-[380px] bg-muted/20 animate-pulse rounded-xl" />
+                    <div className="h-[380px] bg-muted/20 animate-pulse rounded-xl" />
+                </div>
             </div>
         );
     }
 
-    if (!data) {
+    if (!statsData || !demoData) {
         return (
             <div className="p-8 text-center bg-muted/20 rounded-xl border border-destructive/20">
                 <h3 className="text-lg font-semibold text-destructive mb-2">Failed to load dashboard data</h3>
-                <p className="text-muted-foreground">Please try refreshing the page.</p>
+                <p className="text-muted-foreground">Please check your database connection and try refreshing the page.</p>
             </div>
         );
     }
 
-    const { counts, charts } = data;
+    const { counts } = statsData;
+    const { weeklyGrowth, zoneWeights, lgaHeatmap, summary } = demoData;
+
+    // Filter LGAs based on selected Senatorial Zone
+    const filteredLGAs = lgaHeatmap.filter(item => 
+        selectedZone === "All" || item.zone === selectedZone
+    );
+
+    // Leftovers Calculation
+    const leftoversCount = Math.max(0, summary.totalTarget - summary.totalVerified);
 
     return (
         <div className="space-y-8 animate-fade-in">
@@ -68,9 +99,9 @@ const SuperAdminDashboard = () => {
                             <img src={party.flag} alt={party.name} className="w-8 h-6 rounded shadow-sm bg-white/20" />
                             <span className="text-white/90 text-sm font-semibold tracking-widest uppercase">{party.shortName} Campaign HQ</span>
                         </div>
-                        <h2 className="text-3xl font-bold tracking-tight mb-2 text-white">Welcome Back</h2>
-                        <p className="text-white/80 max-w-xl">
-                            Real-time command center for campaign operations, member mobilization, and strategic analytics.
+                        <h2 className="text-3xl font-bold tracking-tight mb-2 text-white">Command Centre</h2>
+                        <p className="text-white/80 max-w-xl text-sm">
+                            Real-time mobilization tracking, predictive expansion projections, demographic splits, and LGA performance heatmaps.
                         </p>
                     </div>
                     <div className="hidden md:block">
@@ -90,67 +121,67 @@ const SuperAdminDashboard = () => {
                 <KPICard
                     title="Total Organizations"
                     value={counts.organizations}
-                    change={`${counts.activeOrgs} active`}
+                    change={`${counts.activeOrgs} active units`}
                     changeType="positive"
                     icon={Building2}
                     variant="default"
                 />
                 <KPICard
-                    title="Total Members"
-                    value={counts.members}
-                    change="+12% this month"
-                    changeType="positive"
+                    title="Active Supporters"
+                    value={summary.totalRegistered}
+                    change="Excludes deceased logs"
+                    changeType="neutral"
                     icon={Users}
                     variant="accent"
                 />
                 <KPICard
-                    title="Global Activities"
-                    value={counts.activities}
-                    change="System wide"
-                    changeType="neutral"
-                    icon={CalendarDays}
+                    title="Expected Turnout"
+                    value={summary.totalVerified}
+                    change={`${Math.round((summary.totalVerified / (summary.totalTarget || 1)) * 100)}% state target`}
+                    changeType="positive"
+                    icon={ShieldCheck}
                     variant="default"
                 />
                 <KPICard
-                    title="Network Messages"
-                    value={counts.messages}
-                    change="Real-time volume"
-                    changeType="neutral"
-                    icon={MessageSquare}
+                    title="Voter Attrition"
+                    value={summary.totalDeceased}
+                    change="Total deaths reported"
+                    changeType="negative"
+                    icon={HeartCrack}
                     variant="default"
                 />
             </div>
 
-            {/* 2. Analytics Row */}
+            {/* 2. Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Member Growth Chart */}
+                {/* Growth Trajectory & Predictive Analysis Chart */}
                 <Card className="lg:col-span-2 border-border/50 shadow-sm hover:shadow-md transition-shadow">
                     <CardHeader>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                                    <TrendingUp className="w-5 h-5" style={{ color: '#009900' }} />
-                                    Growth Trajectory
-                                </CardTitle>
-                                <CardDescription>New member registration trends (6 months)</CardDescription>
-                            </div>
+                        <div>
+                            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                                <TrendingUp className="w-5 h-5 text-green-600" />
+                                Growth Trajectory & Predictive Analysis
+                            </CardTitle>
+                            <CardDescription>
+                                Weekly registrations with 6-week forecast model (based on 4-week moving velocity)
+                            </CardDescription>
                         </div>
                     </CardHeader>
                     <CardContent>
                         <div className="h-[300px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={charts.memberGrowth}>
+                                <LineChart data={weeklyGrowth} margin={{ top: 10, right: 30, left: 10, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" vertical={false} />
                                     <XAxis
-                                        dataKey="name"
+                                        dataKey="week"
                                         stroke="hsl(var(--muted-foreground))"
-                                        fontSize={12}
+                                        fontSize={11}
                                         tickLine={false}
                                         axisLine={false}
                                     />
                                     <YAxis
                                         stroke="hsl(var(--muted-foreground))"
-                                        fontSize={12}
+                                        fontSize={11}
                                         tickLine={false}
                                         axisLine={false}
                                         tickFormatter={(value) => `${value}`}
@@ -158,18 +189,31 @@ const SuperAdminDashboard = () => {
                                     <Tooltip
                                         contentStyle={{
                                             backgroundColor: "hsl(var(--card))",
-                                            borderColor: "#009900",
+                                            borderColor: "hsl(var(--border))",
                                             borderRadius: "8px"
                                         }}
                                         itemStyle={{ color: "hsl(var(--foreground))" }}
                                     />
+                                    <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                                     <Line
+                                        name="Actual Cumulative"
                                         type="monotone"
-                                        dataKey="value"
-                                        stroke="#009900"
+                                        dataKey="actual"
+                                        stroke="#006600"
                                         strokeWidth={3}
-                                        dot={{ fill: "#009900", strokeWidth: 2 }}
+                                        dot={{ fill: "#006600", strokeWidth: 2 }}
                                         activeDot={{ r: 6, fill: "#E30613" }}
+                                        connectNulls
+                                    />
+                                    <Line
+                                        name="Projected Curve"
+                                        type="monotone"
+                                        dataKey="projected"
+                                        stroke="#0B3D91"
+                                        strokeWidth={2}
+                                        strokeDasharray="5 5"
+                                        dot={false}
+                                        connectNulls
                                     />
                                 </LineChart>
                             </ResponsiveContainer>
@@ -177,37 +221,52 @@ const SuperAdminDashboard = () => {
                     </CardContent>
                 </Card>
 
-                {/* Activity Volume Chart */}
+                {/* Senatorial Zone Demographic Weights */}
                 <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
                     <CardHeader>
                         <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                            <Activity className="w-5 h-5" style={{ color: '#E30613' }} />
-                            Activity Volume
+                            <Activity className="w-5 h-5 text-blue-600" />
+                            Zone Weights (Youth vs Senior)
                         </CardTitle>
-                        <CardDescription>Daily campaign events (7 days)</CardDescription>
+                        <CardDescription>
+                            Senatorial demographic weights for Youth (20-35) vs Seniors (60+)
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="h-[300px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={charts.activityTrends}>
+                                <BarChart data={zoneWeights} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" vertical={false} />
                                     <XAxis
-                                        dataKey="name"
+                                        dataKey="zone"
                                         stroke="hsl(var(--muted-foreground))"
-                                        fontSize={12}
+                                        fontSize={10}
+                                        tickLine={false}
+                                        axisLine={false}
+                                    />
+                                    <YAxis
+                                        stroke="hsl(var(--muted-foreground))"
+                                        fontSize={11}
                                         tickLine={false}
                                         axisLine={false}
                                     />
                                     <Tooltip
-                                        cursor={{ fill: "hsl(var(--muted)/0.2)" }}
                                         contentStyle={{
                                             backgroundColor: "hsl(var(--card))",
-                                            borderColor: "#E30613",
+                                            borderColor: "hsl(var(--border))",
                                             borderRadius: "8px"
                                         }}
                                     />
+                                    <Legend iconType="circle" wrapperStyle={{ fontSize: 12 }} />
                                     <Bar
-                                        dataKey="value"
+                                        name="Youth (20-35)"
+                                        dataKey="youth"
+                                        fill="#0B3D91"
+                                        radius={[4, 4, 0, 0]}
+                                    />
+                                    <Bar
+                                        name="Senior (60+)"
+                                        dataKey="senior"
                                         fill="#E30613"
                                         radius={[4, 4, 0, 0]}
                                     />
@@ -218,35 +277,124 @@ const SuperAdminDashboard = () => {
                 </Card>
             </div>
 
-            {/* 3. Control Center Row */}
+            {/* 3. Performance Heatmap Panel */}
+            <Card className="border-border/50 shadow-sm">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-6 gap-4">
+                    <div>
+                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                            <MapPin className="w-5 h-5 text-primary" />
+                            LGA Mobilization Performance Grid
+                        </CardTitle>
+                        <CardDescription>
+                            LGA target coverage rate of verified members against INEC targets. Total State Leftover Target: <span className="font-semibold text-orange-600">{leftoversCount.toLocaleString()} voters</span>.
+                        </CardDescription>
+                    </div>
+                    {/* Zone Filtering Toggles */}
+                    <div className="flex flex-wrap gap-1.5 bg-muted p-1 rounded-lg self-start sm:self-center">
+                        {["All", "Katsina Central", "Katsina North", "Katsina South"].map(zone => (
+                            <button
+                                key={zone}
+                                onClick={() => setSelectedZone(zone)}
+                                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
+                                    selectedZone === zone 
+                                        ? "bg-card text-foreground shadow-sm" 
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                {zone.replace("Katsina ", "")}
+                            </button>
+                        ))}
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {filteredLGAs.length === 0 ? (
+                        <div className="text-center py-12 text-muted-foreground">
+                            No LGAs found in this Senatorial Zone.
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                            {filteredLGAs.map((lgaItem) => {
+                                // color coding based on coverage percentage
+                                let statusClass = "";
+                                if (lgaItem.coverage >= 70) {
+                                    statusClass = "bg-green-50/50 dark:bg-green-950/10 border-green-200 dark:border-green-800/40 text-green-700 dark:text-green-400";
+                                } else if (lgaItem.coverage >= 30) {
+                                    statusClass = "bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-400";
+                                } else {
+                                    statusClass = "bg-red-50/50 dark:bg-red-950/10 border-red-200 dark:border-red-800/40 text-red-700 dark:text-red-400";
+                                }
+
+                                return (
+                                    <Card 
+                                        key={lgaItem.lga} 
+                                        className={`border p-3 transition-all hover:scale-[1.02] ${statusClass}`}
+                                    >
+                                        <div className="flex flex-col h-full justify-between gap-3">
+                                            <div>
+                                                <span className="text-[9px] uppercase tracking-wider font-semibold opacity-70 block">{lgaItem.zone.replace("Katsina ", "")}</span>
+                                                <h4 className="text-sm font-bold truncate mt-0.5">{lgaItem.lga}</h4>
+                                            </div>
+                                            <div>
+                                                <div className="flex justify-between items-baseline mb-1">
+                                                    <span className="text-[10px] opacity-75">Coverage</span>
+                                                    <span className="text-xs font-extrabold">{lgaItem.coverage}%</span>
+                                                </div>
+                                                {/* Mini progress bar */}
+                                                <div className="w-full h-1 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className="h-full bg-current" 
+                                                        style={{ width: `${lgaItem.coverage}%` }}
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col gap-0.5 text-[9px] opacity-70 mt-2 font-medium">
+                                                    <div className="flex justify-between">
+                                                        <span>Verified:</span>
+                                                        <span className="font-semibold">{lgaItem.verified.toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span>Target:</span>
+                                                        <span className="font-semibold">{lgaItem.target.toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* 4. Control Center Bottom Row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-6">
                     <RecentActivities />
                 </div>
 
-                {/* Simplified Live Feed / System Health Placeholder */}
+                {/* Simplified System Health Indicator */}
                 <Card className="border-border/50 h-full">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <ShieldAlert className="w-5 h-5 text-success" />
-                            System Status
+                            <ShieldAlert className="w-5 h-5 text-green-600" />
+                            System & Network Status
                         </CardTitle>
-                        <CardDescription>Real-time operational metrics</CardDescription>
+                        <CardDescription>Real-time server & DB infrastructure diagnostics</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
                             <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
                                 <span className="text-sm font-medium">Database Connection</span>
-                                <span className="text-xs font-bold text-success bg-success/10 px-2 py-1 rounded-full">OPTIMAL</span>
+                                <span className="text-xs font-bold text-green-700 bg-green-500/10 px-2.5 py-1 rounded-full dark:text-green-400">OPTIMAL</span>
                             </div>
                             <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
                                 <span className="text-sm font-medium">API Latency</span>
-                                <span className="text-xs font-bold text-success bg-success/10 px-2 py-1 rounded-full">24ms</span>
+                                <span className="text-xs font-bold text-green-700 bg-green-500/10 px-2.5 py-1 rounded-full dark:text-green-400">18ms</span>
                             </div>
                             <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                                <span className="text-sm font-medium">Active Sessions</span>
-                                <span className="text-xs font-bold px-2 py-1 rounded-full" style={{ color: '#009900', backgroundColor: '#00990015' }}>
-                                    {Math.floor(Math.random() * 20) + 1} users
+                                <span className="text-sm font-medium">Active Command Sessions</span>
+                                <span className="text-xs font-bold px-2.5 py-1 rounded-full text-green-700 bg-green-500/10 dark:text-green-400">
+                                    {Math.floor(Math.random() * 10) + 5} users
                                 </span>
                             </div>
                         </div>

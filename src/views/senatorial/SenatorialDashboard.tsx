@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSenatorialLeader, useSenatorialZoneData } from "@/hooks/useSenatorialLeader";
+import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
 import { useJurisdictionTrends } from "@/hooks/useJurisdictionTrends";
 import { VictoryGauge, RegistrationTrendChart, PerformanceBarChart } from "@/components/analytics/DashboardCharts";
 import {
@@ -208,6 +209,12 @@ const SenatorialDashboard = () => {
                         </motion.div>
                     ))}
                 </div>
+
+                {/* ── GRANULAR DEMOGRAPHICS ── */}
+                <GranularDemographics
+                    lgas={leader.lga_list}
+                    totalRegisteredVoters={totalVoters}
+                />
 
                 {/* ── LGA BREAKDOWN ── */}
                 <Card className="border-0 shadow-md overflow-hidden">
