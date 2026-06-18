@@ -94,17 +94,12 @@ interface LGAReport {
 }
 
 export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
-  const [mounted, setMounted] = useState(false);
   const [mapKey] = useState(() => `map-${Math.random().toString(36).substring(2, 9)}`);
   const [activeTab, setActiveTab] = useState<'all' | CoverageStatus>('all');
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLga, setSelectedLga] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([12.5139, 7.6114]);
   const [mapZoom, setMapZoom] = useState(8);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Process data for all 34 LGAs
   const lgaDataList = useMemo(() => {
@@ -189,10 +184,6 @@ export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
     setMapZoom(8);
   };
 
-  if (!mounted) {
-    return <div className="h-[550px] bg-muted animate-pulse rounded-lg w-full" />;
-  }
-
   // Get status details for UI badges / mapping styling
   const getStatusDetails = (status: CoverageStatus) => {
     switch (status) {
@@ -256,8 +247,9 @@ export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
 
       <CardContent className="p-0 relative flex flex-col lg:flex-row h-[520px]">
         {/* Leaflet Map Frame */}
-        <div key={mapKey} className="flex-1 h-[320px] lg:h-full relative border-r">
+        <div className="flex-1 h-[320px] lg:h-full relative border-r">
           <MapContainer 
+            key={mapKey}
             center={mapCenter} 
             zoom={mapZoom} 
             scrollWheelZoom={false}
