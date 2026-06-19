@@ -155,18 +155,21 @@ export const WelfareManager = () => {
       
       const { data, error } = await supabase
         .from("wards")
-        .select("id, name, lgas(name)")
+        .select("id, name, lga_id")
         .in("lga_id", lgaIds)
         .order("name", { ascending: true });
       if (error) throw error;
       
-      return data.map((w: any) => ({
-        id: w.id,
-        name: w.name,
-        lgaName: w.lgas?.name || ""
-      }));
+      return data.map((w: any) => {
+        const lga = lgasList.find((l) => l.id === w.lga_id);
+        return {
+          id: w.id,
+          name: w.name,
+          lgaName: lga?.name || ""
+        };
+      });
     },
-    enabled: selectedLgas.length > 0
+    enabled: selectedLgas.length > 0 && lgasList.length > 0
   });
 
   // Form state
