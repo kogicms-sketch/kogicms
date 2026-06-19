@@ -168,7 +168,7 @@ export const WelfareAuditCenter = () => {
                       <td className="p-3 font-bold text-foreground pl-6">
                         {d.member?.full_name || "Unknown"}
                         <span className="block text-[10px] text-muted-foreground font-normal">
-                          {d.member?.lga} > {d.member?.ward}
+                          {d.member?.lga} &gt; {d.member?.ward}
                         </span>
                       </td>
                       <td className="p-3 text-xs font-mono text-foreground font-semibold">
