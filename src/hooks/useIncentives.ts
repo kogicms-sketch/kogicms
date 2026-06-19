@@ -17,6 +17,7 @@ export interface IncentiveBatch {
   target_lga: string | null;
   target_ward: string | null;
   status: 'active' | 'completed' | 'cancelled';
+  received_status?: 'pending' | 'received';
   created_at: string;
   updated_at: string;
 }
@@ -106,6 +107,7 @@ export const useCreateIncentiveBatch = () => {
           funder_id: user.id,
           allocated_packages: 0,
           disbursed_packages: 0,
+          received_status: "pending",
         })
         .select()
         .single();
@@ -120,6 +122,34 @@ export const useCreateIncentiveBatch = () => {
     onError: (error) => {
       console.error("Error creating incentive batch:", error);
       toast.error(`Failed to route package: ${error.message}`);
+    },
+  });
+};
+
+export const useAcceptIncentiveBatch = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (batchId: string) => {
+      const { data, error } = await supabase
+        .from("incentive_batches")
+        .update({
+          received_status: "received",
+        })
+        .eq("id", batchId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as IncentiveBatch;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["incentive-batches"] });
+      toast.success("Incentive allocation received and accepted!");
+    },
+    onError: (error: any) => {
+      console.error("Error accepting incentive batch:", error);
+      toast.error(`Acceptance failed: ${error.message}`);
     },
   });
 };

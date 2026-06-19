@@ -13,6 +13,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -91,6 +92,10 @@ export const WelfareManager = () => {
   const [selectedLgaId, setSelectedLgaId] = useState<string>("");
   const [selectedLgaName, setSelectedLgaName] = useState<string>("");
   const [selectedWard, setSelectedWard] = useState<string>("");
+  
+  // Multi-select destination states
+  const [selectedLgas, setSelectedLgas] = useState<string[]>([]);
+  const [selectedWards, setSelectedWards] = useState<string[]>([]);
 
   // Scanner State
   const [scannedId, setScannedId] = useState<string>("");
@@ -136,9 +141,37 @@ export const WelfareManager = () => {
     enabled: !!selectedLgaId
   });
 
+  // Load Wards list for multiple selected LGAs (for routing catalogs)
+  const { data: multiWardsList = [] } = useQuery({
+    queryKey: ["welfare-multi-wards-list", selectedLgas],
+    queryFn: async () => {
+      if (selectedLgas.length === 0) return [];
+      const { data: lgas, error: lgasError } = await supabase
+        .from("lgas")
+        .select("id")
+        .in("name", selectedLgas);
+      if (lgasError || !lgas || lgas.length === 0) return [];
+      const lgaIds = lgas.map(l => l.id);
+      
+      const { data, error } = await supabase
+        .from("wards")
+        .select("id, name, lgas(name)")
+        .in("lga_id", lgaIds)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      
+      return data.map((w: any) => ({
+        id: w.id,
+        name: w.name,
+        lgaName: w.lgas?.name || ""
+      }));
+    },
+    enabled: selectedLgas.length > 0
+  });
+
   // Form state
   const [formName, setFormName] = useState("");
-  const [formType, setFormType] = useState<"cash" | "material" | "grant" | "other">("material");
+  const [formType, setFormType] = useState<"cash" | "material" | "grant" | "other" | string>("material");
   const [formItemName, setFormItemName] = useState("");
   const [formAmount, setFormAmount] = useState<string>("");
   const [formTotal, setFormTotal] = useState<string>("");
@@ -153,6 +186,8 @@ export const WelfareManager = () => {
     setSelectedLgaId("");
     setSelectedLgaName("");
     setSelectedWard("");
+    setSelectedLgas([]);
+    setSelectedWards([]);
   };
 
   // Create Batch Submit
@@ -170,32 +205,80 @@ export const WelfareManager = () => {
     }
 
     const amount = formAmount ? parseFloat(formAmount) : 0;
-
-    let targetLga = selectedLgaName || null;
-    let targetWard = selectedWard || null;
-
-    if (role === "lga_chairman" || isWardAdmin) {
-      targetLga = userLga;
-    }
-    if (isWardAdmin) {
-      targetWard = userWard;
-    }
-
-    const batchData = {
-      name: formName,
-      type: formType,
-      item_name: formItemName,
-      amount_per_member: amount,
-      total_packages: total,
-      funder_name: userProfile?.full_name || user?.email || "Campaign Official",
-      funder_role: role || "campaign_official",
-      target_lga: targetLga,
-      target_ward: targetWard,
-      status: "active" as const
-    };
+    const funderName = userProfile?.full_name || user?.email || "Campaign Official";
+    const funderRole = role || "campaign_official";
 
     try {
-      await createBatchMutation.mutateAsync(batchData);
+      if (selectedWards.length > 0) {
+        // Multi-destination: create a batch per ward
+        const qtyPerWard = Math.max(1, Math.floor(total / selectedWards.length));
+        
+        for (const wardName of selectedWards) {
+          const wardInfo = multiWardsList.find((w) => w.name === wardName);
+          const lgaName = wardInfo?.lgaName || selectedLgas[0] || userLga;
+          
+          await createBatchMutation.mutateAsync({
+            name: `${formName} - ${wardName}`,
+            type: formType,
+            item_name: formItemName,
+            amount_per_member: amount,
+            total_packages: qtyPerWard,
+            funder_name: funderName,
+            funder_role: funderRole,
+            target_lga: lgaName,
+            target_ward: wardName,
+            status: "active" as const,
+            received_status: "pending"
+          });
+        }
+        toast.success(`Allocated and routed to ${selectedWards.length} Wards!`);
+      } else if (selectedLgas.length > 0) {
+        // Multi-destination: create a batch per LGA
+        const qtyPerLga = Math.max(1, Math.floor(total / selectedLgas.length));
+        
+        for (const lgaName of selectedLgas) {
+          await createBatchMutation.mutateAsync({
+            name: `${formName} - ${lgaName}`,
+            type: formType,
+            item_name: formItemName,
+            amount_per_member: amount,
+            total_packages: qtyPerLga,
+            funder_name: funderName,
+            funder_role: funderRole,
+            target_lga: lgaName,
+            target_ward: null,
+            status: "active" as const,
+            received_status: "pending"
+          });
+        }
+        toast.success(`Allocated and routed to ${selectedLgas.length} LGAs!`);
+      } else {
+        // Fallback or single destination / State-wide
+        let targetLga = selectedLgaName || null;
+        let targetWard = selectedWard || null;
+
+        if (role === "lga_chairman" || isWardAdmin) {
+          targetLga = userLga;
+        }
+        if (isWardAdmin) {
+          targetWard = userWard;
+        }
+
+        await createBatchMutation.mutateAsync({
+          name: formName,
+          type: formType,
+          item_name: formItemName,
+          amount_per_member: amount,
+          total_packages: total,
+          funder_name: funderName,
+          funder_role: funderRole,
+          target_lga: targetLga,
+          target_ward: targetWard,
+          status: "active" as const,
+          received_status: "pending"
+        });
+      }
+      
       resetForm();
       setActiveTab("dashboard");
     } catch (e) {
@@ -595,9 +678,27 @@ export const WelfareManager = () => {
                               {b.disbursed_packages} / {b.total_packages}
                             </td>
                             <td className="p-3">
-                              <Badge variant={b.status === 'completed' ? 'default' : b.status === 'cancelled' ? 'destructive' : 'secondary'} className={b.status === 'completed' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}>
-                                {b.status}
-                              </Badge>
+                              {b.status === 'completed' ? (
+                                <Badge className="bg-green-600 hover:bg-green-700 text-white text-xs py-0.5 px-2">Completed</Badge>
+                              ) : b.status === 'cancelled' ? (
+                                <Badge variant="destructive" className="text-xs py-0.5 px-2">Cancelled</Badge>
+                              ) : b.target_ward ? (
+                                <Badge variant="outline" className={b.received_status === 'received' ? 'border-green-600 text-green-600 bg-green-500/5 text-[10px] py-0.5 px-2 font-bold' : 'border-amber-500 text-amber-600 bg-amber-500/5 text-[10px] py-0.5 px-2 font-bold'}>
+                                  {b.received_status === 'received' 
+                                    ? `Received by ${b.target_ward} (Ready)` 
+                                    : `In Transit to ${b.target_ward}`}
+                                </Badge>
+                              ) : b.target_lga ? (
+                                <Badge variant="outline" className={b.received_status === 'received' ? 'border-green-600 text-green-600 bg-green-500/5 text-[10px] py-0.5 px-2 font-bold' : 'border-amber-500 text-amber-600 bg-amber-500/5 text-[10px] py-0.5 px-2 font-bold'}>
+                                  {b.received_status === 'received' 
+                                    ? `Received by ${b.target_lga} (Ready)` 
+                                    : `In Transit to ${b.target_lga}`}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="border-green-600 text-green-600 bg-green-500/5 text-[10px] py-0.5 px-2 font-bold">
+                                  State-Wide (Ready)
+                                </Badge>
+                              )}
                             </td>
                             <td className="p-3 pr-6 text-right">
                               <Button
@@ -699,52 +800,62 @@ export const WelfareManager = () => {
                   <MapPin className="w-3.5 h-3.5 text-apc-green" /> Target Jurisdiction Routing
                 </h4>
 
-                <div className="grid grid-cols-2 gap-4">
-                  {/* LGA Dropdown */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* LGA Multi-Select Checklist */}
                   {role !== "lga_chairman" && !isWardAdmin && (
                     <div className="space-y-2">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase">Target LGA</label>
-                      <select
-                        className="input-premium w-full text-sm h-[40px] bg-card"
-                        value={selectedLgaId}
-                        onChange={(e) => {
-                          const lga = lgasList.find((item) => item.id === e.target.value);
-                          setSelectedLgaId(e.target.value);
-                          setSelectedLgaName(lga?.name || "");
-                          setSelectedWard("");
-                        }}
-                      >
-                        <option value="">-- Select Target LGA --</option>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase block">Target LGAs</label>
+                      <div className="border border-border rounded-lg p-3 max-h-36 overflow-y-auto space-y-2 bg-card shadow-inner">
                         {lgasList
                           .filter((lga) => {
                             if (authorizedLgas.includes("ALL")) return true;
                             return authorizedLgas.includes(lga.name);
                           })
                           .map((lga) => (
-                            <option key={lga.id} value={lga.id}>
-                              {lga.name}
-                            </option>
+                            <label key={lga.id} className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-foreground hover:text-indigo-600 transition-colors">
+                              <Checkbox
+                                checked={selectedLgas.includes(lga.name)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedLgas([...selectedLgas, lga.name]);
+                                  } else {
+                                    setSelectedLgas(selectedLgas.filter((name) => name !== lga.name));
+                                    // Remove wards associated with this LGA
+                                    const wardsToRemove = multiWardsList
+                                      .filter((w) => w.lgaName === lga.name)
+                                      .map((w) => w.name);
+                                    setSelectedWards(selectedWards.filter((w) => !wardsToRemove.includes(w)));
+                                  }
+                                }}
+                              />
+                              <span>{lga.name}</span>
+                            </label>
                           ))}
-                      </select>
+                      </div>
                     </div>
                   )}
 
-                  {/* Ward Dropdown */}
-                  {selectedLgaId && (
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase">Target Ward</label>
-                      <select
-                        className="input-premium w-full text-sm h-[40px] bg-card"
-                        value={selectedWard}
-                        onChange={(e) => setSelectedWard(e.target.value)}
-                      >
-                        <option value="">-- Select Target Ward --</option>
-                        {wardsList.map((ward) => (
-                          <option key={ward.id} value={ward.name}>
-                            {ward.name}
-                          </option>
-                        ))}
-                      </select>
+                  {/* Ward Multi-Select Checklist (Filtered by Selected LGAs) */}
+                  {!isWardAdmin && (selectedLgas.length > 0 || role === "lga_chairman") && (
+                    <div className="space-y-2 animate-fade-in">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase block">Target Wards (Optional)</label>
+                      <div className="border border-border rounded-lg p-3 max-h-36 overflow-y-auto space-y-2 bg-card shadow-inner">
+                        {(role === "lga_chairman" ? wardsList.map(w => ({ ...w, lgaName: userLga })) : multiWardsList).map((ward) => (
+                          <label key={ward.id} className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-foreground hover:text-indigo-600 transition-colors">
+                            <Checkbox
+                              checked={selectedWards.includes(ward.name)}
+                              onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedWards([...selectedWards, ward.name]);
+                                  } else {
+                                    setSelectedWards(selectedWards.filter((name) => name !== ward.name));
+                                  }
+                                }}
+                              />
+                              <span>{ward.name} <span className="text-[10px] text-muted-foreground font-normal">({ward.lgaName})</span></span>
+                            </label>
+                          ))}
+                      </div>
                     </div>
                   )}
                 </div>
