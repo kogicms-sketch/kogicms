@@ -41,6 +41,7 @@ import FederalRepDashboard from "./views/federal/FederalRepDashboard";
 import AssemblyDashboard from "./views/assembly/AssemblyDashboard";
 import Settings from "./views/Settings";
 import PollingUnitReports from "./views/PollingUnitReports";
+import Welfare from "./views/Welfare";
 
 const queryClient = new QueryClient();
 
@@ -150,6 +151,14 @@ const App = () => {
                 element={
                   <ProtectedRoute allowedRoles={["super_admin", "org_admin", "lga_chairman", "councillor", "senatorial_leader", "federal_rep", "house_assembly_member"]}>
                     <Chat />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/welfare"
+                element={
+                  <ProtectedRoute allowedRoles={["super_admin", "lga_chairman", "councillor", "senatorial_leader", "federal_rep", "house_assembly_member"]}>
+                    <Welfare />
                   </ProtectedRoute>
                 }
               />

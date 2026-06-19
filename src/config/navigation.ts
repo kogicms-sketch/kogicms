@@ -15,6 +15,7 @@ import {
   ClipboardList,
   CheckCircle,
   MessageSquare,
+  Gift,
 } from "lucide-react";
 
 export type NavGroup = "Main Menu" | "Operations" | "Tools";
@@ -227,6 +228,20 @@ export const navItems: NavItem[] = [
       "lga_chairman",
       "councillor",
       "polling_unit_agent",
+      "senatorial_leader",
+      "federal_rep",
+      "house_assembly_member",
+    ],
+  },
+  {
+    label: "Welfare & Incentives",
+    icon: Gift,
+    path: "/welfare",
+    group: "Operations",
+    roles: [
+      "super_admin",
+      "lga_chairman",
+      "councillor",
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",

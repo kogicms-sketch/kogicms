@@ -25,7 +25,8 @@ import {
     Loader2,
     Download,
     ShieldCheck,
-    AlertCircle
+    AlertCircle,
+    Gift
 } from "lucide-react";
 import QRCode from "react-qr-code";
 import { CAMPAIGN_NAME } from "@/lib/campaign-data";
@@ -38,6 +39,7 @@ import { toPng } from "html-to-image";
 import { toast } from "sonner";
 import { usePUAgent } from "@/hooks/usePUAgent";
 import { useVerifyMember } from "@/hooks/useMembers";
+import { useMemberIncentives } from "@/hooks/useIncentives";
 
 const MemberProfile = () => {
     const searchParams = useSearchParams();
@@ -48,6 +50,9 @@ const MemberProfile = () => {
     const [downloadName, setDownloadName] = useState<string>("member");
     const { mutateAsync: verifyMember, isPending: isVerifying } = useVerifyMember();
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const { data: incentives = [], isLoading: incentivesLoading } = useMemberIncentives({
+        member_id: id || undefined
+    });
     // Get current user role
     const { data: userProfile, isLoading: userRoleLoading } = useQuery({
         queryKey: ["current-user-role"],
@@ -566,8 +571,9 @@ const MemberProfile = () => {
                     </div>
 
                     <Tabs defaultValue="attendance" className="w-full">
-                        <TabsList className="grid w-full grid-cols-1">
+                        <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="attendance">Attendance Records</TabsTrigger>
+                            <TabsTrigger value="welfare">Received Incentives</TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="attendance" className="mt-6">
@@ -604,6 +610,79 @@ const MemberProfile = () => {
                                                                 ? format(new Date(record.checked_in_at), "hh:mm a")
                                                                 : "--"}
                                                         </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        <TabsContent value="welfare" className="mt-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Received Incentives</CardTitle>
+                                    <CardDescription>Palliatives, grants, and scholarships handed over to this member.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {incentivesLoading ? (
+                                        <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+                                            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading incentives history...
+                                        </div>
+                                    ) : incentives.length === 0 ? (
+                                        <div className="text-center py-8 text-muted-foreground">
+                                            <Gift className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                            <p>No incentives assigned or received yet</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {incentives.map((inc: any) => (
+                                                <div key={inc.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border border-border bg-card hover:bg-muted/50 gap-4 transition-colors">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className={`p-2 rounded-lg ${inc.status === 'disbursed' ? 'bg-green-500/10 text-green-600' : 'bg-amber-500/10 text-amber-600'}`}>
+                                                            <Gift className="w-5 h-5" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-sm text-foreground">{inc.batch?.name || "Incentive Package"}</p>
+                                                            <p className="text-xs text-muted-foreground font-medium mt-0.5">
+                                                                Item: <span className="text-foreground font-semibold">{inc.batch?.item_name}</span>
+                                                                {inc.batch?.amount_per_member > 0 && ` (₦${Number(inc.batch.amount_per_member).toLocaleString()})`}
+                                                            </p>
+                                                            <p className="text-[11px] text-muted-foreground mt-1">
+                                                                Funded by: <span className="font-semibold">{inc.batch?.funder_name}</span> ({inc.batch?.funder_role?.replace('_', ' ')})
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-wrap items-center gap-2 md:self-center">
+                                                        <div className="text-right mr-2 hidden md:block">
+                                                            <p className="text-xs text-muted-foreground">Status</p>
+                                                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                                                                {inc.status === 'disbursed' 
+                                                                    ? `Disbursed: ${format(new Date(inc.disbursed_at), "MMM dd, yyyy")}`
+                                                                    : `Allocated: ${format(new Date(inc.allocated_at), "MMM dd, yyyy")}`
+                                                                }
+                                                            </p>
+                                                        </div>
+                                                        <Badge variant={inc.status === 'disbursed' ? 'default' : 'secondary'} className={inc.status === 'disbursed' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-amber-100 hover:bg-amber-200 text-amber-800'}>
+                                                            {inc.status === 'disbursed' ? 'Disbursed' : 'Allocated'}
+                                                        </Badge>
+                                                        {inc.status === 'disbursed' && (
+                                                            <Badge variant="outline" className={
+                                                                inc.audit_status === 'verified' 
+                                                                    ? 'border-green-600 text-green-600' 
+                                                                    : inc.audit_status === 'flagged' 
+                                                                    ? 'border-red-600 text-red-600' 
+                                                                    : 'border-orange-500 text-orange-600'
+                                                            }>
+                                                                {inc.audit_status === 'verified' 
+                                                                    ? 'Verified (Aikin Gaskiya)' 
+                                                                    : inc.audit_status === 'flagged' 
+                                                                    ? 'Flagged' 
+                                                                    : 'Pending Audit'
+                                                                }
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
