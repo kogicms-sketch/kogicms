@@ -617,7 +617,7 @@ const MemberProfile = () => {
             )}
 
             {/* Hidden Printable Card */}
-            {member && (
+            {member && !member.is_deceased && (
                 <div style={{ position: "absolute", top: "-9999px", left: "-9999px" }}>
                     <PrintableIDCard ref={idCardRef} member={member as any} />
                 </div>
