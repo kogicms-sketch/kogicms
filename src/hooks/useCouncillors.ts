@@ -35,7 +35,7 @@ export interface CouncillorWardData {
 }
 
 // Get current councillor profile
-export const useCouncillor = () => {
+export const useCouncillor = (options?: { enabled?: boolean }) => {
     return useQuery({
         queryKey: ["councillor-profile"],
         queryFn: async () => {
@@ -51,6 +51,7 @@ export const useCouncillor = () => {
             if (error) throw error;
             return data as unknown as Councillor;
         },
+        ...options
     });
 };
 

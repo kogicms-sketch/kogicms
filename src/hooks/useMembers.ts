@@ -21,9 +21,11 @@ export const useMembers = (
   pollingUnitId?: string,
   pollingUnitName?: string,
   scope: MemberScope = "all",
+  allowedLgas?: string[],
+  allowedWard?: string,
 ) => {
   return useQuery({
-    queryKey: ["members", scope, organizationId, pollingUnitId, pollingUnitName],
+    queryKey: ["members", scope, organizationId, pollingUnitId, pollingUnitName, allowedLgas, allowedWard],
     enabled: scope !== "polling_unit" || !!pollingUnitId || !!pollingUnitName,
     queryFn: async () => {
       let query = supabase
@@ -44,6 +46,14 @@ export const useMembers = (
         }
       } else if (scope === "organization" && organizationId) {
         query = query.or(`organization_id.eq.${organizationId},support_group_id.eq.${organizationId}`);
+      }
+
+      if (allowedWard) {
+        query = query.eq("ward", allowedWard);
+      }
+
+      if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
+        query = query.in("lga", allowedLgas);
       }
 
       const { data, error } = await query;
@@ -133,9 +143,11 @@ export const useMemberStats = (
   pollingUnitId?: string,
   pollingUnitName?: string,
   scope: MemberScope = "all",
+  allowedLgas?: string[],
+  allowedWard?: string,
 ) => {
   return useQuery({
-    queryKey: ["members", "stats", scope, organizationId, pollingUnitId, pollingUnitName],
+    queryKey: ["members", "stats", scope, organizationId, pollingUnitId, pollingUnitName, allowedLgas, allowedWard],
     enabled: scope !== "polling_unit" || !!pollingUnitId || !!pollingUnitName,
     queryFn: async () => {
       let query = supabase.from("members").select("status");
@@ -150,6 +162,14 @@ export const useMemberStats = (
         }
       } else if (scope === "organization" && organizationId) {
         query = query.or(`organization_id.eq.${organizationId},support_group_id.eq.${organizationId}`);
+      }
+
+      if (allowedWard) {
+        query = query.eq("ward", allowedWard);
+      }
+
+      if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
+        query = query.in("lga", allowedLgas);
       }
 
       const { data, error } = await query;

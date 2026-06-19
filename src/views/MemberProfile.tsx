@@ -509,8 +509,16 @@ const MemberProfile = () => {
                                     <span className="text-sm text-muted-foreground">Primary Occupation</span>
                                     <span className="text-sm font-semibold">{member.occupation || "Not provided"}</span>
                                 </div>
+                                <div className="flex justify-between items-center py-2 border-b border-border">
+                                    <span className="text-sm text-muted-foreground">Bank Name</span>
+                                    <span className="text-sm font-semibold">{member.bank_name || "Not provided"}</span>
+                                </div>
                             </div>
                             <div className="space-y-3">
+                                <div className="flex justify-between items-center py-2 border-b border-border">
+                                    <span className="text-sm text-muted-foreground">Account Number</span>
+                                    <span className="text-sm font-semibold">{member.account_number || "Not provided"}</span>
+                                </div>
                                 {member.occupation?.toLowerCase() === "student" && (
                                     <>
                                         <div className="flex justify-between items-center py-2 border-b border-border">
