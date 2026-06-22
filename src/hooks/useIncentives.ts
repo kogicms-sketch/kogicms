@@ -118,7 +118,7 @@ export const useCreateIncentiveBatch = () => {
           funder_id: user.id,
           allocated_packages: 0,
           disbursed_packages: 0,
-          received_status: "pending",
+          received_status: batch.received_status || "pending",
         })
         .select()
         .single();

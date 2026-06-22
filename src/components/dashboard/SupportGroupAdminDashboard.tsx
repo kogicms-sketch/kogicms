@@ -33,6 +33,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { IncomingIncentives } from "@/components/welfare/IncomingIncentives";
 import { WelfareManager } from "@/components/welfare/WelfareManager";
+import { SupportGroupAnalytics } from "@/components/support-groups/SupportGroupAnalytics";
 
 const SupportGroupAdminDashboard = () => {
   const { organizationId } = useAuth();
@@ -263,6 +264,12 @@ const SupportGroupAdminDashboard = () => {
                 </Button>
               </Link>
             </div>
+          </div>
+
+          {/* Member Analytics & Demographics */}
+          <div className="mb-8 border-t pt-6">
+            <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">Member Analytics & Demographics</h3>
+            <SupportGroupAnalytics members={members || []} />
           </div>
 
           {/* Operations Overview */}

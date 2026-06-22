@@ -16,7 +16,13 @@ import { format } from 'date-fns';
 import { Plus, Wallet, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-export function SupportGroupFunding({ supportGroupId }: { supportGroupId: string }) {
+export function SupportGroupFunding({ 
+  supportGroupId,
+  readOnly = false 
+}: { 
+  supportGroupId: string;
+  readOnly?: boolean;
+}) {
   const { data: donations, isLoading } = useSupportGroupDonations(supportGroupId);
   const logDonation = useLogSupportGroupDonation();
   const { user } = useAuth();
@@ -98,70 +104,72 @@ export function SupportGroupFunding({ supportGroupId }: { supportGroupId: string
             <CardTitle>Funding Ledger</CardTitle>
             <CardDescription>Track all inflows and expenditures</CardDescription>
           </div>
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-              <Button className="btn-action"><Plus className="w-4 h-4 mr-2" /> Log Fund</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Log Funding or Expenditure</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Type</label>
-                    <select
-                      className="w-full border rounded-md p-2 bg-background"
-                      value={formData.type}
-                      onChange={e => setFormData({ ...formData, type: e.target.value })}
-                    >
-                      <option value="inflow">Inflow (Donation/Grant)</option>
-                      <option value="expenditure">Expenditure (Expense)</option>
-                    </select>
+          {!readOnly && (
+            <Dialog open={isOpen} onOpenChange={setIsOpen}>
+              <DialogTrigger asChild>
+                <Button className="btn-action"><Plus className="w-4 h-4 mr-2" /> Log Fund</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Log Funding or Expenditure</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Type</label>
+                      <select
+                        className="w-full border rounded-md p-2 bg-background"
+                        value={formData.type}
+                        onChange={e => setFormData({ ...formData, type: e.target.value })}
+                      >
+                        <option value="inflow">Inflow (Donation/Grant)</option>
+                        <option value="expenditure">Expenditure (Expense)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Date</label>
+                      <Input
+                        type="date"
+                        required
+                        value={formData.date}
+                        onChange={e => setFormData({ ...formData, date: e.target.value })}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Date</label>
+                    <label className="text-sm font-medium">Amount (₦)</label>
                     <Input
-                      type="date"
+                      type="number"
+                      min="0"
+                      step="0.01"
                       required
-                      value={formData.date}
-                      onChange={e => setFormData({ ...formData, date: e.target.value })}
+                      value={formData.amount}
+                      onChange={e => setFormData({ ...formData, amount: e.target.value })}
                     />
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Amount (₦)</label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    value={formData.amount}
-                    onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Source / Recipient</label>
-                  <Input
-                    required
-                    placeholder={formData.type === 'inflow' ? "E.g., Central Campaign Fund" : "E.g., Event Logistics Vendor"}
-                    value={formData.source}
-                    onChange={e => setFormData({ ...formData, source: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Notes (Optional)</label>
-                  <Textarea
-                    value={formData.notes}
-                    onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={logDonation.isPending}>
-                  {logDonation.isPending ? "Saving..." : "Save Record"}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Source / Recipient</label>
+                    <Input
+                      required
+                      placeholder={formData.type === 'inflow' ? "E.g., Central Campaign Fund" : "E.g., Event Logistics Vendor"}
+                      value={formData.source}
+                      onChange={e => setFormData({ ...formData, source: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Notes (Optional)</label>
+                    <Textarea
+                      value={formData.notes}
+                      onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={logDonation.isPending}>
+                    {logDonation.isPending ? "Saving..." : "Save Record"}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
         </CardHeader>
         <CardContent>
           {isLoading ? (

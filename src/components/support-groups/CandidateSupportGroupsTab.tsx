@@ -153,16 +153,17 @@ export const CandidateSupportGroupsTab = ({ candidateId, candidateRace }: Candid
               </div>
             ) : (
               <div className="flex items-end justify-between w-full h-[220px] gap-2 pt-6">
-                {/* 2nd Place */}
+                 {/* 2nd Place */}
                 {top3[1] && (
                   <motion.div 
                     initial={{ height: 0 }}
                     animate={{ height: 130 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
-                    className="flex-1 flex flex-col items-center justify-end"
+                    className="flex-1 flex flex-col items-center justify-end cursor-pointer group/podium"
+                    onClick={() => navigate(`/support-groups/detail?id=${top3[1].id}`)}
                   >
                     <div className="text-center mb-2 px-1 max-w-[90px]">
-                      <p className="text-xs font-bold truncate text-muted-foreground">{top3[1].name}</p>
+                      <p className="text-xs font-bold truncate text-muted-foreground group-hover/podium:underline">{top3[1].name}</p>
                       <p className="text-[10px] text-muted-foreground font-semibold">{top3[1].kpi_score} pts</p>
                     </div>
                     <div className="w-full bg-gradient-to-t from-slate-300 to-slate-200 border-t border-slate-400/30 rounded-t-lg shadow-inner flex flex-col items-center justify-start pt-3 h-full">
@@ -171,16 +172,17 @@ export const CandidateSupportGroupsTab = ({ candidateId, candidateRace }: Candid
                   </motion.div>
                 )}
 
-                {/* 1st Place */}
+                 {/* 1st Place */}
                 {top3[0] && (
                   <motion.div 
                     initial={{ height: 0 }}
                     animate={{ height: 170 }}
                     transition={{ duration: 0.5 }}
-                    className="flex-1 flex flex-col items-center justify-end"
+                    className="flex-1 flex flex-col items-center justify-end cursor-pointer group/podium"
+                    onClick={() => navigate(`/support-groups/detail?id=${top3[0].id}`)}
                   >
                     <div className="text-center mb-2 px-1 max-w-[100px]">
-                      <p className="text-sm font-extrabold truncate text-navy-deep">{top3[0].name}</p>
+                      <p className="text-sm font-extrabold truncate text-navy-deep group-hover/podium:underline">{top3[0].name}</p>
                       <p className="text-xs text-[hsl(var(--apc-green))] font-bold">{top3[0].kpi_score} pts</p>
                     </div>
                     <div className="w-full bg-gradient-to-t from-yellow-400 to-amber-200 border-t border-yellow-500/30 rounded-t-lg shadow-lg flex flex-col items-center justify-start pt-3 h-full">
@@ -189,16 +191,17 @@ export const CandidateSupportGroupsTab = ({ candidateId, candidateRace }: Candid
                   </motion.div>
                 )}
 
-                {/* 3rd Place */}
+                 {/* 3rd Place */}
                 {top3[2] && (
                   <motion.div 
                     initial={{ height: 0 }}
                     animate={{ height: 100 }}
                     transition={{ duration: 0.5, delay: 0.4 }}
-                    className="flex-1 flex flex-col items-center justify-end"
+                    className="flex-1 flex flex-col items-center justify-end cursor-pointer group/podium"
+                    onClick={() => navigate(`/support-groups/detail?id=${top3[2].id}`)}
                   >
                     <div className="text-center mb-2 px-1 max-w-[90px]">
-                      <p className="text-xs font-bold truncate text-muted-foreground">{top3[2].name}</p>
+                      <p className="text-xs font-bold truncate text-muted-foreground group-hover/podium:underline">{top3[2].name}</p>
                       <p className="text-[10px] text-muted-foreground font-semibold">{top3[2].kpi_score} pts</p>
                     </div>
                     <div className="w-full bg-gradient-to-t from-orange-400/70 to-orange-300/40 border-t border-orange-500/20 rounded-t-lg shadow-inner flex flex-col items-center justify-start pt-3 h-full">
@@ -232,14 +235,18 @@ export const CandidateSupportGroupsTab = ({ candidateId, candidateRace }: Candid
                 <TableBody>
                   {sortedGroups.length > 0 ? (
                     sortedGroups.slice(0, 10).map((group, index) => (
-                      <TableRow key={group.id} className="hover:bg-muted/10 transition-colors">
+                      <TableRow 
+                        key={group.id} 
+                        className="hover:bg-muted/10 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/support-groups/detail?id=${group.id}`)}
+                      >
                         <TableCell className="text-center font-bold text-xs">
                           {index === 0 && <span className="text-amber-500">🏆 1</span>}
                           {index === 1 && <span className="text-slate-400">🥈 2</span>}
                           {index === 2 && <span className="text-amber-700">🥉 3</span>}
                           {index > 2 && index + 1}
                         </TableCell>
-                        <TableCell className="font-semibold text-xs sm:text-sm text-navy-deep">{group.name}</TableCell>
+                        <TableCell className="font-semibold text-xs sm:text-sm text-navy-deep hover:underline">{group.name}</TableCell>
                         <TableCell className="text-center text-xs font-medium">{group.member_count}</TableCell>
                         <TableCell className="text-center text-xs text-purple-600 font-medium">{group.pvc_count}</TableCell>
                         <TableCell className="text-center text-xs font-black text-[hsl(var(--apc-green))]">{group.kpi_score || 0}</TableCell>
@@ -288,7 +295,10 @@ export const CandidateSupportGroupsTab = ({ candidateId, candidateRace }: Candid
                   >
                     <div className="space-y-1 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-extrabold text-navy-deep px-2 py-0.5 rounded bg-navy-deep/5">
+                        <span 
+                          className="text-xs font-extrabold text-navy-deep px-2 py-0.5 rounded bg-navy-deep/5 cursor-pointer hover:underline"
+                          onClick={() => act.support_group_id && navigate(`/support-groups/detail?id=${act.support_group_id}`)}
+                        >
                           {act.group?.name || "Support Group"}
                         </span>
                         <span className="text-[10px] text-muted-foreground">

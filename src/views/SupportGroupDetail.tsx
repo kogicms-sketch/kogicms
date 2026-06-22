@@ -24,7 +24,10 @@ import {
   Film,
   FileText,
   Video,
-  Eye
+  Eye,
+  ChevronRight,
+  Loader2,
+  Gift
 } from "lucide-react";
 import {
   useSupportGroup,
@@ -33,6 +36,8 @@ import {
   useSupportGroupMembers,
   useSupportGroupAdmins
 } from "@/hooks/useSupportGroups";
+import { SupportGroupAnalytics } from "@/components/support-groups/SupportGroupAnalytics";
+import { useIncentiveBatches, useMemberIncentives } from "@/hooks/useIncentives";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   Dialog,
@@ -67,12 +72,20 @@ const SupportGroupDetail = () => {
   const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
   const [isActivityDialogOpen, setIsActivityDialogOpen] = useState(false);
   const [verificationAction, setVerificationAction] = useState<"verified" | "rejected">("verified");
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
 
   const { data: group, isLoading } = useSupportGroup(id || "");
   const { data: activities, isLoading: activitiesLoading } = useSupportGroupActivities(id);
   const { data: members, isLoading: membersLoading } = useSupportGroupMembers(id || "");
   const { data: admins, isLoading: adminsLoading } = useSupportGroupAdmins(id || "");
   const verifyGroup = useVerifySupportGroup();
+
+  const { data: batches = [], isLoading: batchesLoading } = useIncentiveBatches({
+    target_support_group_id: id || ""
+  });
+  const { data: batchDisbursements = [], isLoading: disbursementsLoading } = useMemberIncentives({
+    batch_id: selectedBatchId || ""
+  });
 
   const handleVerify = async () => {
     if (!id) return;
@@ -304,8 +317,12 @@ const SupportGroupDetail = () => {
       </Card>
 
       {/* Tabs */}
-      <Tabs defaultValue="activities" className="space-y-4">
-        <TabsList>
+      <Tabs defaultValue="analytics" className="space-y-4">
+        <TabsList className="flex flex-wrap h-auto">
+          <TabsTrigger value="analytics">
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Overview & Analytics
+          </TabsTrigger>
           <TabsTrigger value="activities">
             <Activity className="w-4 h-4 mr-2" />
             Activities
@@ -317,6 +334,10 @@ const SupportGroupDetail = () => {
           <TabsTrigger value="admins">
             <Users className="w-4 h-4 mr-2" />
             Admins
+          </TabsTrigger>
+          <TabsTrigger value="allocations">
+            <Gift className="w-4 h-4 mr-2" />
+            Allocations & Handovers
           </TabsTrigger>
           <TabsTrigger value="funding">
             <Wallet className="w-4 h-4 mr-2" />
@@ -331,6 +352,10 @@ const SupportGroupDetail = () => {
             About
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <SupportGroupAnalytics members={members || []} />
+        </TabsContent>
 
         <TabsContent value="activities" className="space-y-4">
           <div className="flex justify-between items-center">
@@ -611,12 +636,195 @@ const SupportGroupDetail = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="allocations" className="space-y-4">
+          {selectedBatchId ? (
+            /* DETAILED DISBURSEMENTS HISTORY LOG FOR A BATCH */
+            <Card className="border border-border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
+                <div>
+                  <CardTitle className="text-lg">Disbursement Audit Log</CardTitle>
+                  <CardDescription>
+                    Unmodifiable, live ledger of handovers for batch:{" "}
+                    <span className="font-bold text-foreground">
+                      {batches.find((b) => b.id === selectedBatchId)?.name}
+                    </span>
+                  </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setSelectedBatchId(null)}>
+                  Back to Packages
+                </Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                {disbursementsLoading ? (
+                  <div className="flex items-center justify-center py-12 text-muted-foreground text-xs">
+                    <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading ledger...
+                  </div>
+                ) : batchDisbursements.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Gift className="w-12 h-12 mx-auto mb-2 opacity-40" />
+                    <p className="text-sm font-semibold">No disbursements yet</p>
+                    <p className="text-xs mt-0.5">Disbursed items will reflect here on scan handover.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-muted/40 border-b border-border">
+                          <th className="p-3 font-semibold text-xs text-muted-foreground pl-6">Beneficiary Member</th>
+                          <th className="p-3 font-semibold text-xs text-muted-foreground">Location (LGA / Ward)</th>
+                          <th className="p-3 font-semibold text-xs text-muted-foreground">Polling Unit</th>
+                          <th className="p-3 font-semibold text-xs text-muted-foreground">Handover Mobile</th>
+                          <th className="p-3 font-semibold text-xs text-muted-foreground">Ward Executed By</th>
+                          <th className="p-3 font-semibold text-xs text-muted-foreground">Date Handed Over</th>
+                          <th className="p-3 font-semibold text-xs text-muted-foreground pr-6">Audit Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y border-b">
+                        {batchDisbursements.map((d: any) => (
+                          <tr key={d.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="p-3 font-bold text-foreground pl-6">
+                              {d.member?.full_name || "Unknown"}
+                              {d.disbursed_quantity !== null && d.disbursed_quantity !== undefined && (
+                                <span className="block text-[10px] text-indigo-600 font-semibold mt-0.5">
+                                  Qty: {d.disbursed_quantity} {d.disbursed_unit} ({Number(d.disbursed_equivalent_fraction).toFixed(3)} Bag)
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 text-xs text-muted-foreground">
+                              {d.member?.lga || "—"} / {d.member?.ward || "—"}
+                            </td>
+                            <td className="p-3 text-xs text-muted-foreground font-semibold">
+                              {d.member?.polling_unit || "—"}
+                            </td>
+                            <td className="p-3 text-xs font-mono text-foreground font-semibold">
+                              {d.phone_number || "—"}
+                            </td>
+                            <td className="p-3 text-xs text-muted-foreground font-medium">
+                              {d.disbursed_by_name || "—"}
+                            </td>
+                            <td className="p-3 text-xs text-muted-foreground">
+                              {d.disbursed_at ? format(new Date(d.disbursed_at), "MMM dd, yyyy - hh:mm a") : "—"}
+                            </td>
+                            <td className="p-3 pr-6">
+                              <Badge variant="outline" className={
+                                d.audit_status === 'verified'
+                                  ? 'border-green-600 text-green-600 bg-green-500/5'
+                                  : d.audit_status === 'flagged'
+                                  ? 'border-red-600 text-red-600 bg-red-500/5'
+                                  : 'border-orange-500 text-orange-600 bg-orange-500/5'
+                              }>
+                                {d.audit_status === 'verified'
+                                  ? 'Verified'
+                                  : d.audit_status === 'flagged'
+                                  ? 'Flagged'
+                                  : 'Awaiting Audit'
+                                }
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            /* INTERVENTIONS PACKAGES LIST */
+            <Card className="border border-border shadow-sm">
+              <CardHeader>
+                <CardTitle>Incentives Allocation Ledger</CardTitle>
+                <CardDescription>
+                  Incentive packages and self-funded batches routed to this support group.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                {batchesLoading ? (
+                  <div className="flex items-center justify-center py-12 text-muted-foreground text-xs">
+                    <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading allocations...
+                  </div>
+                ) : batches.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground bg-muted/10 rounded-b-xl border-t">
+                    <Gift className="w-12 h-12 mx-auto mb-2 opacity-40 text-gray-400" />
+                    <p className="text-sm font-semibold">No allocated packages found</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      No welfare or incentive allocations have been registered for this support group.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-muted/40 border-b border-border">
+                          <th className="p-3 font-semibold text-xs text-muted-foreground pl-6">Campaign / Intervention Name</th>
+                          <th className="p-3 font-semibold text-xs text-muted-foreground">Benefit Item</th>
+                          <th className="p-3 font-semibold text-xs text-muted-foreground">Funder Name (Role)</th>
+                          <th className="p-3 font-semibold text-xs text-muted-foreground text-center">Allocated</th>
+                          <th className="p-3 font-semibold text-xs text-muted-foreground text-center">Disbursed</th>
+                          <th className="p-3 font-semibold text-xs text-muted-foreground">Status</th>
+                          <th className="p-3 font-semibold text-xs text-muted-foreground pr-6 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y border-b">
+                        {batches.map((b) => (
+                          <tr key={b.id} className="hover:bg-muted/30 transition-colors">
+                            <td className="p-3 font-bold text-foreground pl-6">
+                              {b.name}
+                            </td>
+                            <td className="p-3 text-xs text-muted-foreground">
+                              <span className="font-semibold text-foreground">{b.item_name}</span>
+                              {b.amount_per_member > 0 && ` (₦${Number(b.amount_per_member).toLocaleString()})`}
+                            </td>
+                            <td className="p-3 text-xs text-muted-foreground">
+                              <span className="font-semibold text-foreground">{b.funder_name}</span>
+                              <span className="block text-[10px] opacity-80">{b.funder_role.replace('_', ' ')}</span>
+                            </td>
+                            <td className="p-3 text-xs text-center font-semibold text-indigo-600">
+                              {b.allocated_packages} / {b.total_packages}
+                            </td>
+                            <td className="p-3 text-xs text-center font-bold text-green-600">
+                              {b.disbursed_packages} / {b.total_packages}
+                            </td>
+                            <td className="p-3">
+                              {b.status === 'completed' ? (
+                                <Badge className="bg-green-600 hover:bg-green-700 text-white text-xs py-0.5 px-2">Completed</Badge>
+                              ) : b.status === 'cancelled' ? (
+                                <Badge variant="destructive" className="text-xs py-0.5 px-2">Cancelled</Badge>
+                              ) : (
+                                <Badge variant="outline" className={b.received_status === 'received' ? 'border-green-600 text-green-600 bg-green-500/5 text-[10px] py-0.5 px-2 font-bold' : 'border-amber-500 text-amber-600 bg-amber-500/5 text-[10px] py-0.5 px-2 font-bold'}>
+                                  {b.received_status === 'received' 
+                                    ? `Received` 
+                                    : `In Transit`}
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="p-3 pr-6 text-right">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setSelectedBatchId(b.id)}
+                                className="text-xs gap-1 cursor-pointer text-indigo-600 hover:text-indigo-800"
+                              >
+                                View Log <ChevronRight className="w-3.5 h-3.5" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
         <TabsContent value="funding">
-          <SupportGroupFunding supportGroupId={id!} />
+          <SupportGroupFunding supportGroupId={id!} readOnly={role !== "org_admin"} />
         </TabsContent>
 
         <TabsContent value="logistics">
-          <SupportGroupLogistics supportGroupId={id!} />
+          <SupportGroupLogistics supportGroupId={id!} readOnly={role !== "org_admin"} />
         </TabsContent>
 
         <TabsContent value="description">

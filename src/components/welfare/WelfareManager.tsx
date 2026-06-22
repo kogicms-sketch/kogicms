@@ -168,6 +168,14 @@ export const WelfareManager = () => {
     }
   }, [role, userLga, lgasList]);
 
+  // Set selectedSupportGroupId and routeType for Support Group Admin
+  useEffect(() => {
+    if (isSupportGroupAdmin && organizationId) {
+      setRouteType("support_group");
+      setSelectedSupportGroupId(organizationId);
+    }
+  }, [isSupportGroupAdmin, organizationId]);
+
   // Load Wards list for selected LGA
   const { data: wardsList = [] } = useQuery({
     queryKey: ["welfare-wards-list", selectedLgaId],
@@ -308,12 +316,12 @@ export const WelfareManager = () => {
           target_ward: null,
           target_support_group_id: selectedSupportGroupId,
           status: "active" as const,
-          received_status: "pending",
+          received_status: isSupportGroupAdmin ? "received" : "pending",
           conversion_rate: conversionRate,
           bulk_unit: bulkUnit,
           retail_unit: retailUnit
         });
-        toast.success("Allocated and routed to Support Group!");
+        toast.success(isSupportGroupAdmin ? "Independent self-funded allocation logged and ready!" : "Allocated and routed to Support Group!");
       } else if (selectedWards.length > 0) {
         // Multi-destination: create a batch per ward
         const qtyPerWard = Math.max(1, Math.floor(total / selectedWards.length));
@@ -614,7 +622,7 @@ export const WelfareManager = () => {
             {canScan ? "Welfare Incoming" : "Campaign Dashboard"}
           </Button>
 
-          {!isWardAdmin && !isSupportGroupAdmin && (
+          {!isWardAdmin && (
             <Button
               variant={activeTab === "create" ? "default" : "outline"}
               size="sm"
@@ -886,7 +894,7 @@ export const WelfareManager = () => {
         </div>
       )}
 
-      {activeTab === "create" && !isWardAdmin && !isSupportGroupAdmin && (
+      {activeTab === "create" && !isWardAdmin && (
         /* ALLOCATION BUDGET ROUTING FORM */
         <Card className="border border-border shadow-sm max-w-xl mx-auto animate-fade-in">
           <CardHeader>
@@ -1006,95 +1014,108 @@ export const WelfareManager = () => {
                   <MapPin className="w-3.5 h-3.5 text-apc-green" /> Target Allocation Routing
                 </h4>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase">Routing Target Type</label>
-                  <select
-                    className="input-premium w-full text-sm h-[40px] bg-card"
-                    value={routeType}
-                    onChange={(e: any) => setRouteType(e.target.value)}
-                  >
-                    <option value="jurisdiction">Route to Ward/LGA</option>
-                    <option value="support_group">Route to Support Group</option>
-                  </select>
-                </div>
-
-                {routeType === "jurisdiction" ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* LGA Multi-Select Checklist */}
-                    {role !== "lga_chairman" && !isWardAdmin && (
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase block">Target LGAs</label>
-                        <div className="border border-border rounded-lg p-3 max-h-36 overflow-y-auto space-y-2 bg-card shadow-inner">
-                          {lgasList
-                            .filter((lga) => {
-                              if (authorizedLgas.includes("ALL")) return true;
-                              return authorizedLgas.includes(lga.name);
-                            })
-                            .map((lga) => (
-                              <label key={lga.id} className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-foreground hover:text-indigo-600 transition-colors">
-                                <Checkbox
-                                  checked={selectedLgas.includes(lga.name)}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      setSelectedLgas([...selectedLgas, lga.name]);
-                                    } else {
-                                      setSelectedLgas(selectedLgas.filter((name) => name !== lga.name));
-                                      // Remove wards associated with this LGA
-                                      const wardsToRemove = multiWardsList
-                                        .filter((w) => w.lgaName === lga.name)
-                                        .map((w) => `${w.lgaName}|${w.name}`);
-                                      setSelectedWards(selectedWards.filter((w) => !wardsToRemove.includes(w)));
-                                    }
-                                  }}
-                                />
-                                <span>{lga.name}</span>
-                              </label>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Ward Multi-Select Checklist (Filtered by Selected LGAs) */}
-                    {!isWardAdmin && (selectedLgas.length > 0 || role === "lga_chairman") && (
-                      <div className="space-y-2 animate-fade-in">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase block">Target Wards (Optional)</label>
-                        <div className="border border-border rounded-lg p-3 max-h-36 overflow-y-auto space-y-2 bg-card shadow-inner">
-                          {(role === "lga_chairman" ? wardsList.map(w => ({ ...w, lgaName: userLga })) : multiWardsList).map((ward) => (
-                            <label key={ward.id} className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-foreground hover:text-indigo-600 transition-colors">
-                              <Checkbox
-                                checked={selectedWards.includes(`${ward.lgaName}|${ward.name}`)}
-                                onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      setSelectedWards([...selectedWards, `${ward.lgaName}|${ward.name}`]);
-                                    } else {
-                                      setSelectedWards(selectedWards.filter((name) => name !== `${ward.lgaName}|${ward.name}`));
-                                    }
-                                  }}
-                                />
-                                <span>{ward.name} <span className="text-[10px] text-muted-foreground font-normal">({ward.lgaName})</span></span>
-                              </label>
-                            ))}
-                        </div>
-                      </div>
-                    )}
+                {isSupportGroupAdmin ? (
+                  <div className="space-y-2 animate-scale-in">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase block">Target Support Group</label>
+                    <input
+                      disabled
+                      className="input-premium w-full text-sm bg-muted/50 text-muted-foreground font-semibold"
+                      value="Logged under your Support Group (Self-Funded)"
+                    />
                   </div>
                 ) : (
-                  <div className="space-y-2 animate-fade-in">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase block">Target Support Group</label>
-                    <select
-                      required={routeType === "support_group"}
-                      className="input-premium w-full text-sm h-[40px] bg-card"
-                      value={selectedSupportGroupId}
-                      onChange={(e) => setSelectedSupportGroupId(e.target.value)}
-                    >
-                      <option value="">-- Choose Verified Support Group --</option>
-                      {verifiedSupportGroups.map((sg) => (
-                        <option key={sg.id} value={sg.id}>
-                          {sg.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <>
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Routing Target Type</label>
+                      <select
+                        className="input-premium w-full text-sm h-[40px] bg-card"
+                        value={routeType}
+                        onChange={(e: any) => setRouteType(e.target.value)}
+                      >
+                        <option value="jurisdiction">Route to Ward/LGA</option>
+                        <option value="support_group">Route to Support Group</option>
+                      </select>
+                    </div>
+
+                    {routeType === "jurisdiction" ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* LGA Multi-Select Checklist */}
+                        {role !== "lga_chairman" && !isWardAdmin && (
+                          <div className="space-y-2">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase block">Target LGAs</label>
+                            <div className="border border-border rounded-lg p-3 max-h-36 overflow-y-auto space-y-2 bg-card shadow-inner">
+                              {lgasList
+                                .filter((lga) => {
+                                  if (authorizedLgas.includes("ALL")) return true;
+                                  return authorizedLgas.includes(lga.name);
+                                })
+                                .map((lga) => (
+                                  <label key={lga.id} className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-foreground hover:text-indigo-600 transition-colors">
+                                    <Checkbox
+                                      checked={selectedLgas.includes(lga.name)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setSelectedLgas([...selectedLgas, lga.name]);
+                                        } else {
+                                          setSelectedLgas(selectedLgas.filter((name) => name !== lga.name));
+                                          // Remove wards associated with this LGA
+                                          const wardsToRemove = multiWardsList
+                                            .filter((w) => w.lgaName === lga.name)
+                                            .map((w) => `${w.lgaName}|${w.name}`);
+                                          setSelectedWards(selectedWards.filter((w) => !wardsToRemove.includes(w)));
+                                        }
+                                      }}
+                                    />
+                                    <span>{lga.name}</span>
+                                  </label>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Ward Multi-Select Checklist (Filtered by Selected LGAs) */}
+                        {!isWardAdmin && (selectedLgas.length > 0 || role === "lga_chairman") && (
+                          <div className="space-y-2 animate-fade-in">
+                            <label className="text-xs font-semibold text-muted-foreground uppercase block">Target Wards (Optional)</label>
+                            <div className="border border-border rounded-lg p-3 max-h-36 overflow-y-auto space-y-2 bg-card shadow-inner">
+                              {(role === "lga_chairman" ? wardsList.map(w => ({ ...w, lgaName: userLga })) : multiWardsList).map((ward) => (
+                                <label key={ward.id} className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-foreground hover:text-indigo-600 transition-colors">
+                                  <Checkbox
+                                    checked={selectedWards.includes(`${ward.lgaName}|${ward.name}`)}
+                                    onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setSelectedWards([...selectedWards, `${ward.lgaName}|${ward.name}`]);
+                                        } else {
+                                          setSelectedWards(selectedWards.filter((name) => name !== `${ward.lgaName}|${ward.name}`));
+                                        }
+                                      }}
+                                    />
+                                    <span>{ward.name} <span className="text-[10px] text-muted-foreground font-normal">({ward.lgaName})</span></span>
+                                  </label>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-2 animate-fade-in">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase block">Target Support Group</label>
+                        <select
+                          required={routeType === "support_group"}
+                          className="input-premium w-full text-sm h-[40px] bg-card"
+                          value={selectedSupportGroupId}
+                          onChange={(e) => setSelectedSupportGroupId(e.target.value)}
+                        >
+                          <option value="">-- Choose Verified Support Group --</option>
+                          {verifiedSupportGroups.map((sg) => (
+                            <option key={sg.id} value={sg.id}>
+                              {sg.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 

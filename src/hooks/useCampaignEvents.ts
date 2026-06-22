@@ -331,3 +331,32 @@ export const useApproveMaterialRequest = () => {
     },
   });
 };
+
+export const useReceiveMaterialRequest = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase
+        .from("material_requests")
+        .update({
+          status: "received",
+          delivered_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["material-requests"] });
+      toast.success("Delivery confirmed and materials marked as Received!");
+    },
+    onError: (error) => {
+      console.error("Error receiving request:", error);
+      toast.error("Failed to confirm delivery");
+    },
+  });
+};
