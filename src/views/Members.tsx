@@ -448,15 +448,21 @@ const Members = () => {
                           </span>
                         </td>
                         <td>
-                          <span
-                            className={
-                              member.status === "active"
-                                ? "status-active"
-                                : "status-inactive"
-                            }
-                          >
-                            {member.status === "active" ? "Active" : "Inactive"}
-                          </span>
+                          {member.is_deceased ? (
+                            <span className="inline-flex items-center gap-1 text-red-600 text-xs font-bold bg-red-50 px-2 py-0.5 rounded-full border border-red-100 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/50">
+                              Deceased
+                            </span>
+                          ) : (
+                            <span
+                              className={
+                                member.status === "active"
+                                  ? "status-active"
+                                  : "status-inactive"
+                              }
+                            >
+                              {member.status === "active" ? "Active" : "Inactive"}
+                            </span>
+                          )}
                         </td>
                         <td>
                           <button className="p-2 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100">

@@ -28,8 +28,13 @@ const PUAgentDashboard = () => {
   const navigate = (path, options) => { if (path === -1) router.back(); else router.push(path); };
     const { user } = useAuth();
     const { data: agent, isLoading: agentLoading } = usePUAgent();
-    const { data: members = [], isLoading: membersLoading } = useMembers(undefined, agent?.polling_unit_id || undefined, agent?.polling_unit_name || undefined, "polling_unit");
+    const { data: members = [], isLoading: membersLoading, refetch: refetchMembers } = useMembers(undefined, agent?.polling_unit_id || undefined, agent?.polling_unit_name || undefined, "polling_unit");
     const { mutate: verifyMember, isPending: isVerifying } = useVerifyMember();
+
+    useEffect(() => {
+        // Trigger a background query refetch on mount to ensure fresh data
+        refetchMembers();
+    }, [refetchMembers]);
     const [search, setSearch] = useState("");
     const [gpsStatus, setGpsStatus] = useState<'tracking' | 'error' | 'pending'>('pending');
     const [gpsErrorMsg, setGpsErrorMsg] = useState<string | null>(null);
@@ -139,8 +144,9 @@ const PUAgentDashboard = () => {
         );
     }
 
-    const verifiedMembers = members.filter(m => m.is_verified);
-    const pendingMembers = members.filter(m => !m.is_verified);
+    const activeMembers = members.filter(m => !m.is_deceased);
+    const verifiedMembers = activeMembers.filter(m => m.is_verified);
+    const pendingMembers = activeMembers.filter(m => !m.is_verified);
     
     const filteredPending = pendingMembers.filter(m => 
         m.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -148,7 +154,7 @@ const PUAgentDashboard = () => {
     );
 
     const stats = [
-        { label: "My Polling Unit", value: members.length, sub: "Total Registrations", icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
+        { label: "My Polling Unit", value: activeMembers.length, sub: "Total Registrations", icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
         { label: "Verified", value: verifiedMembers.length, sub: "Physically Confirmed", icon: CheckCircle2, color: "text-apc-green", bg: "bg-green-50" },
         { label: "Awaiting Visit", value: pendingMembers.length, sub: "Action Required", icon: Activity, color: "text-orange-600", bg: "bg-orange-50" },
     ];

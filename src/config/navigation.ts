@@ -146,22 +146,6 @@ export const navItems: NavItem[] = [
     ],
   },
   {
-    label: "Pages",
-    icon: Megaphone,
-    path: "/talking-points",
-    group: "Operations",
-    roles: [
-      "super_admin",
-      "org_admin",
-      "member",
-      "lga_chairman",
-      "councillor",
-      "senatorial_leader",
-      "federal_rep",
-      "house_assembly_member",
-    ],
-  },
-  {
     label: "Situation Room",
     icon: Radio,
     path: "/situation-room",

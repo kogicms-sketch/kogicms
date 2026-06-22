@@ -59,39 +59,58 @@ export const WelfareManager = () => {
   const userWard = userProfile?.ward || "";
 
   // Fetch batches
+  // For Support Group Admins: filter by target_support_group_id
   // For Ward Admins: filter by target_lga and target_ward
   // For LGA Chairmen: filter by target_lga
   // For others: fetch all (we'll filter in memory if needed)
-  const batchFilters = isWardAdmin 
+  const { organizationId } = useAuth();
+  const batchFilters = role === "org_admin" && organizationId
+    ? { target_support_group_id: organizationId }
+    : isWardAdmin 
     ? { target_lga: userLga, target_ward: userWard } 
     : role === "lga_chairman" 
     ? { target_lga: userLga } 
     : {};
   const { data: batches = [], isLoading: batchesLoading } = useIncentiveBatches(batchFilters);
 
-  // Fetch all members in ward (for Ward Admin scanning simulation)
-  const { data: wardMembers = [] } = useQuery({
-    queryKey: ["welfare-ward-members", userLga, userWard],
+  // Fetch all members in ward or support group (for scanning simulation)
+  const { data: scanMembers = [] } = useQuery({
+    queryKey: ["welfare-scan-members", role, userLga, userWard, organizationId],
     queryFn: async () => {
-      if (!isWardAdmin || !userLga || !userWard) return [];
-      const { data, error } = await supabase
-        .from("members")
-        .select("id, full_name, phone, polling_unit, membership_id")
-        .eq("lga", userLga)
-        .eq("ward", userWard)
-        .eq("is_deceased", false)
-        .order("full_name", { ascending: true });
-      if (error) throw error;
-      return data;
+      if (role === "org_admin" && organizationId) {
+        const { data, error } = await supabase
+          .from("members")
+          .select("id, full_name, phone, polling_unit, membership_id")
+          .or(`organization_id.eq.${organizationId},support_group_id.eq.${organizationId}`)
+          .eq("is_deceased", false)
+          .order("full_name", { ascending: true });
+        if (error) throw error;
+        return data;
+      } else if (isWardAdmin && userLga && userWard) {
+        const { data, error } = await supabase
+          .from("members")
+          .select("id, full_name, phone, polling_unit, membership_id")
+          .eq("lga", userLga)
+          .eq("ward", userWard)
+          .eq("is_deceased", false)
+          .order("full_name", { ascending: true });
+        if (error) throw error;
+        return data;
+      }
+      return [];
     },
-    enabled: isWardAdmin && !!userLga && !!userWard
+    enabled: (isWardAdmin && !!userLga && !!userWard) || (role === "org_admin" && !!organizationId)
   });
 
   // State
-  const [activeTab, setActiveTab] = useState<"dashboard" | "create" | "scan">(isWardAdmin ? "scan" : "dashboard");
+  const isSupportGroupAdmin = role === "org_admin";
+  const canScan = isWardAdmin || isSupportGroupAdmin;
+  const [activeTab, setActiveTab] = useState<"dashboard" | "create" | "scan">(canScan ? "scan" : "dashboard");
   const [selectedLgaId, setSelectedLgaId] = useState<string>("");
   const [selectedLgaName, setSelectedLgaName] = useState<string>("");
   const [selectedWard, setSelectedWard] = useState<string>("");
+  const [routeType, setRouteType] = useState<"jurisdiction" | "support_group">("jurisdiction");
+  const [selectedSupportGroupId, setSelectedSupportGroupId] = useState<string>("");
   
   // Multi-select destination states
   const [selectedLgas, setSelectedLgas] = useState<string[]>([]);
@@ -115,6 +134,20 @@ export const WelfareManager = () => {
   const disburseMutation = useDisburseIncentive();
   const allocateMutation = useAllocateIncentive();
 
+  // Fetch verified support groups for routing
+  const { data: verifiedSupportGroups = [] } = useQuery({
+    queryKey: ["verified-support-groups"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("id, name, verification_status")
+        .eq("verification_status", "verified")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return data || [];
+    }
+  });
+
   // Load LGAs list
   const { data: lgasList = [] } = useQuery({
     queryKey: ["welfare-lgas-list"],
@@ -124,6 +157,16 @@ export const WelfareManager = () => {
       return data;
     }
   });
+
+  // Set selectedLgaId for LGA Chairman
+  useEffect(() => {
+    if (role === "lga_chairman" && userLga && lgasList.length > 0) {
+      const match = lgasList.find((l) => l.name.toLowerCase() === userLga.toLowerCase());
+      if (match) {
+        setSelectedLgaId(match.id);
+      }
+    }
+  }, [role, userLga, lgasList]);
 
   // Load Wards list for selected LGA
   const { data: wardsList = [] } = useQuery({
@@ -178,6 +221,33 @@ export const WelfareManager = () => {
   const [formItemName, setFormItemName] = useState("");
   const [formAmount, setFormAmount] = useState<string>("");
   const [formTotal, setFormTotal] = useState<string>("");
+  const [formBulkUnit, setFormBulkUnit] = useState("Bag");
+  const [formRetailUnit, setFormRetailUnit] = useState("Tiya");
+  const [formConversionRate, setFormConversionRate] = useState<string>("");
+
+  // Scanner disbursement modal states
+  const [showDisburseUomModal, setShowDisburseUomModal] = useState(false);
+  const [uomTargetBatch, setUomTargetBatch] = useState<IncentiveBatch | null>(null);
+  const [uomTargetRecordId, setUomTargetRecordId] = useState<string | undefined>(undefined);
+  const [uomAllocationType, setUomAllocationType] = useState<"whole" | "fractional">("whole");
+  const [uomQuantity, setUomQuantity] = useState<string>("1");
+
+  // Auto-fill template UoM values
+  const handleItemNameChange = (val: string) => {
+    setFormItemName(val);
+    if (formType === "material") {
+      const lower = val.toLowerCase();
+      if (lower === "fertilizer" || lower === "fertilizer bag" || lower === "fertilizers") {
+        setFormConversionRate("40");
+        setFormBulkUnit("Bag");
+        setFormRetailUnit("Tiya");
+      } else if (lower === "rice" || lower === "rice bag") {
+        setFormConversionRate("18");
+        setFormBulkUnit("Bag");
+        setFormRetailUnit("Tiya");
+      }
+    }
+  };
 
   // Clean form
   const resetForm = () => {
@@ -191,6 +261,11 @@ export const WelfareManager = () => {
     setSelectedWard("");
     setSelectedLgas([]);
     setSelectedWards([]);
+    setFormBulkUnit("Bag");
+    setFormRetailUnit("Tiya");
+    setFormConversionRate("");
+    setRouteType("jurisdiction");
+    setSelectedSupportGroupId("");
   };
 
   // Create Batch Submit
@@ -211,14 +286,40 @@ export const WelfareManager = () => {
     const funderName = userProfile?.full_name || user?.email || "Campaign Official";
     const funderRole = role || "campaign_official";
 
+    const conversionRate = formConversionRate && formType === "material" ? parseFloat(formConversionRate) : null;
+    const bulkUnit = formType === "material" ? formBulkUnit : null;
+    const retailUnit = formType === "material" ? formRetailUnit : null;
+
     try {
-      if (selectedWards.length > 0) {
+      if (routeType === "support_group") {
+        if (!selectedSupportGroupId) {
+          toast.error("Please select a target Support Group.");
+          return;
+        }
+        await createBatchMutation.mutateAsync({
+          name: formName,
+          type: formType,
+          item_name: formItemName,
+          amount_per_member: amount,
+          total_packages: total,
+          funder_name: funderName,
+          funder_role: funderRole,
+          target_lga: null,
+          target_ward: null,
+          target_support_group_id: selectedSupportGroupId,
+          status: "active" as const,
+          received_status: "pending",
+          conversion_rate: conversionRate,
+          bulk_unit: bulkUnit,
+          retail_unit: retailUnit
+        });
+        toast.success("Allocated and routed to Support Group!");
+      } else if (selectedWards.length > 0) {
         // Multi-destination: create a batch per ward
         const qtyPerWard = Math.max(1, Math.floor(total / selectedWards.length));
         
-        for (const wardName of selectedWards) {
-          const wardInfo = multiWardsList.find((w) => w.name === wardName);
-          const lgaName = wardInfo?.lgaName || selectedLgas[0] || userLga;
+        for (const wardKey of selectedWards) {
+          const [lgaName, wardName] = wardKey.split('|');
           
           await createBatchMutation.mutateAsync({
             name: `${formName} - ${wardName}`,
@@ -231,7 +332,10 @@ export const WelfareManager = () => {
             target_lga: lgaName,
             target_ward: wardName,
             status: "active" as const,
-            received_status: "pending"
+            received_status: "pending",
+            conversion_rate: conversionRate,
+            bulk_unit: bulkUnit,
+            retail_unit: retailUnit
           });
         }
         toast.success(`Allocated and routed to ${selectedWards.length} Wards!`);
@@ -251,7 +355,10 @@ export const WelfareManager = () => {
             target_lga: lgaName,
             target_ward: null,
             status: "active" as const,
-            received_status: "pending"
+            received_status: "pending",
+            conversion_rate: conversionRate,
+            bulk_unit: bulkUnit,
+            retail_unit: retailUnit
           });
         }
         toast.success(`Allocated and routed to ${selectedLgas.length} LGAs!`);
@@ -278,7 +385,10 @@ export const WelfareManager = () => {
           target_lga: targetLga,
           target_ward: targetWard,
           status: "active" as const,
-          received_status: "pending"
+          received_status: "pending",
+          conversion_rate: conversionRate,
+          bulk_unit: bulkUnit,
+          retail_unit: retailUnit
         });
       }
       
@@ -363,8 +473,14 @@ export const WelfareManager = () => {
     return memberIncentivesList.some((mi) => mi.batch_id === batchId);
   };
 
-  // Perform disbursement
-  const handleDisburse = async (batchId: string, incentiveRecordId?: string) => {
+  // Perform actual disbursement to server
+  const executeDisburse = async (
+    batchId: string, 
+    incentiveRecordId?: string,
+    quantity?: number,
+    unit?: string,
+    equivalentFraction?: number
+  ) => {
     if (!scannedMember) return;
     
     if (!recipientPhone) {
@@ -377,7 +493,10 @@ export const WelfareManager = () => {
         id: incentiveRecordId,
         batch_id: batchId,
         member_id: scannedMember.id,
-        phone_number: recipientPhone
+        phone_number: recipientPhone,
+        disbursed_quantity: quantity,
+        disbursed_unit: unit,
+        disbursed_equivalent_fraction: equivalentFraction
       });
       
       // Refresh scanned member incentives
@@ -387,9 +506,56 @@ export const WelfareManager = () => {
       if (!incentiveRecordId) {
         setSelectedBatchId("");
       }
+
+      setShowDisburseUomModal(false);
+      setUomTargetBatch(null);
+      setUomTargetRecordId(undefined);
     } catch (e) {
       // Error handled by mutation
     }
+  };
+
+  // Perform disbursement click
+  const handleDisburse = (batchId: string, incentiveRecordId?: string) => {
+    const batch = batches.find((b) => b.id === batchId);
+    if (batch && batch.type === "material" && batch.conversion_rate) {
+      setUomTargetBatch(batch);
+      setUomTargetRecordId(incentiveRecordId);
+      setUomAllocationType("whole");
+      setUomQuantity("1");
+      setShowDisburseUomModal(true);
+    } else {
+      executeDisburse(batchId, incentiveRecordId);
+    }
+  };
+
+  const handleDisburseUomSubmit = () => {
+    if (!uomTargetBatch) return;
+    
+    const qty = parseFloat(uomQuantity);
+    if (isNaN(qty) || qty <= 0) {
+      toast.error("Please enter a valid quantity.");
+      return;
+    }
+
+    let unit = uomTargetBatch.bulk_unit || "Bag";
+    let equivalentFraction = 1;
+
+    if (uomAllocationType === "whole") {
+      equivalentFraction = qty;
+    } else {
+      unit = uomTargetBatch.retail_unit || "Tiya";
+      const rate = Number(uomTargetBatch.conversion_rate);
+      equivalentFraction = qty / rate;
+    }
+
+    executeDisburse(
+      uomTargetBatch.id,
+      uomTargetRecordId,
+      qty,
+      unit,
+      equivalentFraction
+    );
   };
 
   // Perform allocation
@@ -439,17 +605,16 @@ export const WelfareManager = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          {!isWardAdmin && (
-            <Button
-              variant={activeTab === "dashboard" ? "default" : "outline"}
-              size="sm"
-              onClick={() => { setActiveTab("dashboard"); setActiveBatchId(null); }}
-              className="text-xs cursor-pointer"
-            >
-              Campaign Dashboard
-            </Button>
-          )}
-          {!isWardAdmin && (
+          <Button
+            variant={activeTab === "dashboard" ? "default" : "outline"}
+            size="sm"
+            onClick={() => { setActiveTab("dashboard"); setActiveBatchId(null); }}
+            className="text-xs cursor-pointer"
+          >
+            {canScan ? "Welfare Incoming" : "Campaign Dashboard"}
+          </Button>
+
+          {!isWardAdmin && !isSupportGroupAdmin && (
             <Button
               variant={activeTab === "create" ? "default" : "outline"}
               size="sm"
@@ -460,7 +625,8 @@ export const WelfareManager = () => {
               Create Allocation
             </Button>
           )}
-          {isWardAdmin && (
+
+          {canScan && (
             <Button
               variant={activeTab === "scan" ? "default" : "outline"}
               size="sm"
@@ -469,16 +635,6 @@ export const WelfareManager = () => {
             >
               <QrCode className="w-3.5 h-3.5" />
               QR Handover Portal
-            </Button>
-          )}
-          {isWardAdmin && (
-            <Button
-              variant={activeTab === "dashboard" ? "default" : "outline"}
-              size="sm"
-              onClick={() => { setActiveTab("dashboard"); setActiveBatchId(null); }}
-              className="text-xs cursor-pointer"
-            >
-              Welfare Incoming
             </Button>
           )}
         </div>
@@ -575,6 +731,11 @@ export const WelfareManager = () => {
                           <tr key={d.id} className="hover:bg-muted/30 transition-colors">
                             <td className="p-3 font-bold text-foreground pl-6">
                               {d.member?.full_name || "Unknown"}
+                              {d.disbursed_quantity !== null && d.disbursed_quantity !== undefined && (
+                                <span className="block text-[10px] text-indigo-600 font-semibold mt-0.5">
+                                  Qty: {d.disbursed_quantity} {d.disbursed_unit} ({Number(d.disbursed_equivalent_fraction).toFixed(3)} Bag)
+                                </span>
+                              )}
                             </td>
                             <td className="p-3 text-xs text-muted-foreground">
                               {d.member?.lga || "—"} / {d.member?.ward || "—"}
@@ -725,7 +886,7 @@ export const WelfareManager = () => {
         </div>
       )}
 
-      {activeTab === "create" && !isWardAdmin && (
+      {activeTab === "create" && !isWardAdmin && !isSupportGroupAdmin && (
         /* ALLOCATION BUDGET ROUTING FORM */
         <Card className="border border-border shadow-sm max-w-xl mx-auto animate-fade-in">
           <CardHeader>
@@ -768,10 +929,52 @@ export const WelfareManager = () => {
                     className="input-premium w-full text-sm"
                     placeholder="e.g., Rice Bag, Scholarship, Cash"
                     value={formItemName}
-                    onChange={(e) => setFormItemName(e.target.value)}
+                    onChange={(e) => handleItemNameChange(e.target.value)}
                   />
                 </div>
               </div>
+
+              {formType === "material" && (
+                <div className="border border-border/80 bg-muted/20 p-3.5 rounded-xl space-y-3 animate-scale-in">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-foreground uppercase">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                    Unit-of-Measure (UoM) Conversion Settings
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">Bulk Unit</label>
+                      <input
+                        className="input-premium w-full text-xs h-[36px]"
+                        placeholder="e.g., Bag, Buhuna"
+                        value={formBulkUnit}
+                        onChange={(e) => setFormBulkUnit(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">Retail Unit</label>
+                      <input
+                        className="input-premium w-full text-xs h-[36px]"
+                        placeholder="e.g., Tiya, Mud"
+                        value={formRetailUnit}
+                        onChange={(e) => setFormRetailUnit(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-semibold text-muted-foreground uppercase">Rate (1 Bulk = X Retail)</label>
+                      <input
+                        type="number"
+                        className="input-premium w-full text-xs h-[36px]"
+                        placeholder="e.g., 40, 18"
+                        value={formConversionRate}
+                        onChange={(e) => setFormConversionRate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Define conversion rate between bulk packages and retail units (e.g., 1 Bag = 40 Tiyas for Fertilizer, 1 Bag = 18 Tiyas for Rice).
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -797,71 +1000,102 @@ export const WelfareManager = () => {
                 </div>
               </div>
 
-              {/* JURISDICTION ROUTING DROPDOWNS */}
+              {/* TARGET ROUTING SELECTOR */}
               <div className="border-t border-border pt-4 mt-4 space-y-4">
                 <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5 uppercase">
-                  <MapPin className="w-3.5 h-3.5 text-apc-green" /> Target Jurisdiction Routing
+                  <MapPin className="w-3.5 h-3.5 text-apc-green" /> Target Allocation Routing
                 </h4>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* LGA Multi-Select Checklist */}
-                  {role !== "lga_chairman" && !isWardAdmin && (
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase block">Target LGAs</label>
-                      <div className="border border-border rounded-lg p-3 max-h-36 overflow-y-auto space-y-2 bg-card shadow-inner">
-                        {lgasList
-                          .filter((lga) => {
-                            if (authorizedLgas.includes("ALL")) return true;
-                            return authorizedLgas.includes(lga.name);
-                          })
-                          .map((lga) => (
-                            <label key={lga.id} className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-foreground hover:text-indigo-600 transition-colors">
-                              <Checkbox
-                                checked={selectedLgas.includes(lga.name)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setSelectedLgas([...selectedLgas, lga.name]);
-                                  } else {
-                                    setSelectedLgas(selectedLgas.filter((name) => name !== lga.name));
-                                    // Remove wards associated with this LGA
-                                    const wardsToRemove = multiWardsList
-                                      .filter((w) => w.lgaName === lga.name)
-                                      .map((w) => w.name);
-                                    setSelectedWards(selectedWards.filter((w) => !wardsToRemove.includes(w)));
-                                  }
-                                }}
-                              />
-                              <span>{lga.name}</span>
-                            </label>
-                          ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Ward Multi-Select Checklist (Filtered by Selected LGAs) */}
-                  {!isWardAdmin && (selectedLgas.length > 0 || role === "lga_chairman") && (
-                    <div className="space-y-2 animate-fade-in">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase block">Target Wards (Optional)</label>
-                      <div className="border border-border rounded-lg p-3 max-h-36 overflow-y-auto space-y-2 bg-card shadow-inner">
-                        {(role === "lga_chairman" ? wardsList.map(w => ({ ...w, lgaName: userLga })) : multiWardsList).map((ward) => (
-                          <label key={ward.id} className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-foreground hover:text-indigo-600 transition-colors">
-                            <Checkbox
-                              checked={selectedWards.includes(ward.name)}
-                              onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setSelectedWards([...selectedWards, ward.name]);
-                                  } else {
-                                    setSelectedWards(selectedWards.filter((name) => name !== ward.name));
-                                  }
-                                }}
-                              />
-                              <span>{ward.name} <span className="text-[10px] text-muted-foreground font-normal">({ward.lgaName})</span></span>
-                            </label>
-                          ))}
-                      </div>
-                    </div>
-                  )}
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase">Routing Target Type</label>
+                  <select
+                    className="input-premium w-full text-sm h-[40px] bg-card"
+                    value={routeType}
+                    onChange={(e: any) => setRouteType(e.target.value)}
+                  >
+                    <option value="jurisdiction">Route to Ward/LGA</option>
+                    <option value="support_group">Route to Support Group</option>
+                  </select>
                 </div>
+
+                {routeType === "jurisdiction" ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* LGA Multi-Select Checklist */}
+                    {role !== "lga_chairman" && !isWardAdmin && (
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase block">Target LGAs</label>
+                        <div className="border border-border rounded-lg p-3 max-h-36 overflow-y-auto space-y-2 bg-card shadow-inner">
+                          {lgasList
+                            .filter((lga) => {
+                              if (authorizedLgas.includes("ALL")) return true;
+                              return authorizedLgas.includes(lga.name);
+                            })
+                            .map((lga) => (
+                              <label key={lga.id} className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-foreground hover:text-indigo-600 transition-colors">
+                                <Checkbox
+                                  checked={selectedLgas.includes(lga.name)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSelectedLgas([...selectedLgas, lga.name]);
+                                    } else {
+                                      setSelectedLgas(selectedLgas.filter((name) => name !== lga.name));
+                                      // Remove wards associated with this LGA
+                                      const wardsToRemove = multiWardsList
+                                        .filter((w) => w.lgaName === lga.name)
+                                        .map((w) => `${w.lgaName}|${w.name}`);
+                                      setSelectedWards(selectedWards.filter((w) => !wardsToRemove.includes(w)));
+                                    }
+                                  }}
+                                />
+                                <span>{lga.name}</span>
+                              </label>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ward Multi-Select Checklist (Filtered by Selected LGAs) */}
+                    {!isWardAdmin && (selectedLgas.length > 0 || role === "lga_chairman") && (
+                      <div className="space-y-2 animate-fade-in">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase block">Target Wards (Optional)</label>
+                        <div className="border border-border rounded-lg p-3 max-h-36 overflow-y-auto space-y-2 bg-card shadow-inner">
+                          {(role === "lga_chairman" ? wardsList.map(w => ({ ...w, lgaName: userLga })) : multiWardsList).map((ward) => (
+                            <label key={ward.id} className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-foreground hover:text-indigo-600 transition-colors">
+                              <Checkbox
+                                checked={selectedWards.includes(`${ward.lgaName}|${ward.name}`)}
+                                onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSelectedWards([...selectedWards, `${ward.lgaName}|${ward.name}`]);
+                                    } else {
+                                      setSelectedWards(selectedWards.filter((name) => name !== `${ward.lgaName}|${ward.name}`));
+                                    }
+                                  }}
+                                />
+                                <span>{ward.name} <span className="text-[10px] text-muted-foreground font-normal">({ward.lgaName})</span></span>
+                              </label>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2 animate-fade-in">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase block">Target Support Group</label>
+                    <select
+                      required={routeType === "support_group"}
+                      className="input-premium w-full text-sm h-[40px] bg-card"
+                      value={selectedSupportGroupId}
+                      onChange={(e) => setSelectedSupportGroupId(e.target.value)}
+                    >
+                      <option value="">-- Choose Verified Support Group --</option>
+                      {verifiedSupportGroups.map((sg) => (
+                        <option key={sg.id} value={sg.id}>
+                          {sg.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 flex justify-between gap-4">
@@ -887,8 +1121,8 @@ export const WelfareManager = () => {
         </Card>
       )}
 
-      {activeTab === "scan" && isWardAdmin && (
-        /* WARD ADMIN QR CODE SCANNER HANDOVER INTERFACE */
+      {activeTab === "scan" && canScan && (
+        /* QR CODE SCANNER HANDOVER INTERFACE */
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
           {/* QR Scan Viewport Card */}
           <Card className="md:col-span-1 border border-border shadow-sm flex flex-col overflow-hidden bg-card">
@@ -933,8 +1167,10 @@ export const WelfareManager = () => {
                       setScannedId(e.target.value);
                     }}
                   >
-                    <option value="">-- Choose Member in Ward --</option>
-                    {wardMembers.map((m) => (
+                    <option value="">
+                      {isSupportGroupAdmin ? "-- Choose Support Group Member --" : "-- Choose Member in Ward --"}
+                    </option>
+                    {scanMembers.map((m) => (
                       <option key={m.id} value={m.membership_id}>
                         {m.full_name} ({m.membership_id})
                       </option>
@@ -1103,7 +1339,19 @@ export const WelfareManager = () => {
                               <div>
                                 <p className="font-semibold text-foreground">{mi.batch?.name}</p>
                                 <p className="text-[10px] text-muted-foreground">
-                                  {mi.batch?.item_name} — Disbursed: {format(new Date(mi.disbursed_at || mi.updated_at), "MMM dd, yyyy")}
+                                  {mi.batch?.item_name}
+                                  {mi.disbursed_quantity !== undefined && mi.disbursed_quantity !== null ? (
+                                    <span className="font-bold text-indigo-600 ml-1">
+                                      — Received: {mi.disbursed_quantity} {mi.disbursed_unit} ({Number(mi.disbursed_equivalent_fraction).toFixed(3)} {mi.batch?.bulk_unit || "Bag"})
+                                    </span>
+                                  ) : (
+                                    <span className="font-bold text-indigo-600 ml-1">
+                                      — Received: 1 {mi.batch?.bulk_unit || "Bag"}
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-[9px] text-muted-foreground">
+                                  Disbursed: {format(new Date(mi.disbursed_at || mi.updated_at), "MMM dd, yyyy")}
                                 </p>
                               </div>
                               <Badge className="bg-green-600 text-white text-[10px] hover:bg-green-600">
@@ -1126,6 +1374,114 @@ export const WelfareManager = () => {
               )}
             </CardContent>
           </Card>
+        </div>
+      )}
+      {/* DISBURSEMENT UOM MODAL */}
+      {showDisburseUomModal && uomTargetBatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4">
+          <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl p-6 space-y-4 animate-scale-in">
+            <div>
+              <h3 className="text-base font-bold text-foreground">Specify Quantity & Unit Type</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Item: <span className="font-bold text-foreground">{uomTargetBatch.item_name}</span>. 
+                Conversion: 1 {uomTargetBatch.bulk_unit || "Bag"} = {uomTargetBatch.conversion_rate} {uomTargetBatch.retail_unit || "Tiya"}.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Toggle Selector */}
+              <div className="grid grid-cols-2 gap-2 bg-muted/40 p-1.5 rounded-lg border">
+                <Button
+                  type="button"
+                  variant={uomAllocationType === "whole" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setUomAllocationType("whole");
+                    setUomQuantity("1");
+                  }}
+                  className="text-xs py-1.5"
+                >
+                  Whole {uomTargetBatch.bulk_unit || "Bag"}
+                </Button>
+                <Button
+                  type="button"
+                  variant={uomAllocationType === "fractional" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setUomAllocationType("fractional");
+                    setUomQuantity("");
+                  }}
+                  className="text-xs py-1.5"
+                >
+                  Fractional / {uomTargetBatch.retail_unit || "Tiya"}
+                </Button>
+              </div>
+
+              {/* Quantity Input */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-muted-foreground uppercase">
+                  Quantity ({uomAllocationType === "whole" ? uomTargetBatch.bulk_unit || "Bag" : uomTargetBatch.retail_unit || "Tiya"})
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  className="input-premium w-full text-sm h-[40px]"
+                  placeholder={uomAllocationType === "whole" ? "e.g. 1" : "e.g. 5"}
+                  value={uomQuantity}
+                  onChange={(e) => setUomQuantity(e.target.value)}
+                />
+              </div>
+
+              {/* Mathematical calculation summary */}
+              {uomQuantity && !isNaN(parseFloat(uomQuantity)) && (
+                <div className="p-3 bg-muted/30 border rounded-lg text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Allocation:</span>
+                    <span className="font-semibold text-foreground">
+                      {uomQuantity} {uomAllocationType === "whole" ? uomTargetBatch.bulk_unit || "Bag" : uomTargetBatch.retail_unit || "Tiya"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Inventory Deduction:</span>
+                    <span className="font-bold text-indigo-600">
+                      {uomAllocationType === "whole" 
+                        ? parseFloat(uomQuantity).toFixed(3)
+                        : (parseFloat(uomQuantity) / Number(uomTargetBatch.conversion_rate)).toFixed(3)
+                      } {uomTargetBatch.bulk_unit || "Bag"}(s)
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2 flex justify-between gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowDisburseUomModal(false);
+                    setUomTargetBatch(null);
+                    setUomTargetRecordId(undefined);
+                  }}
+                  className="text-xs w-1/3 cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleDisburseUomSubmit}
+                  disabled={!uomQuantity || disburseMutation.isPending}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs gap-1 cursor-pointer"
+                >
+                  {disburseMutation.isPending ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-3.5 h-3.5" />
+                  )}
+                  Confirm & Disburse
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

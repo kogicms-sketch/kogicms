@@ -18,6 +18,8 @@ import {
     Table, TableBody, TableCell, TableHead,
     TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CandidateSupportGroupsTab } from "@/components/support-groups/CandidateSupportGroupsTab";
 
 const FederalRepDashboard = () => {
     const router = useRouter();
@@ -395,68 +397,293 @@ const FederalRepDashboard = () => {
                         </div>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-muted/30">
-                                        <TableHead className="text-xs font-semibold">Member Name</TableHead>
-                                        <TableHead className="text-xs font-semibold">LGA</TableHead>
-                                        <TableHead className="text-xs font-semibold hidden sm:table-cell">Ward</TableHead>
-                                        <TableHead className="text-xs font-semibold">Status</TableHead>
-                                        <TableHead className="text-xs font-semibold">Joined</TableHead>
-                                        <TableHead className="text-xs font-semibold text-right">Action</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {(constData?.recentMembers || []).length > 0 ? (
-                                        constData?.recentMembers.map((member: any) => (
-                                            <TableRow key={member.id} className="hover:bg-muted/20 transition-colors">
-                                                <TableCell className="font-medium text-xs sm:text-sm">
-                                                    <div className="flex flex-col">
-                                                        <span>{member.name}</span>
-                                                        <span className="text-[10px] text-muted-foreground">{member.phone || "No phone"}</span>
+                        <Tabs defaultValue="overview" className="w-full">
+                            <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                                <TabsTrigger value="overview">Constituency Overview</TabsTrigger>
+                                <TabsTrigger value="support-groups">My Support Groups</TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="overview" className="space-y-5 mt-4">
+                                {/* ── INTELLIGENCE OVERVIEW ── */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                    {/* Victory Projection Gauge */}
+                                    <Card className="lg:col-span-1 border-0 shadow-xl bg-white overflow-hidden relative">
+                                        <div className="absolute top-0 left-0 w-1 h-full bg-apc-red" />
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-apc-red">
+                                                <Activity className="h-4 w-4" />
+                                                Victory Projection
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pb-4">
+                                            <VictoryGauge 
+                                                percentage={overallCoverage}
+                                                target={totalTarget}
+                                                current={totalAppMembers}
+                                            />
+                                            <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center text-xs">
+                                                <span className="text-muted-foreground font-semibold">Total Target</span>
+                                                <span className="font-extrabold text-navy-deep">{totalTarget.toLocaleString()}</span>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Granular Demographics (Youth vs Seniors) */}
+                                    <Card className="lg:col-span-2 border-0 shadow-xl bg-white overflow-hidden relative">
+                                        <div className="absolute top-0 left-0 w-1 h-full bg-apc-green" />
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-apc-green">
+                                                <Users className="h-4 w-4" />
+                                                Granular Demographics (Youth vs Seniors)
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pb-4">
+                                            <GranularDemographics lgas={rep.lga_list} />
+                                        </CardContent>
+                                    </Card>
+                                </div>
+
+                                {/* KPI Metrics Row */}
+                                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                                    {kpiCards.map((card, idx) => {
+                                        const Icon = card.icon;
+                                        return (
+                                            <Card key={idx} className={`bg-white border-0 border-l-4 ${card.border} shadow-lg transition-transform duration-300 hover:-translate-y-1`}>
+                                                <CardContent className="p-4 flex items-center justify-between">
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-muted-foreground">{card.label}</p>
+                                                        <h3 className="text-xl sm:text-2xl font-black text-navy-deep">{card.value}</h3>
+                                                        <p className="text-[10px] text-muted-foreground">{card.sub}</p>
                                                     </div>
-                                                </TableCell>
-                                                <TableCell className="text-xs">
-                                                    <span className="px-2 py-0.5 rounded-full bg-apc-red/10 text-apc-red font-medium text-[10px]">{member.lga}</span>
-                                                </TableCell>
-                                                <TableCell className="text-xs text-muted-foreground hidden sm:table-cell">{member.ward}</TableCell>
-                                                <TableCell>
-                                                    {member.is_verified ? (
-                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-apc-green bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
-                                                            <Shield className="h-2 w-2" /> Verified
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100">
-                                                            <Activity className="h-2 w-2" /> Pending
-                                                        </span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-[10px] text-muted-foreground">
-                                                    {new Date(member.created_at).toLocaleDateString()}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="sm" 
-                                                        className="h-8 w-8 p-0"
-                                                        onClick={() => navigate(`/members/detail?id=${member.id}`)}
-                                                    >
-                                                        <ChevronRight className="h-4 w-4" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                                No members found in this constituency yet.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                                    <div className={`p-2 rounded-lg ${card.bg}`}>
+                                                        <Icon className={`h-5 w-5 ${card.color}`} />
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Charts / Trends */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                    <Card className="lg:col-span-2 border-0 shadow-xl bg-white p-5">
+                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                                            <div>
+                                                <h3 className="text-sm font-bold text-navy-white flex items-center gap-2">
+                                                    <TrendingUp className="h-4 w-4 text-apc-green" />
+                                                    Member Registration Trends
+                                                </h3>
+                                                <p className="text-xs text-muted-foreground mt-0.5">Daily growth analysis across LGAs</p>
+                                            </div>
+                                        </div>
+                                        <div className="h-[280px]">
+                                            <RegistrationTrendChart data={trendData || []} lgas={rep.lga_list} />
+                                        </div>
+                                    </Card>
+
+                                    <Card className="lg:col-span-1 border-0 shadow-xl bg-white">
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-sm font-bold text-apc-red flex items-center gap-2">
+                                                <MapPin className="h-4 w-4" />
+                                                LGA Registration Coverage
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="space-y-4 max-h-[280px] overflow-y-auto pr-1">
+                                                {(constData?.lgaBreakdown || []).map((lga, idx) => (
+                                                    <div key={idx} className="space-y-1.5">
+                                                        <div className="flex justify-between items-center text-xs">
+                                                            <span className="font-bold text-navy-deep">{lga.lga_name}</span>
+                                                            <span className="font-semibold text-muted-foreground">
+                                                                {lga.app_members_verified.toLocaleString()} / {lga.target_voters.toLocaleString()} ({Math.round(lga.coverage_pct)}%)
+                                                            </span>
+                                                        </div>
+                                                        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                                            <div 
+                                                                className="bg-apc-green h-1.5 rounded-full transition-all duration-500" 
+                                                                style={{ width: `${lga.coverage_pct}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+
+                                {/* Polling Units & Members Grid */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                    {/* Polling Unit Status Ledger */}
+                                    <Card className="lg:col-span-2 border-0 shadow-xl bg-white">
+                                        <CardHeader className="pb-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                            <div>
+                                                <CardTitle className="text-sm font-bold text-navy-deep flex items-center gap-2">
+                                                    <Building2 className="h-4 w-4 text-purple-600" />
+                                                    Constituency Polling Units
+                                                </CardTitle>
+                                                <CardDescription className="text-xs">Browse coverage metrics per polling unit</CardDescription>
+                                            </div>
+                                            <div className="flex gap-2 w-full sm:w-auto">
+                                                <div className="relative flex-1 sm:w-[200px]">
+                                                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Search unit/ward..."
+                                                        value={search}
+                                                        onChange={(e) => setSearch(e.target.value)}
+                                                        className="pl-8 h-9 text-xs w-full bg-muted/30 border-0 rounded-lg focus:ring-1 focus:ring-purple-500"
+                                                    />
+                                                </div>
+                                                <select
+                                                    value={lgaFilter}
+                                                    onChange={(e) => setLgaFilter(e.target.value)}
+                                                    className="h-9 text-xs bg-muted/30 border-0 rounded-lg px-2 text-navy-deep font-medium"
+                                                >
+                                                    <option value="All">All LGAs</option>
+                                                    {rep.lga_list.map((lga, idx) => (
+                                                        <option key={idx} value={lga}>{lga}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="overflow-x-auto max-h-[350px] overflow-y-auto pr-1">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow className="bg-muted/30">
+                                                            <TableHead className="text-xs font-semibold">PU Details</TableHead>
+                                                            <TableHead className="text-xs font-semibold">LGA / Ward</TableHead>
+                                                            <TableHead className="text-xs font-semibold text-center">Voters</TableHead>
+                                                            <TableHead className="text-xs font-semibold text-center">Target</TableHead>
+                                                            <TableHead className="text-xs font-semibold text-center">Members</TableHead>
+                                                            <TableHead className="text-xs font-semibold text-right">Coverage</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {filteredPUs.length > 0 ? (
+                                                            filteredPUs.slice(0, 100).map((pu: any) => {
+                                                                const coverage = pu.target_voters > 0 
+                                                                    ? Math.min((pu.verified_members / pu.target_voters) * 100, 100)
+                                                                    : 0;
+                                                                return (
+                                                                    <TableRow key={pu.id} className="hover:bg-muted/20 transition-colors">
+                                                                        <TableCell className="font-medium text-xs">
+                                                                            <div className="flex flex-col">
+                                                                                <span>{pu.name}</span>
+                                                                                <span className="text-[10px] text-muted-foreground font-mono">{pu.code}</span>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                        <TableCell className="text-xs">
+                                                                            <div className="flex flex-col">
+                                                                                <span className="font-semibold text-navy-deep">{pu.lga_name}</span>
+                                                                                <span className="text-[10px] text-muted-foreground">{pu.ward_name}</span>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                        <TableCell className="text-center text-xs font-medium">{pu.registered_voters?.toLocaleString() || 0}</TableCell>
+                                                                        <TableCell className="text-center text-xs text-muted-foreground font-medium">{pu.target_voters || 0}</TableCell>
+                                                                        <TableCell className="text-center text-xs font-bold text-apc-green">{pu.verified_members || 0}</TableCell>
+                                                                        <TableCell className="text-right text-xs font-extrabold">
+                                                                            <span className={coverage >= 80 ? "text-green-600" : coverage >= 40 ? "text-orange-500" : "text-red-500"}>
+                                                                                {Math.round(coverage)}%
+                                                                            </span>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                );
+                                                            })
+                                                        ) : (
+                                                            <TableRow>
+                                                                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                                                    No polling units matched search.
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Recent Member Registrations */}
+                                    <Card className="lg:col-span-1 border-0 shadow-xl bg-white">
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-sm font-bold text-navy-deep flex items-center gap-2">
+                                                <Star className="h-4 w-4 text-orange-500" />
+                                                Recent Members
+                                            </CardTitle>
+                                            <CardDescription className="text-xs">Latest registrations in your constituency</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="overflow-x-auto max-h-[350px] overflow-y-auto pr-1">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow className="bg-muted/30">
+                                                            <TableHead className="text-xs font-semibold">Member Name</TableHead>
+                                                            <TableHead className="text-xs font-semibold">LGA</TableHead>
+                                                            <TableHead className="text-xs font-semibold hidden sm:table-cell">Ward</TableHead>
+                                                            <TableHead className="text-xs font-semibold">Status</TableHead>
+                                                            <TableHead className="text-xs font-semibold">Joined</TableHead>
+                                                            <TableHead className="text-xs font-semibold text-right">Action</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {(constData?.recentMembers || []).length > 0 ? (
+                                                            constData?.recentMembers.map((member: any) => (
+                                                                <TableRow key={member.id} className="hover:bg-muted/20 transition-colors">
+                                                                    <TableCell className="font-medium text-xs sm:text-sm">
+                                                                        <div className="flex flex-col">
+                                                                            <span>{member.name}</span>
+                                                                            <span className="text-[10px] text-muted-foreground">{member.phone || "No phone"}</span>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-xs">
+                                                                        <span className="px-2 py-0.5 rounded-full bg-apc-red/10 text-apc-red font-medium text-[10px]">{member.lga}</span>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-xs text-muted-foreground hidden sm:table-cell">{member.ward}</TableCell>
+                                                                    <TableCell>
+                                                                        {member.is_verified ? (
+                                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-apc-green bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                                                                                <Shield className="h-2 w-2" /> Verified
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100">
+                                                                                <Activity className="h-2 w-2" /> Pending
+                                                                            </span>
+                                                                        )}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-[10px] text-muted-foreground">
+                                                                        {new Date(member.created_at).toLocaleDateString()}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        <Button 
+                                                                            variant="ghost" 
+                                                                            size="sm" 
+                                                                            className="h-8 w-8 p-0"
+                                                                            onClick={() => navigate(`/members/detail?id=${member.id}`)}
+                                                                        >
+                                                                            <ChevronRight className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))
+                                                        ) : (
+                                                            <TableRow>
+                                                                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                                                    No members found in this constituency yet.
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="support-groups" className="mt-4">
+                                <CandidateSupportGroupsTab candidateId={rep.user_id} candidateRace="house_of_reps" />
+                            </TabsContent>
+                        </Tabs>
                     </CardContent>
                 </Card>
 

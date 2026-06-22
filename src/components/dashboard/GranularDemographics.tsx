@@ -70,7 +70,7 @@ export const GranularDemographics = ({
 
   const totalActive = stats.totalRegistered;
   const expectedTurnout = stats.expectedTurnout;
-  const leftoversCount = Math.max(0, totalRegisteredVoters - expectedTurnout);
+  const leftoversCount = Math.max(0, totalRegisteredVoters - expectedTurnout - stats.deathsCount);
 
   const maleCount = stats.genderSplit.male;
   const femaleCount = stats.genderSplit.female;

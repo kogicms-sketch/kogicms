@@ -248,6 +248,42 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
     setUploading(true);
 
     try {
+      let resolvedPollingUnitId: string | null = null;
+      let finalPollingUnitName: string | null = formData.polling_unit || null;
+
+      if (formData.lga && formData.ward && formData.polling_unit) {
+        let dbCode: string | null = null;
+        if (matchedVoter?.polling_unit_code) {
+          const codeParts = matchedVoter.polling_unit_code.split("-");
+          if (codeParts.length >= 4) {
+            const wardNum = codeParts[2];
+            const puNum = codeParts[3];
+            dbCode = `W${wardNum}-${puNum}`;
+          }
+        }
+
+        if (!dbCode) {
+          const selectedPuObj = getPollingUnitObjects(formData.lga, formData.ward)
+            .find(pu => pu.name === formData.polling_unit);
+          dbCode = selectedPuObj?.code || null;
+        }
+
+        if (dbCode) {
+          const { data: puData, error: puError } = await supabase
+            .from("polling_units")
+            .select("id, name")
+            .eq("lga_name", formData.lga)
+            .eq("ward_name", formData.ward)
+            .eq("code", dbCode)
+            .maybeSingle();
+
+          if (!puError && puData) {
+            resolvedPollingUnitId = puData.id;
+            finalPollingUnitName = puData.name;
+          }
+        }
+      }
+
       const memberData = {
         full_name: `${formData.firstName} ${formData.lastName}`,
         email: formData.email || null,
@@ -257,7 +293,8 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
         state: "Katsina",
         lga: formData.lga || null,
         ward: formData.ward || null,
-        polling_unit: formData.polling_unit || null,
+        polling_unit: finalPollingUnitName,
+        polling_unit_id: resolvedPollingUnitId,
         gender: formData.gender || null,
         date_of_birth: formData.dateOfBirth || null,
         voters_card_id: formData.votersCardId || null,
@@ -275,7 +312,7 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
       };
 
       // Create member first
-      const newMember = await createMember.mutateAsync(memberData);
+      const newMember = await createMember.mutateAsync(memberData as any);
 
       // Upload voter card if provided (overrides registry photo)
       if (votersCardFile && newMember?.id) {

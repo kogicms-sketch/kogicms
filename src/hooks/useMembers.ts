@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { Tables, TablesInsert } from "@/integrations/supabase/loose-types";
 import { toast } from "sonner";
@@ -24,6 +25,25 @@ export const useMembers = (
   allowedLgas?: string[],
   allowedWard?: string,
 ) => {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("members-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "members" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["members"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ["members", scope, organizationId, pollingUnitId, pollingUnitName, allowedLgas, allowedWard],
     enabled: scope !== "polling_unit" || !!pollingUnitId || !!pollingUnitName,
@@ -103,6 +123,8 @@ export const useCreateMember = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["members"] });
       queryClient.invalidateQueries({ queryKey: ["organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["demographics"] });
+      queryClient.invalidateQueries({ queryKey: ["super-admin"] });
       toast.success("Member registered successfully");
     },
     onError: (error) => {
@@ -127,8 +149,14 @@ export const useUpdateMember = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["members"] });
+      if (data?.id) {
+        queryClient.invalidateQueries({ queryKey: ["member", data.id] });
+        queryClient.invalidateQueries({ queryKey: ["member-attendance", data.id] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["demographics"] });
+      queryClient.invalidateQueries({ queryKey: ["super-admin"] });
       toast.success("Member updated successfully");
     },
     onError: (error) => {
@@ -150,7 +178,7 @@ export const useMemberStats = (
     queryKey: ["members", "stats", scope, organizationId, pollingUnitId, pollingUnitName, allowedLgas, allowedWard],
     enabled: scope !== "polling_unit" || !!pollingUnitId || !!pollingUnitName,
     queryFn: async () => {
-      let query = supabase.from("members").select("status");
+      let query = supabase.from("members").select("status, is_deceased");
 
       if (scope === "polling_unit") {
         if (pollingUnitId && pollingUnitName) {
@@ -176,8 +204,9 @@ export const useMemberStats = (
 
       if (error) throw error;
 
-      const total = data.length;
-      const active = data.filter((m) => m.status === "active").length;
+      const activeMembers = (data || []).filter((m: any) => !m.is_deceased);
+      const total = activeMembers.length;
+      const active = activeMembers.filter((m) => m.status === "active").length;
 
       return { total, active, inactive: total - active };
     },
@@ -241,6 +270,8 @@ export const useVerifyMember = () => {
     onSuccess: (id) => {
       queryClient.invalidateQueries({ queryKey: ["members"] });
       queryClient.invalidateQueries({ queryKey: ["member", id] });
+      queryClient.invalidateQueries({ queryKey: ["demographics"] });
+      queryClient.invalidateQueries({ queryKey: ["super-admin"] });
       toast.success("Member verified successfully!");
     },
     onError: (error: any) => {

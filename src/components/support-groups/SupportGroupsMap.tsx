@@ -94,7 +94,12 @@ interface LGAReport {
 }
 
 export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
-  const [mapKey] = useState(() => `map-${Math.random().toString(36).substring(2, 9)}`);
+  const [mapKey, setMapKey] = useState("");
+  
+  useEffect(() => {
+    setMapKey(`map-${Math.random().toString(36).substring(2, 9)}`);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'all' | CoverageStatus>('all');
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLga, setSelectedLga] = useState<string | null>(null);
@@ -223,6 +228,16 @@ export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
     }
   };
 
+  if (!mapKey) {
+    return (
+      <Card className="col-span-full mb-6 overflow-hidden border border-border/50 shadow-md">
+        <div className="h-[520px] bg-muted animate-pulse rounded-lg w-full flex items-center justify-center text-muted-foreground text-sm">
+          Loading maps...
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card className="col-span-full mb-6 overflow-hidden border border-border/50 shadow-md">
       <CardHeader className="pb-3 border-b bg-gradient-to-r from-card to-muted/10">
@@ -247,7 +262,17 @@ export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
 
       <CardContent className="p-0 relative flex flex-col lg:flex-row h-[520px]">
         {/* Leaflet Map Frame */}
-        <div className="flex-1 h-[320px] lg:h-full relative border-r">
+        <div 
+          ref={(el) => {
+            if (el) {
+              const mapDiv = el.querySelector('.leaflet-container') || el;
+              if (mapDiv) {
+                delete (mapDiv as any)._leaflet_id;
+              }
+            }
+          }}
+          className="flex-1 h-[320px] lg:h-full relative border-r"
+        >
           <MapContainer 
             key={mapKey}
             center={mapCenter} 

@@ -20,6 +20,10 @@ export interface IncentiveBatch {
   received_status?: 'pending' | 'received';
   created_at: string;
   updated_at: string;
+  conversion_rate?: number | null;
+  bulk_unit?: string | null;
+  retail_unit?: string | null;
+  target_support_group_id?: string | null;
 }
 
 export interface MemberIncentive {
@@ -38,6 +42,9 @@ export interface MemberIncentive {
   audit_notes: string | null;
   created_at: string;
   updated_at: string;
+  disbursed_quantity?: number | null;
+  disbursed_unit?: string | null;
+  disbursed_equivalent_fraction?: number | null;
   member?: {
     full_name: string;
     phone: string | null;
@@ -52,6 +59,7 @@ export const useIncentiveBatches = (filters?: {
   target_lga?: string;
   target_ward?: string;
   funder_id?: string;
+  target_support_group_id?: string;
 }) => {
   return useQuery({
     queryKey: ["incentive-batches", filters],
@@ -66,6 +74,9 @@ export const useIncentiveBatches = (filters?: {
       }
       if (filters?.funder_id) {
         query = query.eq("funder_id", filters.funder_id);
+      }
+      if (filters?.target_support_group_id) {
+        query = query.eq("target_support_group_id", filters.target_support_group_id);
       }
 
       const { data, error } = await query;
@@ -253,12 +264,18 @@ export const useDisburseIncentive = () => {
       id, 
       batch_id, 
       member_id,
-      phone_number 
+      phone_number,
+      disbursed_quantity,
+      disbursed_unit,
+      disbursed_equivalent_fraction
     }: { 
       id?: string; 
       batch_id: string; 
       member_id: string;
       phone_number: string | null;
+      disbursed_quantity?: number | null;
+      disbursed_unit?: string | null;
+      disbursed_equivalent_fraction?: number | null;
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
@@ -287,6 +304,7 @@ export const useDisburseIncentive = () => {
         }
       }
 
+      const incrementAmount = disbursed_equivalent_fraction ?? 1;
       let result;
 
       if (recordId) {
@@ -299,6 +317,9 @@ export const useDisburseIncentive = () => {
             disbursed_by_user_id: user.id,
             disbursed_by_name: execName,
             phone_number: phone_number,
+            disbursed_quantity: disbursed_quantity ?? null,
+            disbursed_unit: disbursed_unit ?? null,
+            disbursed_equivalent_fraction: incrementAmount,
           })
           .eq("id", recordId)
           .select()
@@ -319,6 +340,9 @@ export const useDisburseIncentive = () => {
             disbursed_by_name: execName,
             phone_number: phone_number,
             audit_status: "pending",
+            disbursed_quantity: disbursed_quantity ?? null,
+            disbursed_unit: disbursed_unit ?? null,
+            disbursed_equivalent_fraction: incrementAmount,
           })
           .select()
           .single();
@@ -327,12 +351,19 @@ export const useDisburseIncentive = () => {
         result = data;
 
         // Increment allocated packages too since it went straight to disbursed
-        await supabase.rpc("increment_batch_allocated", { _batch_id: batch_id }).catch(() => {});
+        const { error: allocErr } = await supabase.rpc("increment_batch_allocated", { 
+          _batch_id: batch_id,
+          _increment_amount: incrementAmount
+        });
+        if (allocErr) {
+          console.error("Error calling increment_batch_allocated RPC:", allocErr);
+        }
       }
 
       // Increment disbursed packages in batch
       const { error: batchErr } = await supabase.rpc("increment_batch_disbursed", {
-        _batch_id: batch_id
+        _batch_id: batch_id,
+        _increment_amount: incrementAmount
       });
 
       if (batchErr) {
@@ -344,16 +375,16 @@ export const useDisburseIncentive = () => {
           .single();
         
         const updates: any = {
-          disbursed_packages: (currentBatch?.disbursed_packages || 0) + 1
+          disbursed_packages: (Number(currentBatch?.disbursed_packages) || 0) + incrementAmount
         };
 
         // If direct disbursement, ensure allocated is also incremented
         if (!recordId) {
-          updates.allocated_packages = (currentBatch?.allocated_packages || 0) + 1;
+          updates.allocated_packages = (Number(currentBatch?.allocated_packages) || 0) + incrementAmount;
         }
 
         // If fully disbursed, mark as completed
-        if ((currentBatch?.disbursed_packages || 0) + 1 >= (currentBatch?.total_packages || 0)) {
+        if ((Number(currentBatch?.disbursed_packages) || 0) + incrementAmount >= (Number(currentBatch?.total_packages) || 0)) {
           updates.status = "completed";
         }
 

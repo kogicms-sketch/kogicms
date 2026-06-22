@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from 'next/navigation';
 import { APCBanner } from "@/components/branding/APCBanner";
 import { APCFlag } from "@/components/branding/APCFlag";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CandidateSupportGroupsTab } from "@/components/support-groups/CandidateSupportGroupsTab";
 
 const ChairmanDashboard = () => {
     const router = useRouter();
@@ -292,97 +294,110 @@ const ChairmanDashboard = () => {
                     </CardContent>
                 </Card>
 
-                {/* ── GRANULAR DEMOGRAPHICS ── */}
-                <GranularDemographics
-                    lga={chairman.lga}
-                    totalRegisteredVoters={stats?.totalRegisteredVoters || 0}
-                />
+                <Tabs defaultValue="overview" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                        <TabsTrigger value="overview">LGA Overview</TabsTrigger>
+                        <TabsTrigger value="support-groups">My Support Groups</TabsTrigger>
+                    </TabsList>
 
-                {/* ── WARD PERFORMANCE ── */}
-                <Card className="border-0 shadow-md overflow-hidden">
-                    <div className="h-1 bg-gradient-to-r from-apc-green via-white to-apc-red" />
-                    <CardHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100">
-                        <div className="flex items-center gap-2">
-                            <MapPin className="h-5 w-5 text-apc-green" />
-                            <div>
-                                <CardTitle className="text-base sm:text-lg font-bold">Ward Performance Overview</CardTitle>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    Member distribution across wards in {chairman.lga} LGA
-                                </p>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-4 sm:p-6">
-                        {stats?.wardPerformance && stats.wardPerformance.length > 0 ? (
-                            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-                                {stats.wardPerformance.map((ward) => {
-                                    const avgPerUnit = ward.pollingUnits > 0
-                                        ? (ward.members / ward.pollingUnits).toFixed(1)
-                                        : "0";
-                                    const progress = Math.min(
-                                        (ward.members / (ward.pollingUnits * 10)) * 100,
-                                        100
-                                    );
-                                    return (
-                                        <div
-                                            key={ward.ward}
-                                            className="group bg-white rounded-xl border border-gray-100 hover:border-apc-green/30 p-4 shadow-sm hover:shadow-md transition-all duration-200"
-                                        >
-                                            {/* Ward header */}
-                                            <div className="flex items-start justify-between mb-3">
-                                                <div>
-                                                    <h3 className="font-bold text-sm sm:text-base text-gray-800 leading-snug">
-                                                        {ward.ward}
-                                                    </h3>
-                                                    <span className="text-[10px] text-apc-green font-semibold uppercase tracking-wide">
-                                                        Electoral Ward
-                                                    </span>
-                                                </div>
-                                                <div className="rounded-full bg-apc-green/10 p-1.5 group-hover:bg-apc-green/20 transition-colors">
-                                                    <MapPin className="h-4 w-4 text-apc-green" />
-                                                </div>
-                                            </div>
+                    <TabsContent value="overview" className="space-y-6 mt-4">
+                        {/* ── GRANULAR DEMOGRAPHICS ── */}
+                        <GranularDemographics
+                            lga={chairman.lga}
+                            totalRegisteredVoters={stats?.totalRegisteredVoters || 0}
+                        />
 
-                                            {/* Stats row */}
-                                            <div className="grid grid-cols-2 gap-2 mb-3">
-                                                <div className="bg-blue-50 rounded-lg p-2.5 text-center">
-                                                    <div className="text-lg font-extrabold text-blue-700">{ward.pollingUnits}</div>
-                                                    <div className="text-[10px] text-blue-500 font-medium">Polling Units</div>
-                                                </div>
-                                                <div className="bg-apc-green/10 rounded-lg p-2.5 text-center">
-                                                    <div className="text-lg font-extrabold text-apc-green">{ward.members}</div>
-                                                    <div className="text-[10px] text-apc-green font-medium">Members</div>
-                                                </div>
-                                            </div>
-
-                                            {/* Progress bar */}
-                                            <div>
-                                                <div className="flex justify-between text-[10px] text-gray-500 mb-1.5">
-                                                    <span className="font-medium">Avg. Members / Unit</span>
-                                                    <span className="font-bold text-gray-700">{avgPerUnit}</span>
-                                                </div>
-                                                <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full rounded-full bg-gradient-to-r from-apc-green to-green-400 transition-all duration-500"
-                                                        style={{ width: `${progress}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                                    <MapPin className="h-7 w-7 text-gray-400" />
+                        {/* ── WARD PERFORMANCE ── */}
+                        <Card className="border-0 shadow-md overflow-hidden">
+                            <div className="h-1 bg-gradient-to-r from-apc-green via-white to-apc-red" />
+                            <CardHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100">
+                                <div className="flex items-center gap-2">
+                                    <MapPin className="h-5 w-5 text-apc-green" />
+                                    <div>
+                                        <CardTitle className="text-base sm:text-lg font-bold">Ward Performance Overview</CardTitle>
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                            Member distribution across wards in {chairman.lga} LGA
+                                        </p>
+                                    </div>
                                 </div>
-                                <p className="text-muted-foreground text-sm font-medium">No ward data available</p>
-                                <p className="text-xs text-gray-400 mt-1">Ward performance data will appear here once available</p>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                            </CardHeader>
+                            <CardContent className="p-4 sm:p-6">
+                                {stats?.wardPerformance && stats.wardPerformance.length > 0 ? (
+                                    <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                                        {stats.wardPerformance.map((ward) => {
+                                            const avgPerUnit = ward.pollingUnits > 0
+                                                ? (ward.members / ward.pollingUnits).toFixed(1)
+                                                : "0";
+                                            const progress = Math.min(
+                                                (ward.members / (ward.pollingUnits * 10)) * 100,
+                                                100
+                                            );
+                                            return (
+                                                <div
+                                                    key={ward.ward}
+                                                    className="group bg-white rounded-xl border border-gray-100 hover:border-apc-green/30 p-4 shadow-sm hover:shadow-md transition-all duration-200"
+                                                >
+                                                    {/* Ward header */}
+                                                    <div className="flex items-start justify-between mb-3">
+                                                        <div>
+                                                            <h3 className="font-bold text-sm sm:text-base text-gray-800 leading-snug">
+                                                                {ward.ward}
+                                                            </h3>
+                                                            <span className="text-[10px] text-apc-green font-semibold uppercase tracking-wide">
+                                                                Electoral Ward
+                                                            </span>
+                                                        </div>
+                                                        <div className="rounded-full bg-apc-green/10 p-1.5 group-hover:bg-apc-green/20 transition-colors">
+                                                            <MapPin className="h-4 w-4 text-apc-green" />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Stats row */}
+                                                    <div className="grid grid-cols-2 gap-2 mb-3">
+                                                        <div className="bg-blue-50 rounded-lg p-2.5 text-center">
+                                                            <div className="text-lg font-extrabold text-blue-700">{ward.pollingUnits}</div>
+                                                            <div className="text-[10px] text-blue-500 font-medium">Polling Units</div>
+                                                        </div>
+                                                        <div className="bg-apc-green/10 rounded-lg p-2.5 text-center">
+                                                            <div className="text-lg font-extrabold text-apc-green">{ward.members}</div>
+                                                            <div className="text-[10px] text-apc-green font-medium">Members</div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Progress bar */}
+                                                    <div>
+                                                        <div className="flex justify-between text-[10px] text-gray-500 mb-1.5">
+                                                            <span className="font-medium">Avg. Members / Unit</span>
+                                                            <span className="font-bold text-gray-700">{avgPerUnit}</span>
+                                                        </div>
+                                                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                            <div
+                                                                className="h-full rounded-full bg-gradient-to-r from-apc-green to-green-400 transition-all duration-500"
+                                                                style={{ width: `${progress}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                        <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                                            <MapPin className="h-7 w-7 text-gray-400" />
+                                        </div>
+                                        <p className="text-muted-foreground text-sm font-medium">No ward data available</p>
+                                        <p className="text-xs text-gray-400 mt-1">Ward performance data will appear here once available</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="support-groups" className="mt-4">
+                        <CandidateSupportGroupsTab candidateId={chairman.user_id} candidateRace="lga_chairman" />
+                    </TabsContent>
+                </Tabs>
 
                 {/* ── APC FOOTER BADGE ── */}
                 <div className="flex items-center justify-center gap-3 py-3 opacity-60">

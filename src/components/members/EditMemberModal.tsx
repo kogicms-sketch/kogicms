@@ -172,6 +172,52 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
         }
       }
 
+      let resolvedPollingUnitId: string | null = null;
+      let finalPollingUnitName: string | null = formData.pollingUnit || null;
+
+      if (formData.lga && formData.ward && formData.pollingUnit) {
+        let dbCode: string | null = null;
+
+        // Try to match the selected name in the static array first
+        const selectedPuObj = getPollingUnitObjects(formData.lga, formData.ward)
+          .find(pu => pu.name === formData.pollingUnit);
+        dbCode = selectedPuObj?.code || null;
+
+        // If not found in static array (e.g. it was populated from voter registry with real name),
+        // try to look up from voter_registry using the VIN
+        if (!dbCode && formData.votersCardId) {
+          const { data: voterData } = await supabase
+            .from("voter_registry")
+            .select("polling_unit_code")
+            .eq("vin", formData.votersCardId.trim())
+            .maybeSingle();
+
+          if (voterData?.polling_unit_code) {
+            const codeParts = voterData.polling_unit_code.split("-");
+            if (codeParts.length >= 4) {
+              const wardNum = codeParts[2];
+              const puNum = codeParts[3];
+              dbCode = `W${wardNum}-${puNum}`;
+            }
+          }
+        }
+
+        if (dbCode) {
+          const { data: puData, error: puError } = await supabase
+            .from("polling_units")
+            .select("id, name")
+            .eq("lga_name", formData.lga)
+            .eq("ward_name", formData.ward)
+            .eq("code", dbCode)
+            .maybeSingle();
+
+          if (!puError && puData) {
+            resolvedPollingUnitId = puData.id;
+            finalPollingUnitName = puData.name;
+          }
+        }
+      }
+
       const memberUpdates = {
         id: member.id,
         full_name: `${formData.firstName} ${formData.lastName}`,
@@ -185,7 +231,8 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
         date_of_birth: formData.dateOfBirth || null,
         voters_card_id: formData.votersCardId || null,
         voters_card_image_url: voters_card_image_url,
-        polling_unit: formData.pollingUnit || null,
+        polling_unit: finalPollingUnitName,
+        polling_unit_id: resolvedPollingUnitId,
         marital_status: formData.maritalStatus || null,
         occupation: formData.occupation || null,
         school_name: formData.occupation.toLowerCase() === "student" ? formData.schoolName || null : null,
@@ -193,7 +240,7 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
         is_deceased: formData.isDeceased,
       };
 
-      await updateMember.mutateAsync(memberUpdates);
+      await updateMember.mutateAsync(memberUpdates as any);
 
       onClose();
       // Reset is handled by useEffect on next open or can be left as is since we close

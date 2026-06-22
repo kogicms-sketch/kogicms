@@ -388,3 +388,198 @@ export const useMaterialRequests = (supportGroupId?: string) => {
     enabled: !!supportGroupId,
   });
 };
+
+export const useSupportGroupRankings = (groupId: string) => {
+  return useQuery({
+    queryKey: ["support-group-rankings", groupId],
+    queryFn: async () => {
+      if (!groupId) return { globalRank: 1, globalCount: 1, constituencyRank: 1, constituencyCount: 1, alignments: [] };
+
+      // 1. Fetch current group's KPI score
+      const { data: currentGroup, error: currentError } = await supabase
+        .from("organizations")
+        .select("id, kpi_score")
+        .eq("id", groupId)
+        .single();
+
+      if (currentError) throw currentError;
+
+      const score = currentGroup?.kpi_score || 0;
+
+      // 2. Query all groups sorted by kpi_score to find global rank
+      const { data: globalGroups, error: globalError } = await supabase
+        .from("organizations")
+        .select("id, kpi_score")
+        .order("kpi_score", { ascending: false });
+
+      if (globalError) throw globalError;
+
+      const globalRank = (globalGroups || []).findIndex(g => g.id === groupId) + 1;
+      const globalCount = globalGroups?.length || 1;
+
+      // 3. Query alignments for this group
+      const { data: alignments, error: alignError } = await supabase
+        .from("support_group_candidate_alignments")
+        .select("*")
+        .eq("organization_id", groupId);
+
+      if (alignError) throw alignError;
+
+      const results = [];
+
+      // Calculate constituency ranks for each alignment
+      for (const align of alignments || []) {
+        let constituencyRank = 1;
+        let constituencyCount = 1;
+
+        if (align.candidate_race && align.candidate_race !== 'governorship') {
+          let localQuery = supabase.from("support_group_candidate_alignments").select("organization_id");
+          if (align.candidate_race === 'senatorial' && align.senatorial_zone) {
+            localQuery = localQuery.eq("senatorial_zone", align.senatorial_zone);
+          } else if (align.candidate_race === 'house_of_reps' && align.federal_constituency) {
+            localQuery = localQuery.eq("federal_constituency", align.federal_constituency);
+          } else if (align.candidate_race === 'state_assembly' && align.lga) {
+            localQuery = localQuery.eq("lga", align.lga);
+          } else if (align.candidate_race === 'lga_chairman' && align.lga) {
+            localQuery = localQuery.eq("lga", align.lga);
+          } else if (align.candidate_id) {
+            localQuery = localQuery.eq("candidate_id", align.candidate_id);
+          }
+
+          const { data: localAlignments, error: localError } = await localQuery;
+          if (!localError && localAlignments) {
+            const localOrgIds = localAlignments.map(la => la.organization_id);
+            const { data: localGroups, error: groupsError } = await supabase
+              .from("organizations")
+              .select("id, kpi_score")
+              .in("id", localOrgIds)
+              .order("kpi_score", { ascending: false });
+
+            if (!groupsError && localGroups) {
+              const idx = localGroups.findIndex(g => g.id === groupId);
+              constituencyRank = idx !== -1 ? idx + 1 : 1;
+              constituencyCount = localGroups.length;
+            }
+          }
+        }
+
+        results.push({
+          id: align.id,
+          candidateRace: align.candidate_race,
+          candidateId: align.candidate_id,
+          senatorialZone: align.senatorial_zone,
+          federalConstituency: align.federal_constituency,
+          lga: align.lga,
+          constituencyRank,
+          constituencyCount,
+        });
+      }
+
+      const firstAlign = results[0];
+
+      return {
+        globalRank,
+        globalCount,
+        candidateRace: firstAlign?.candidateRace || null,
+        senatorialZone: firstAlign?.senatorialZone || null,
+        federalConstituency: firstAlign?.federalConstituency || null,
+        lga: firstAlign?.lga || null,
+        constituencyRank: firstAlign?.constituencyRank || 1,
+        constituencyCount: firstAlign?.constituencyCount || 1,
+        alignments: results,
+      };
+    },
+    enabled: !!groupId,
+  });
+};
+
+export const useCandidateSupportGroups = (candidateId?: string) => {
+  return useQuery({
+    queryKey: ["candidate-support-groups", candidateId],
+    queryFn: async () => {
+      if (!candidateId) return [];
+
+      const { data: alignments, error: alignError } = await supabase
+        .from("support_group_candidate_alignments")
+        .select("organization_id")
+        .eq("candidate_id", candidateId);
+
+      if (alignError) throw alignError;
+      if (!alignments || alignments.length === 0) return [];
+
+      const orgIds = alignments.map(a => a.organization_id);
+
+      const { data: groups, error } = await supabase
+        .from("organizations")
+        .select(`
+          *,
+          support_group_activities(count),
+          activities:activities!organization_id(count),
+          members_org:members!organization_id(*),
+          members_sg:members!support_group_id(*)
+        `)
+        .in("id", orgIds);
+
+      if (error) throw error;
+
+      const transformed = (groups || []).map(group => {
+        const orgMembers = (group as any).members_org || [];
+        const sgMembers = (group as any).members_sg || [];
+        
+        const allMembersMap = new Map();
+        orgMembers.forEach((m: any) => allMembersMap.set(m.id, m));
+        sgMembers.forEach((m: any) => allMembersMap.set(m.id, m));
+        const allMembers = Array.from(allMembersMap.values());
+
+        const memberCount = allMembers.length;
+        const pvcCount = allMembers.filter((m: any) => !!m.voters_card_id).length;
+
+        const sgActivitiesCount = group.support_group_activities?.[0]?.count || 0;
+        const generalActivitiesCount = (group as any).activities?.[0]?.count || 0;
+        const activitiesCount = sgActivitiesCount + generalActivitiesCount;
+
+        return {
+          ...group,
+          member_count: memberCount,
+          pvc_count: pvcCount,
+          activities_count: activitiesCount,
+        };
+      });
+
+      return transformed;
+    },
+    enabled: !!candidateId,
+  });
+};
+
+export const useCandidateGroupsActivities = (candidateId?: string) => {
+  return useQuery({
+    queryKey: ["candidate-groups-activities", candidateId],
+    queryFn: async () => {
+      if (!candidateId) return [];
+
+      const { data: alignments, error: alignError } = await supabase
+        .from("support_group_candidate_alignments")
+        .select("organization_id")
+        .eq("candidate_id", candidateId);
+
+      if (alignError) throw alignError;
+      if (!alignments || alignments.length === 0) return [];
+
+      const groupIds = alignments.map(a => a.organization_id);
+
+      const { data: activities, error: actError } = await supabase
+        .from("support_group_activities")
+        .select(`
+          *,
+          group:support_group_id (name, leader_name)
+        `)
+        .in("support_group_id", groupIds)
+        .order("activity_date", { ascending: false });
+
+      if (actError) throw actError;
+      return activities || [];
+    },
+    enabled: !!candidateId,
+  });
+};

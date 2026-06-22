@@ -125,6 +125,8 @@ export const PuAttendance = () => {
   // Select allocation popup
   const [selectedMemberForIncentive, setSelectedMemberForIncentive] = useState<any | null>(null);
   const [selectedBatchId, setSelectedBatchId] = useState("");
+  const [uomAllocationType, setUomAllocationType] = useState<"whole" | "fractional">("whole");
+  const [uomQuantity, setUomQuantity] = useState<string>("1");
   const disburseMutation = useDisburseIncentive();
 
   // Monitor network status
@@ -356,14 +358,41 @@ export const PuAttendance = () => {
   const handleIssueIncentive = async () => {
     if (!selectedMemberForIncentive || !selectedBatchId) return;
 
+    const batch = acceptedBatches.find((b) => b.id === selectedBatchId);
+    let qty: number | undefined;
+    let unit: string | undefined;
+    let equivalentFraction: number | undefined;
+
+    if (batch && batch.type === "material" && batch.conversion_rate) {
+      qty = parseFloat(uomQuantity);
+      if (isNaN(qty) || qty <= 0) {
+        toast.error("Please enter a valid quantity.");
+        return;
+      }
+
+      if (uomAllocationType === "whole") {
+        equivalentFraction = qty;
+        unit = batch.bulk_unit || "Bag";
+      } else {
+        unit = batch.retail_unit || "Tiya";
+        const rate = Number(batch.conversion_rate);
+        equivalentFraction = qty / rate;
+      }
+    }
+
     try {
       await disburseMutation.mutateAsync({
         batch_id: selectedBatchId,
         member_id: selectedMemberForIncentive.id,
-        phone_number: selectedMemberForIncentive.phone
+        phone_number: selectedMemberForIncentive.phone,
+        disbursed_quantity: qty,
+        disbursed_unit: unit,
+        disbursed_equivalent_fraction: equivalentFraction
       });
       setSelectedMemberForIncentive(null);
       setSelectedBatchId("");
+      setUomQuantity("1");
+      setUomAllocationType("whole");
       queryClient.invalidateQueries({ queryKey: ["incentive-batches"] });
     } catch (e) {
       // Handled
@@ -748,7 +777,11 @@ export const PuAttendance = () => {
                   <select
                     className="input-premium w-full text-xs h-[40px] bg-card"
                     value={selectedBatchId}
-                    onChange={(e) => setSelectedBatchId(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedBatchId(e.target.value);
+                      setUomQuantity("1");
+                      setUomAllocationType("whole");
+                    }}
                   >
                     <option value="">-- Select Package --</option>
                     {acceptedBatches.map((b) => (
@@ -758,6 +791,80 @@ export const PuAttendance = () => {
                     ))}
                   </select>
                 </div>
+
+                {(() => {
+                  const batch = acceptedBatches.find((b) => b.id === selectedBatchId);
+                  if (batch && batch.type === "material" && batch.conversion_rate) {
+                    return (
+                      <div className="space-y-3 border-t pt-3">
+                        {/* Toggle Selector */}
+                        <div className="grid grid-cols-2 gap-2 bg-muted/45 p-1 rounded-lg border">
+                          <Button
+                            type="button"
+                            variant={uomAllocationType === "whole" ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => {
+                              setUomAllocationType("whole");
+                              setUomQuantity("1");
+                            }}
+                            className="text-xs py-1 h-[28px]"
+                          >
+                            Whole {batch.bulk_unit || "Bag"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={uomAllocationType === "fractional" ? "default" : "ghost"}
+                            size="sm"
+                            onClick={() => {
+                              setUomAllocationType("fractional");
+                              setUomQuantity("");
+                            }}
+                            className="text-xs py-1 h-[28px]"
+                          >
+                            Fractional / {batch.retail_unit || "Tiya"}
+                          </Button>
+                        </div>
+
+                        {/* Quantity Input */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase">
+                            Quantity ({uomAllocationType === "whole" ? batch.bulk_unit || "Bag" : batch.retail_unit || "Tiya"})
+                          </label>
+                          <input
+                            type="number"
+                            step="any"
+                            className="input-premium w-full text-xs h-[36px]"
+                            placeholder={uomAllocationType === "whole" ? "e.g. 1" : "e.g. 5"}
+                            value={uomQuantity}
+                            onChange={(e) => setUomQuantity(e.target.value)}
+                          />
+                        </div>
+
+                        {/* Calculation Summary */}
+                        {uomQuantity && !isNaN(parseFloat(uomQuantity)) && (
+                          <div className="p-2.5 bg-muted/30 border rounded-lg text-[11px] space-y-0.5">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Allocation:</span>
+                              <span className="font-semibold text-foreground">
+                                {uomQuantity} {uomAllocationType === "whole" ? batch.bulk_unit || "Bag" : batch.retail_unit || "Tiya"}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Inventory Deduction:</span>
+                              <span className="font-bold text-indigo-600">
+                                {uomAllocationType === "whole" 
+                                  ? parseFloat(uomQuantity).toFixed(3)
+                                  : (parseFloat(uomQuantity) / Number(batch.conversion_rate)).toFixed(3)
+                                } {batch.bulk_unit || "Bag"}(s)
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 <div className="pt-2 flex justify-between gap-3">
                   <Button

@@ -15,7 +15,8 @@ import {
     HeartCrack,
     MapPin,
     ArrowUpRight,
-    Loader2
+    Loader2,
+    Trophy
 } from "lucide-react";
 import {
     LineChart,
@@ -32,11 +33,28 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import RecentActivities from "./RecentActivities";
 import { useParty } from "@/contexts/PartyContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/loose-client";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const SuperAdminDashboard = () => {
     const { data: statsData, isLoading: statsLoading } = useSuperAdminStats();
     const { data: demoData, isLoading: demoLoading } = useSuperAdminDemographics();
     const { party } = useParty();
+    const { data: topSupportGroups = [], isLoading: topGroupsLoading } = useQuery({
+        queryKey: ["global-top-support-groups"],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from("organizations")
+                .select("id, name, type, leader_name, kpi_score, candidate_race, lga")
+                .eq("verification_status", "verified")
+                .order("kpi_score", { ascending: false })
+                .limit(10);
+            if (error) throw error;
+            return data || [];
+        }
+    });
     const [selectedZone, setSelectedZone] = useState<string>("All");
 
     const [c1, c2, c3] = [party.colors.swatches[0], party.colors.swatches[1] || "#FFFFFF", party.colors.swatches[2] || party.colors.swatches[0]];
@@ -361,6 +379,82 @@ const SuperAdminDashboard = () => {
                                     </Card>
                                 );
                             })}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Top Support Groups (Global Leaderboard) */}
+            <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                                <Trophy className="w-5 h-5 text-yellow-500" />
+                                Top Support Groups (Global Leaderboard)
+                            </CardTitle>
+                            <CardDescription>
+                                Master standing of the top 10 support groups across the entire state based on field KPI scores
+                            </CardDescription>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {topGroupsLoading ? (
+                        <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading rankings...
+                        </div>
+                    ) : topSupportGroups.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground text-sm">
+                            No verified support groups found.
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-muted/30">
+                                        <TableHead className="w-[80px] font-bold">Rank</TableHead>
+                                        <TableHead className="font-bold">Group Name</TableHead>
+                                        <TableHead className="font-bold">Type</TableHead>
+                                        <TableHead className="font-bold">LGA Focus</TableHead>
+                                        <TableHead className="font-bold">Leader</TableHead>
+                                        <TableHead className="text-right font-bold">KPI Score</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {topSupportGroups.map((group, idx) => {
+                                        const rank = idx + 1;
+                                        return (
+                                            <TableRow key={group.id} className="hover:bg-muted/20 transition-colors">
+                                                <TableCell className="font-extrabold text-sm">
+                                                    {rank === 1 ? (
+                                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-500 text-white shadow-sm">🥇</span>
+                                                    ) : rank === 2 ? (
+                                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-300 text-slate-800 shadow-sm">🥈</span>
+                                                    ) : rank === 3 ? (
+                                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-600 text-white shadow-sm">🥉</span>
+                                                    ) : (
+                                                        `#${rank}`
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="font-semibold text-foreground">{group.name}</TableCell>
+                                                <TableCell className="text-xs text-muted-foreground capitalize">
+                                                    {group.type ? group.type.replace('_', ' ') : '—'}
+                                                </TableCell>
+                                                <TableCell className="text-xs">
+                                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-50">
+                                                        {group.lga || 'State-Wide'}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-xs font-medium text-foreground">{group.leader_name}</TableCell>
+                                                <TableCell className="text-right font-extrabold text-[#0B3D91]">
+                                                    {group.kpi_score || 0} pts
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
                         </div>
                     )}
                 </CardContent>

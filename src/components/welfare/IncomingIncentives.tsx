@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 
 export const IncomingIncentives = () => {
-  const { role, user } = useAuth();
+  const { role, user, organizationId } = useAuth();
   const acceptMutation = useAcceptIncentiveBatch();
 
   // Resolve user LGA and Ward if Councillor or LGA Chairman
@@ -36,17 +36,18 @@ export const IncomingIncentives = () => {
       const { data } = await supabase.from("profiles").select("lga, ward, full_name").eq("id", user.id).single();
       return data;
     },
-    enabled: !!user?.id
+    enabled: !!user?.id && role !== "org_admin"
   });
 
   const userLga = userProfile?.lga || "";
   const userWard = userProfile?.ward || "";
 
-  // Fetch batches targeted to this LGA/Ward
-  const { data: batches = [], isLoading: batchesLoading } = useIncentiveBatches({
-    target_lga: userLga,
-    target_ward: userWard,
-  });
+  // Fetch batches targeted to this LGA/Ward or support group
+  const { data: batches = [], isLoading: batchesLoading } = useIncentiveBatches(
+    role === "org_admin" && organizationId
+      ? { target_support_group_id: organizationId }
+      : { target_lga: userLga, target_ward: userWard }
+  );
 
   const handleAccept = async (batchId: string) => {
     try {
@@ -91,11 +92,19 @@ export const IncomingIncentives = () => {
             📦 Material & Financial Allocations Pipeline
           </CardTitle>
           <CardDescription>
-            Incoming campaign palliatives, scholarships, and logistics routed to{" "}
-            <span className="font-bold text-foreground">
-              {userLga} ({userWard} Ward)
-            </span>
-            . You must accept packages before they can be distributed to Polling Units.
+            {role === "org_admin" ? (
+              <>
+                Incoming campaign palliatives and logistics routed directly to your <span className="font-bold text-foreground">Support Group</span>. You must accept packages before they can be distributed to group members.
+              </>
+            ) : (
+              <>
+                Incoming campaign palliatives, scholarships, and logistics routed to{" "}
+                <span className="font-bold text-foreground">
+                  {userLga} ({userWard} Ward)
+                </span>
+                . You must accept packages before they can be distributed to Polling Units.
+              </>
+            )}
           </CardDescription>
         </div>
       </CardHeader>

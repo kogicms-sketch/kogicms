@@ -1,6 +1,6 @@
 "use client";
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { supabase as registrySupabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/layout/DashboardLayout";
@@ -120,6 +120,7 @@ const fetchRealVoters = async (lgaName: string, wardName: string, puCode: string
 };
 
 const PollingUnitDetail = () => {
+    const queryClient = useQueryClient();
     const searchParams = useSearchParams();
     const id = searchParams.get('id');
     const router = useRouter();
@@ -571,6 +572,8 @@ const PollingUnitDetail = () => {
             
             toast.success(`Voter status updated to ${newStatus}`);
             refetchRegistryVoters();
+            queryClient.invalidateQueries({ queryKey: ["demographics"] });
+            queryClient.invalidateQueries({ queryKey: ["super-admin"] });
         } catch (e) {
             console.error("Error updating voter status:", e);
             toast.error("Failed to update voter status");

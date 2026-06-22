@@ -19,6 +19,8 @@ import {
     Table, TableBody, TableCell, TableHead,
     TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CandidateSupportGroupsTab } from "@/components/support-groups/CandidateSupportGroupsTab";
 
 const ZONE_GRADIENTS: Record<string, { from: string; to: string; accent: string }> = {
     KC: { from: "#006600", to: "#004d00", accent: "#00cc44" },
@@ -324,149 +326,185 @@ const SenatorialDashboard = () => {
                         </div>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-muted/30">
-                                        <TableHead className="text-xs font-semibold">#</TableHead>
-                                        <TableHead className="text-xs font-semibold">Polling Unit</TableHead>
-                                        <TableHead className="text-xs font-semibold">LGA</TableHead>
-                                        <TableHead className="text-xs font-semibold hidden sm:table-cell">Ward</TableHead>
-                                        <TableHead className="text-xs font-semibold">Reg. Voters</TableHead>
-                                        <TableHead className="text-xs font-semibold hidden md:table-cell">Target</TableHead>
-                                        <TableHead className="text-xs font-semibold">Coverage</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    <AnimatePresence>
-                                        {filteredPUs.slice(0, 200).map((pu: any, idx: number) => {
-                                            const cov = pu.target_voters > 0
-                                                ? Math.min((pu.registered_voters / pu.target_voters) * 100, 100)
-                                                : 0;
-                                            return (
-                                                <TableRow key={pu.id} className="hover:bg-muted/20 transition-colors">
-                                                    <TableCell className="text-xs text-muted-foreground">{idx + 1}</TableCell>
-                                                    <TableCell className="font-medium text-xs sm:text-sm max-w-[180px] truncate">{pu.name}</TableCell>
-                                                    <TableCell className="text-xs">
-                                                        <span className="px-2 py-0.5 rounded-full bg-apc-green/10 text-apc-green font-medium text-[10px]">{pu.lga_name}</span>
-                                                    </TableCell>
-                                                    <TableCell className="text-xs text-muted-foreground hidden sm:table-cell max-w-[120px] truncate">{pu.ward_name}</TableCell>
-                                                    <TableCell className="font-bold text-blue-600 text-xs sm:text-sm">{(pu.registered_voters || 0).toLocaleString()}</TableCell>
-                                                    <TableCell className="text-xs text-muted-foreground hidden md:table-cell">{(pu.target_voters || 0).toLocaleString()}</TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-14 sm:w-20 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                                                <motion.div
-                                                                    initial={{ width: 0 }}
-                                                                    animate={{ width: `${cov}%` }}
-                                                                    transition={{ duration: 0.8, ease: "easeOut" }}
-                                                                    className={`h-full ${cov >= 80 ? "bg-apc-green" : cov >= 50 ? "bg-blue-500" : "bg-orange-500"}`}
-                                                                />
-                                                            </div>
-                                                            <span className="text-[10px] font-bold text-foreground">{cov.toFixed(0)}%</span>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                    </AnimatePresence>
-                                </TableBody>
-                            </Table>
-                            {filteredPUs.length > 200 && (
-                                <div className="text-center py-4 text-sm text-muted-foreground bg-muted/10">
-                                    Showing first 200 of {filteredPUs.length} results. Use filters to narrow down.
-                                </div>
-                            )}
-                            {filteredPUs.length === 0 && (
-                                <div className="text-center py-12 text-muted-foreground">
-                                    <Building2 className="h-10 w-10 mx-auto mb-3 text-gray-300" />
-                                    <p className="text-sm">No polling units match your search</p>
-                                </div>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
+                        <Tabs defaultValue="overview" className="w-full">
+                            <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+                                <TabsTrigger value="overview">Zone Overview</TabsTrigger>
+                                <TabsTrigger value="support-groups">My Support Groups</TabsTrigger>
+                            </TabsList>
 
-                {/* ── RECENT MEMBERS TABLE ── */}
-                <Card className="border-0 shadow-md overflow-hidden">
-                    <div className="h-1 bg-gradient-to-r from-apc-green via-white to-apc-red" />
-                    <CardHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Users className="h-5 w-5 text-blue-600" />
-                                <div>
-                                    <CardTitle className="text-base sm:text-lg font-bold">Recent Member Registrations</CardTitle>
-                                    <p className="text-xs text-muted-foreground mt-0.5">Latest 50 members joining the campaign in this zone</p>
+                            <TabsContent value="overview" className="space-y-5 mt-4">
+                                {/* ── INTELLIGENCE OVERVIEW ── */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                    {/* Victory Projection Gauge */}
+                                    <Card className="lg:col-span-1 border-0 shadow-xl bg-white overflow-hidden relative">
+                                        <div className="absolute top-0 left-0 w-1 h-full bg-apc-red" />
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-apc-red">
+                                                <Activity className="h-4 w-4" />
+                                                Victory Projection
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pb-4">
+                                            <VictoryGauge 
+                                                percentage={overallCoverage}
+                                                target={totalTarget}
+                                                current={totalAppMembers}
+                                            />
+                                            <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center text-xs">
+                                                <span className="text-muted-foreground font-semibold">Total Target</span>
+                                                <span className="font-extrabold text-navy-deep">{totalTarget.toLocaleString()}</span>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Granular Demographics (Youth vs Seniors) */}
+                                    <Card className="lg:col-span-2 border-0 shadow-xl bg-white overflow-hidden relative">
+                                        <div className="absolute top-0 left-0 w-1 h-full bg-apc-green" />
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-sm font-bold flex items-center gap-2 text-apc-green">
+                                                <Users className="h-4 w-4" />
+                                                Granular Demographics (Youth vs Seniors)
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pb-4">
+                                            <GranularDemographics lgas={leader.lga_list} />
+                                        </CardContent>
+                                    </Card>
                                 </div>
-                            </div>
-                            <Button variant="outline" size="sm" onClick={() => navigate("/members")} className="text-xs">
-                                View All Members
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-muted/30">
-                                        <TableHead className="text-xs font-semibold">Member Name</TableHead>
-                                        <TableHead className="text-xs font-semibold">LGA</TableHead>
-                                        <TableHead className="text-xs font-semibold hidden sm:table-cell">Ward</TableHead>
-                                        <TableHead className="text-xs font-semibold">Status</TableHead>
-                                        <TableHead className="text-xs font-semibold">Joined</TableHead>
-                                        <TableHead className="text-xs font-semibold text-right">Action</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {(zoneData?.recentMembers || []).length > 0 ? (
-                                        zoneData.recentMembers.map((member) => (
-                                            <TableRow key={member.id} className="hover:bg-muted/20 transition-colors">
-                                                <TableCell className="font-medium text-xs sm:text-sm">
-                                                    <div className="flex flex-col">
-                                                        <span>{member.name}</span>
-                                                        <span className="text-[10px] text-muted-foreground">{member.phone || "No phone"}</span>
+
+                                {/* KPI Metrics Row */}
+                                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                                    {kpiCards.map((card, idx) => {
+                                        const Icon = card.icon;
+                                        return (
+                                            <Card key={idx} className={`bg-white border-0 border-l-4 ${card.border} shadow-lg transition-transform duration-300 hover:-translate-y-1`}>
+                                                <CardContent className="p-4 flex items-center justify-between">
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-muted-foreground">{card.label}</p>
+                                                        <h3 className="text-xl sm:text-2xl font-black text-navy-deep">{card.value}</h3>
+                                                        <p className="text-[10px] text-muted-foreground">{card.sub}</p>
                                                     </div>
-                                                </TableCell>
-                                                <TableCell className="text-xs">
-                                                    <span className="px-2 py-0.5 rounded-full bg-apc-green/10 text-apc-green font-medium text-[10px]">{member.lga}</span>
-                                                </TableCell>
-                                                <TableCell className="text-xs text-muted-foreground hidden sm:table-cell">{member.ward}</TableCell>
-                                                <TableCell>
-                                                    {member.is_verified ? (
-                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-apc-green bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
-                                                            <Shield className="h-2 w-2" /> Verified
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full border border-orange-100">
-                                                            <Activity className="h-2 w-2" /> Pending
-                                                        </span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-[10px] text-muted-foreground">
-                                                    {new Date(member.created_at).toLocaleDateString()}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="sm" 
-                                                        className="h-8 w-8 p-0"
-                                                        onClick={() => navigate(`/members/detail?id=${member.id}`)}
-                                                    >
-                                                        <ChevronRight className="h-4 w-4" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                                No members found in this zone yet.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                                    <div className={`p-2 rounded-lg ${card.bg}`}>
+                                                        <Icon className={`h-5 w-5 ${card.color}`} />
+                                                    </div>
+                                                </CardContent>
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Charts / Trends */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                    <Card className="lg:col-span-2 border-0 shadow-xl bg-white p-5">
+                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                                            <div>
+                                                <h3 className="text-sm font-bold text-navy-white flex items-center gap-2">
+                                                    <TrendingUp className="h-4 w-4 text-apc-green" />
+                                                    Member Registration Trends
+                                                </h3>
+                                                <p className="text-xs text-muted-foreground mt-0.5">Daily growth analysis across LGAs</p>
+                                            </div>
+                                        </div>
+                                        <div className="h-[280px]">
+                                            <RegistrationTrendChart data={trendData || []} lgas={leader.lga_list} />
+                                        </div>
+                                    </Card>
+
+                                    <Card className="lg:col-span-1 border-0 shadow-xl bg-white">
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-sm font-bold text-apc-red flex items-center gap-2">
+                                                <MapPin className="h-4 w-4" />
+                                                LGA Registration Coverage
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="space-y-4 max-h-[280px] overflow-y-auto pr-1">
+                                                {(zoneData?.lgaBreakdown || []).map((lga, idx) => (
+                                                    <div key={idx} className="space-y-1.5">
+                                                        <div className="flex justify-between items-center text-xs">
+                                                            <span className="font-bold text-navy-deep">{lga.lga_name}</span>
+                                                            <span className="font-semibold text-muted-foreground">
+                                                                {lga.app_members_verified.toLocaleString()} / {lga.target_voters.toLocaleString()} ({Math.round(lga.coverage_pct)}%)
+                                                            </span>
+                                                        </div>
+                                                        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                                                            <div 
+                                                                className="bg-apc-green h-1.5 rounded-full transition-all duration-500" 
+                                                                style={{ width: `${lga.coverage_pct}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+
+                                {/* Polling Units & Members Grid */}
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                                    {/* Polling Unit Status Ledger */}
+                                    <Card className="lg:col-span-2 border-0 shadow-xl bg-white">
+                                        <CardHeader className="pb-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setIsPUOpen(!isPUOpen)}>
+                                                {isPUOpen ? <ChevronUp className="h-4 w-4 text-purple-600" /> : <ChevronDown className="h-4 w-4 text-purple-600" />}
+                                                <div>
+                                                    <CardTitle className="text-sm font-bold text-navy-deep flex items-center gap-2">
+                                                        <Building2 className="h-4 w-4 text-purple-600" />
+                                                        Constituency Polling Units
+                                                    </CardTitle>
+                                                    <CardDescription className="text-xs">Browse coverage metrics per polling unit</CardDescription>
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="text-center py-8 text-muted-foreground cursor-pointer" onClick={() => setIsPUOpen(true)}>
+                                                <Building2 className="h-8 w-8 mx-auto mb-2 text-purple-400" />
+                                                <p className="text-xs font-semibold">Click to expand Polling Units details ledger</p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Recent Member Registrations */}
+                                    <Card className="lg:col-span-1 border-0 shadow-xl bg-white">
+                                        <CardHeader className="pb-2">
+                                            <CardTitle className="text-sm font-bold text-navy-deep flex items-center gap-2">
+                                                <Star className="h-4 w-4 text-orange-500" />
+                                                Recent Members
+                                            </CardTitle>
+                                            <CardDescription className="text-xs">Latest registrations in your zone</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="overflow-x-auto max-h-[350px] overflow-y-auto pr-1">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow className="bg-muted/30">
+                                                            <TableHead className="text-xs font-semibold">Member Name</TableHead>
+                                                            <TableHead className="text-xs font-semibold text-right">Action</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {(zoneData?.recentMembers || []).map((member) => (
+                                                            <TableRow key={member.id}>
+                                                                <TableCell>{member.name}</TableCell>
+                                                                <TableCell className="text-right">
+                                                                    <Button variant="ghost" size="sm" onClick={() => navigate(`/members/detail?id=${member.id}`)}>
+                                                                        <ChevronRight className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="support-groups" className="mt-4">
+                                <CandidateSupportGroupsTab candidateId={leader.user_id} candidateRace="senatorial" />
+                            </TabsContent>
+                        </Tabs>
                     </CardContent>
                 </Card>
 

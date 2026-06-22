@@ -38,8 +38,31 @@ export const useDemographicsData = ({ lga, lgas, ward }: DemographicsParams) => 
         query = query.in("lga", lgas);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      // Fetch deceased count from voter_registry
+      let deceasedQuery = supabase
+        .from("voter_registry")
+        .select("*", { count: "exact", head: true })
+        .eq("voter_status", "deceased");
+
+      if (ward) {
+        deceasedQuery = deceasedQuery.eq("ward", ward);
+      }
+      if (lga) {
+        deceasedQuery = deceasedQuery.eq("lga", lga);
+      } else if (lgas && lgas.length > 0) {
+        deceasedQuery = deceasedQuery.in("lga", lgas);
+      }
+
+      const [membersRes, deceasedRes] = await Promise.all([
+        query,
+        deceasedQuery
+      ]);
+
+      if (membersRes.error) throw membersRes.error;
+      if (deceasedRes.error) throw deceasedRes.error;
+
+      const data = membersRes.data;
+      const deathsCount = deceasedRes.count || 0;
 
       let male = 0;
       let female = 0;
@@ -47,14 +70,12 @@ export const useDemographicsData = ({ lga, lgas, ward }: DemographicsParams) => 
       let youths = 0;
       let middleAged = 0;
       let seniors = 0;
-      let deathsCount = 0;
       let expectedTurnout = 0;
 
       const currentYear = new Date().getFullYear();
 
       data?.forEach((m: any) => {
         if (m.is_deceased) {
-          deathsCount++;
           return; // Exclude from active stats
         }
 

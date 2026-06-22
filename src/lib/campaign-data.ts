@@ -57,3 +57,61 @@ export const getPollingUnitObjects = (lgaName: string, wardName: string) => {
         })
         .sort((a, b) => a.name.localeCompare(b.name));
 };
+
+export interface LGAConstituencyInfo {
+  senatorial_zone: string;
+  federal_constituency: string;
+}
+
+export const LGA_CONSTITUENCY_MAP: Record<string, LGAConstituencyInfo> = {
+  "Bakori": { senatorial_zone: "Katsina South", federal_constituency: "Bakori/Danja" },
+  "Batagarawa": { senatorial_zone: "Katsina Central", federal_constituency: "Batagarawa/Charanchi/Rimi" },
+  "Batsari": { senatorial_zone: "Katsina Central", federal_constituency: "Batsari/Safana/Danmusa" },
+  "Baure": { senatorial_zone: "Katsina North", federal_constituency: "Zango/Baure" },
+  "Bindawa": { senatorial_zone: "Katsina North", federal_constituency: "Bindawa/Mani" },
+  "Charanchi": { senatorial_zone: "Katsina Central", federal_constituency: "Batagarawa/Charanchi/Rimi" },
+  "Dan Musa": { senatorial_zone: "Katsina Central", federal_constituency: "Batsari/Safana/Danmusa" },
+  "DanMusa": { senatorial_zone: "Katsina Central", federal_constituency: "Batsari/Safana/Danmusa" },
+  "Dandume": { senatorial_zone: "Katsina South", federal_constituency: "Funtua/Dandume" },
+  "Danja": { senatorial_zone: "Katsina South", federal_constituency: "Bakori/Danja" },
+  "Daura": { senatorial_zone: "Katsina North", federal_constituency: "Daura/Sandamu/Mai'Adua" },
+  "Dutsi": { senatorial_zone: "Katsina North", federal_constituency: "Mashi/Dutsi" },
+  "Dutsin Ma": { senatorial_zone: "Katsina Central", federal_constituency: "Dutsin-Ma/Kurfi" },
+  "Dutsin-Ma": { senatorial_zone: "Katsina Central", federal_constituency: "Dutsin-Ma/Kurfi" },
+  "Faskari": { senatorial_zone: "Katsina South", federal_constituency: "Faskari/Kankara/Sabuwa" },
+  "Funtua": { senatorial_zone: "Katsina South", federal_constituency: "Funtua/Dandume" },
+  "Ingawa": { senatorial_zone: "Katsina North", federal_constituency: "Ingawa/Kankia/Kusada" },
+  "Jibia": { senatorial_zone: "Katsina Central", federal_constituency: "Jibia/Kaita" },
+  "Kafur": { senatorial_zone: "Katsina South", federal_constituency: "Malumfashi/Kafur" },
+  "Kaita": { senatorial_zone: "Katsina Central", federal_constituency: "Jibia/Kaita" },
+  "Kankara": { senatorial_zone: "Katsina South", federal_constituency: "Faskari/Kankara/Sabuwa" },
+  "Kankia": { senatorial_zone: "Katsina North", federal_constituency: "Ingawa/Kankia/Kusada" },
+  "Katsina": { senatorial_zone: "Katsina Central", federal_constituency: "Katsina" },
+  "Kurfi": { senatorial_zone: "Katsina Central", federal_constituency: "Dutsin-Ma/Kurfi" },
+  "Kusada": { senatorial_zone: "Katsina North", federal_constituency: "Ingawa/Kankia/Kusada" },
+  "Mai'Adua": { senatorial_zone: "Katsina North", federal_constituency: "Daura/Sandamu/Mai'Adua" },
+  "Malumfashi": { senatorial_zone: "Katsina South", federal_constituency: "Malumfashi/Kafur" },
+  "Mani": { senatorial_zone: "Katsina North", federal_constituency: "Bindawa/Mani" },
+  "Mashi": { senatorial_zone: "Katsina North", federal_constituency: "Mashi/Dutsi" },
+  "Matazu": { senatorial_zone: "Katsina South", federal_constituency: "Matazu/Musawa" },
+  "Musawa": { senatorial_zone: "Katsina South", federal_constituency: "Matazu/Musawa" },
+  "Rimi": { senatorial_zone: "Katsina Central", federal_constituency: "Batagarawa/Charanchi/Rimi" },
+  "Sabuwa": { senatorial_zone: "Katsina South", federal_constituency: "Faskari/Kankara/Sabuwa" },
+  "Safana": { senatorial_zone: "Katsina Central", federal_constituency: "Batsari/Safana/Danmusa" },
+  "Sandamu": { senatorial_zone: "Katsina North", federal_constituency: "Daura/Sandamu/Mai'Adua" },
+  "Zango": { senatorial_zone: "Katsina North", federal_constituency: "Zango/Baure" }
+};
+
+export const getConstituencyForLga = (lgaName?: string | null): LGAConstituencyInfo | null => {
+  if (!lgaName) return null;
+  // Try direct match
+  if (LGA_CONSTITUENCY_MAP[lgaName]) return LGA_CONSTITUENCY_MAP[lgaName];
+  
+  // Try normalized match
+  const normalized = lgaName.toLowerCase().replace(/['\s-]/g, '');
+  const foundKey = Object.keys(LGA_CONSTITUENCY_MAP).find(
+    key => key.toLowerCase().replace(/['\s-]/g, '') === normalized
+  );
+  
+  return foundKey ? LGA_CONSTITUENCY_MAP[foundKey] : null;
+};

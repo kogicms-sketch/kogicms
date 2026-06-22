@@ -33,15 +33,21 @@ const MemberCard = ({ member, onClick }: MemberCardProps) => {
           <h3 className="font-semibold text-foreground truncate">
             {member.full_name}
           </h3>
-          <span
-            className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-              member.status === "active"
-                ? "bg-success/10 text-success"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {member.status === "active" ? "Active" : "Inactive"}
-          </span>
+          {member.is_deceased ? (
+            <span className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-destructive/10 text-destructive border border-destructive/20">
+              Deceased
+            </span>
+          ) : (
+            <span
+              className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                member.status === "active"
+                  ? "bg-success/10 text-success"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {member.status === "active" ? "Active" : "Inactive"}
+            </span>
+          )}
         </div>
         
         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
