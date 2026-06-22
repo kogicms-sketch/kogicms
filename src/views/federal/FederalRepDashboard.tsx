@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from 'next/navigation';
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useFederalRep, useFederalConstituencyData } from "@/hooks/useFederalRep";
 import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
 import { useJurisdictionTrends } from "@/hooks/useJurisdictionTrends";
