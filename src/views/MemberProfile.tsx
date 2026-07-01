@@ -334,7 +334,17 @@ const MemberProfile = () => {
                                     </Badge>
                                 )}
                             </div>
-                            <Badge variant="outline" className="mb-4 capitalize">{member.gender || "N/A"}</Badge>
+                            {member.gender?.toLowerCase() === "male" ? (
+                                <Badge variant="secondary" className="mb-4 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900/50 capitalize">
+                                    Male
+                                </Badge>
+                            ) : member.gender?.toLowerCase() === "female" ? (
+                                <Badge variant="secondary" className="mb-4 bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/20 dark:text-pink-400 dark:border-pink-900/50 capitalize">
+                                    Female
+                                </Badge>
+                            ) : (
+                                <Badge variant="outline" className="mb-4 capitalize">Gender: N/A</Badge>
+                            )}
 
                             <div className="w-full space-y-3 mb-6">
                                 <div className="flex items-center justify-between text-sm border-b border-border pb-2">

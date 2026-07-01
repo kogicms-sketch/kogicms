@@ -37,6 +37,7 @@ const SenatorialDashboard = () => {
     const [search, setSearch] = useState("");
     const [lgaFilter, setLgaFilter] = useState("All");
     const [expandedLGA, setExpandedLGA] = useState<string | null>(null);
+    const [isPUOpen, setIsPUOpen] = useState(false);
 
     const isLoading = leaderLoading || zoneLoading || trendLoading;
 
@@ -457,10 +458,66 @@ const SenatorialDashboard = () => {
                                             </div>
                                         </CardHeader>
                                         <CardContent>
-                                            <div className="text-center py-8 text-muted-foreground cursor-pointer" onClick={() => setIsPUOpen(true)}>
-                                                <Building2 className="h-8 w-8 mx-auto mb-2 text-purple-400" />
-                                                <p className="text-xs font-semibold">Click to expand Polling Units details ledger</p>
-                                            </div>
+                                            {isPUOpen ? (
+                                                <div className="overflow-x-auto max-h-[350px] overflow-y-auto pr-1">
+                                                    <Table>
+                                                        <TableHeader>
+                                                            <TableRow className="bg-muted/30">
+                                                                <TableHead className="text-xs font-semibold">PU Details</TableHead>
+                                                                <TableHead className="text-xs font-semibold">LGA / Ward</TableHead>
+                                                                <TableHead className="text-xs font-semibold text-center">Voters</TableHead>
+                                                                <TableHead className="text-xs font-semibold text-center">Target</TableHead>
+                                                                <TableHead className="text-xs font-semibold text-center">Members</TableHead>
+                                                                <TableHead className="text-xs font-semibold text-right">Coverage</TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {filteredPUs.length > 0 ? (
+                                                                filteredPUs.slice(0, 100).map((pu: any) => {
+                                                                    const coverage = pu.target_voters > 0 
+                                                                        ? Math.min((pu.verified_members / pu.target_voters) * 100, 100)
+                                                                        : 0;
+                                                                    return (
+                                                                        <TableRow key={pu.id} className="hover:bg-muted/20 transition-colors">
+                                                                            <TableCell className="font-medium text-xs">
+                                                                                <div className="flex flex-col">
+                                                                                    <span>{pu.name}</span>
+                                                                                    <span className="text-[10px] text-muted-foreground font-mono">{pu.code}</span>
+                                                                                </div>
+                                                                            </TableCell>
+                                                                            <TableCell className="text-xs">
+                                                                                <div className="flex flex-col">
+                                                                                    <span className="font-semibold text-navy-deep">{pu.lga_name}</span>
+                                                                                    <span className="text-[10px] text-muted-foreground">{pu.ward_name}</span>
+                                                                                </div>
+                                                                            </TableCell>
+                                                                            <TableCell className="text-center text-xs font-medium">{pu.registered_voters?.toLocaleString() || 0}</TableCell>
+                                                                            <TableCell className="text-center text-xs text-muted-foreground font-medium">{pu.target_voters || 0}</TableCell>
+                                                                            <TableCell className="text-center text-xs font-bold text-apc-green">{pu.verified_members || 0}</TableCell>
+                                                                            <TableCell className="text-right text-xs font-extrabold">
+                                                                                <span className={coverage >= 80 ? "text-green-600" : coverage >= 40 ? "text-orange-500" : "text-red-500"}>
+                                                                                    {Math.round(coverage)}%
+                                                                                </span>
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    );
+                                                                })
+                                                            ) : (
+                                                                <TableRow>
+                                                                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                                                        No polling units matched search.
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )}
+                                                        </TableBody>
+                                                    </Table>
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-8 text-muted-foreground cursor-pointer" onClick={() => setIsPUOpen(true)}>
+                                                    <Building2 className="h-8 w-8 mx-auto mb-2 text-purple-400" />
+                                                    <p className="text-xs font-semibold">Click to expand Polling Units details ledger</p>
+                                                </div>
+                                            )}
                                         </CardContent>
                                     </Card>
 

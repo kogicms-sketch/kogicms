@@ -34,6 +34,8 @@ import {
   UserX,
   UserCheck,
   HelpCircle,
+  BarChart3,
+  ArrowLeft,
 } from "lucide-react";
 import { AddMemberModal } from "@/components/members/AddMemberModal";
 import MemberCard from "@/components/members/MemberCard";
@@ -73,12 +75,106 @@ const OCCUPATIONS_CONFIG = [
   { id: "Other", label: "Others", icon: HelpCircle, color: "text-slate-500", bg: "bg-slate-500/10", border: "border-slate-200" },
 ];
 
+const TRADER_SUB_TRADES = [
+  "Grain / Produce Merchant (Mai Hatsi)",
+  "Livestock Trader (Mai Dabbobi)",
+  "Textile / Wrapper Dealer (Mai Atamfa da Yadudduka)",
+  "Provisions Shop Owner (Mai Kantin Shago)",
+  "Tea & Bread Vendor (Mai Shayi da Buredi)",
+  "Perishable Goods / Vegetable Vendor (Mai Kayan Miya)",
+  "Mobile Phone Accessory / Charging Point (Mai Charge da Waya)",
+  "POS Agent / Mobile Money Operator (Mai POS)",
+  "Butcher / Meat Vendor (Mai Naman Shanu/Akuya)",
+  "Cosmetics & Perfume Seller (Mai Kayan Kwalliya)",
+  "Footwear & Shoe Dealer (Mai Takalma)",
+  "Hardware & Building Materials (Mai Kayan Gini)",
+  "Auto / Motorcycle Spare Parts (Mai Kayan Mota da Keke)",
+  "Second-Hand Clothes Merchant (Mai Gwanjo)",
+  "Gold & Silver Goldsmith (Mai Gyaran Gwal)",
+  "Charcoal / Firewood Seller (Mai Gawayi da Itace)",
+  "Catering / Cooked Food Vendor (Mai Abinci)",
+  "Cement Dealer (Mai Simenti)",
+  "Plastic Ware & Kitchen Utensils (Mai Kayan Robobi)",
+  "Electrical Appliances Dealer (Mai Kayan Wutar Lantarki)",
+  "Tailoring Materials Merchant (Mai Kayan Dinki)",
+  "Other Trader"
+];
+
+const STUDENT_INSTITUTIONS = [
+  "Umaru Musa Yar'adua University (UMYU), Katsina",
+  "Federal University Dutsin-Ma (FUDMA)",
+  "Al-Qalam University, Katsina",
+  "Federal University of Transportation, Daura",
+  "Hassan Usman Katsina Polytechnic (HUK Poly), Katsina",
+  "Federal Polytechnic, Daura",
+  "Isa Kaita College of Education (IKCOE), Dutsin-Ma",
+  "Katsina State College of Health Sciences (COHESKAT), Katsina Campus",
+  "Katsina State College of Health Sciences, Daura Campus",
+  "Kasimu Kofarsauri College of Education, Katsina",
+  "College of Nursing and Midwifery, Katsina",
+  "Cherish College of Nursing and Midwifery, Batsari",
+  "National Open University of Nigeria (NOUN), Katsina Centre",
+  "Federal College of Education (FCE), Katsina",
+  "Yusuf Bala Usman College of Legal and General Studies, Daura",
+  "Katsina State Institute of Technology and Management (KSITM)",
+  "Al-Asala College of Health Sciences, Katsina",
+  "School of Basic and Remedial Studies (SBRS), Funtua",
+  "Malumfashi College of Nursing and Midwifery",
+  "Institute of Almighty Management and Technology, Katsina",
+  "Other Higher Institution Outside Katsina"
+];
+
+const BUSINESS_SECTORS = [
+  "Commercial Transport Fleet (Mota/Buses)",
+  "Tricycle Operations Owner (Keke Napep Fleet)",
+  "Commercial Motorcycle Fleet (Achaba Operator)",
+  "Pharmacy / Wholesale Chemist",
+  "Patent Medicine Store (Local Chemist Shop)",
+  "Block Industry & Concrete Molding Yard",
+  "Tailoring & Embroidery Fashion Center",
+  "Computer Cyber Café & IT Support Center",
+  "Welding & Iron Fabrication Workshop",
+  "Carpentry & Furniture Showroom",
+  "Grain Milling & Agro-Processing Factory (Gidan Nika)",
+  "Bakery / Confectionery Factory",
+  "Dry Cleaning & Laundry Business",
+  "Barbing / Hair Dressing Salon",
+  "Poultry / Livestock Farm Enterprise",
+  "Pure Water / Sachet Water Factory",
+  "Car Wash Outlet",
+  "Printing Press & Graphic Design Studio",
+  "Scrap Metal Yard (Mai Kayan Ruwa)",
+  "Electrical / Solar Installation Agency",
+  "Artisan Workshop (Mechanic, Panel Beater)",
+  "Other / Unknown Business"
+];
+
+const OCCUPATION_SUB_CATEGORIES_DEFAULTS: Record<string, string[]> = {
+  Trader: TRADER_SUB_TRADES,
+  Student: STUDENT_INSTITUTIONS,
+  "Business Owner": BUSINESS_SECTORS,
+  Teacher: ["Primary", "Secondary", "Tertiary"],
+  Farmer: [
+    "Noman Damana (Rain-fed)",
+    "Noman Rani (Irrigation)",
+    "Both"
+  ],
+  "Civil Servant": [
+    "State Ministry",
+    "Local Government",
+    "Federal",
+    "Other"
+  ]
+};
+
 const Members = () => {
   const router = useRouter();
   const navigate = (path: string | number) => { if (path === -1) router.back(); else router.push(path as string); };
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOccupation, setSelectedOccupation] = useState<string | null>(null);
+  const [selectedSubOccupation, setSelectedSubOccupation] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedParentOcc, setSelectedParentOcc] = useState<string | null>(null);
   const { organizationId, role } = useAuth();
   const { data: puAgent } = usePUAgent();
 
@@ -109,7 +205,7 @@ const Members = () => {
   );
   const { mutate: verifyMember, isPending: isVerifying } = useVerifyMember();
 
-  // Filter members based on search and selected occupation
+  // Filter members based on search, selected occupation and sub-occupation
   const filteredMembers = members.filter((member) => {
     const matchesSearch = 
       member.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -120,7 +216,26 @@ const Members = () => {
       ? member.occupation?.toLowerCase() === selectedOccupation.toLowerCase() 
       : true;
 
-    return matchesSearch && matchesOccupation;
+    let matchesSubOccupation = true;
+    if (selectedOccupation && selectedSubOccupation) {
+      let memberSubName = member.school_name || "";
+      if (selectedOccupation === "Farmer" && memberSubName.startsWith("LGA:")) {
+        memberSubName = memberSubName.replace("LGA: ", "").replace("Ward: ", "");
+      }
+      if (selectedOccupation === "Teacher" && member.school_level === "Secondary" && memberSubName) {
+        memberSubName = `${memberSubName} (Secondary)`;
+      } else if (selectedOccupation === "Teacher" && member.school_level) {
+        memberSubName = `${memberSubName} (${member.school_level})`;
+      } else if (selectedOccupation === "Civil Servant" && member.school_level) {
+        memberSubName = `${memberSubName || "General"} (${member.school_level})`;
+      }
+      if (!memberSubName) {
+        memberSubName = "General / Unspecified";
+      }
+      matchesSubOccupation = memberSubName.toLowerCase() === selectedSubOccupation.toLowerCase();
+    }
+
+    return matchesSearch && matchesOccupation && matchesSubOccupation;
   });
 
   // Calculate occupation counts dynamically from the fetched members
@@ -176,6 +291,123 @@ const Members = () => {
     ...(otherGenderCount > 0 ? [{ name: "Other", value: otherGenderCount, color: "#9ca3af" }] : [])
   ].filter(d => d.value > 0);
 
+  // Demographics aggregation logic
+  const demographicStats = (() => {
+    const parentStats: Record<string, {
+      total: number;
+      male: number;
+      female: number;
+      subCategories: Record<string, {
+        total: number;
+        male: number;
+        female: number;
+        ages: number[];
+        locations: Record<string, number>;
+      }>
+    }> = {};
+
+    // Initialize parents
+    OCCUPATIONS_CONFIG.forEach((occ) => {
+      parentStats[occ.id] = {
+        total: 0,
+        male: 0,
+        female: 0,
+        subCategories: {}
+      };
+    });
+
+    // Ensure "Other" exists
+    if (!parentStats["Other"]) {
+      parentStats["Other"] = { total: 0, male: 0, female: 0, subCategories: {} };
+    }
+
+    members.forEach((m) => {
+      const rawOcc = m.occupation || "Other";
+      const matched = OCCUPATIONS_CONFIG.find(c => c.id.toLowerCase() === rawOcc.toLowerCase());
+      const parentId = matched ? matched.id : "Other";
+
+      const gender = (m.gender || "").toLowerCase();
+      const isMale = gender === "male";
+      const isFemale = gender === "female";
+
+      parentStats[parentId].total++;
+      if (isMale) parentStats[parentId].male++;
+      if (isFemale) parentStats[parentId].female++;
+
+      let subName = m.school_name || "";
+      if (parentId === "Farmer" && subName.startsWith("LGA:")) {
+        subName = subName.replace("LGA: ", "").replace("Ward: ", "");
+      }
+      
+      if (parentId === "Teacher" && m.school_level === "Secondary" && subName) {
+        subName = `${subName} (Secondary)`;
+      } else if (parentId === "Teacher" && m.school_level) {
+        subName = `${subName} (${m.school_level})`;
+      } else if (parentId === "Civil Servant" && m.school_level) {
+        subName = `${subName || "General"} (${m.school_level})`;
+      }
+
+      if (!subName) {
+        subName = "General / Unspecified";
+      }
+
+      if (!parentStats[parentId].subCategories[subName]) {
+        parentStats[parentId].subCategories[subName] = {
+          total: 0,
+          male: 0,
+          female: 0,
+          ages: [],
+          locations: {}
+        };
+      }
+
+      const sub = parentStats[parentId].subCategories[subName];
+      sub.total++;
+      if (isMale) sub.male++;
+      if (isFemale) sub.female++;
+
+      if (m.date_of_birth) {
+        const birthDate = new Date(m.date_of_birth);
+        if (!isNaN(birthDate.getTime())) {
+          const age = new Date().getFullYear() - birthDate.getFullYear();
+          if (age > 0 && age < 120) {
+            sub.ages.push(age);
+          }
+        }
+      }
+
+      if (m.lga && m.ward) {
+        const locKey = `${m.ward}, ${m.lga}`;
+        sub.locations[locKey] = (sub.locations[locKey] || 0) + 1;
+      }
+    });
+
+    return parentStats;
+  })();
+
+  // Get sub-categories stats for the active parent occupation, including default options for empty states
+  const activeSubCategoryStats = (() => {
+    if (!selectedOccupation) return [];
+    
+    const defaults = OCCUPATION_SUB_CATEGORIES_DEFAULTS[selectedOccupation] || [];
+    const aggregated = demographicStats[selectedOccupation]?.subCategories || {};
+    
+    // Merge defaults and aggregated
+    const allKeys = Array.from(new Set([...defaults, ...Object.keys(aggregated)]));
+    
+    return allKeys.map(key => {
+      const stats = aggregated[key] || { total: 0, male: 0, female: 0, ages: [], locations: {} };
+      return {
+        name: key,
+        total: stats.total,
+        male: stats.male,
+        female: stats.female,
+        ages: stats.ages,
+        locations: stats.locations
+      };
+    });
+  })();
+
   return (
     <DashboardLayout
       title="Members"
@@ -224,6 +456,10 @@ const Members = () => {
             <TrendingUp className="w-4 h-4" />
             <span>Analytics & Trends</span>
           </TabsTrigger>
+          <TabsTrigger value="demographics" className="gap-2">
+            <BarChart3 className="w-4 h-4" />
+            <span>Demographics Matrix</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="list">
@@ -257,48 +493,176 @@ const Members = () => {
               <AddMemberModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
             </div>
           </div>
+          {/* Occupation/Trade Filters Redesign */}
+          <div className="mb-8">
+            {!selectedOccupation ? (
+              <div className="space-y-4 animate-fade-in">
+                <div className="flex justify-between items-center mb-1">
+                  <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Filter by Category</h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {OCCUPATIONS_CONFIG.map((occ) => {
+                    const parentData = demographicStats[occ.id] || { total: 0, male: 0, female: 0 };
+                    const malePct = parentData.total > 0 ? Math.round((parentData.male / parentData.total) * 100) : 0;
+                    const femalePct = parentData.total > 0 ? Math.round((parentData.female / parentData.total) * 100) : 0;
+                    const Icon = occ.icon;
 
-          {/* Occupation/Trade Filters */}
-          <div className="mb-6 bg-card/45 border border-border/50 rounded-xl p-4 backdrop-blur-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-muted-foreground">Filter by Trade / Occupation</h3>
-              {selectedOccupation && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setSelectedOccupation(null)}
-                  className="text-xs text-primary h-7 px-2 hover:bg-primary/5"
-                >
-                  Clear Filter
-                </Button>
-              )}
-            </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-muted">
-              {OCCUPATIONS_CONFIG.map((occ) => {
-                const count = occupationCounts[occ.id] || 0;
-                const IconComponent = occ.icon;
-                const isSelected = selectedOccupation === occ.id;
-                return (
-                  <button
-                    key={occ.id}
-                    onClick={() => setSelectedOccupation(isSelected ? null : occ.id)}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-left transition-all min-w-[160px] flex-shrink-0 ${
-                      isSelected 
-                        ? "bg-primary/10 border-primary shadow-sm scale-[1.02]" 
-                        : "bg-background/60 hover:bg-background/90 hover:scale-[1.01] hover:shadow-sm border-border/80"
-                    }`}
-                  >
-                    <div className={`p-2 rounded-lg ${occ.bg} ${occ.color}`}>
-                      <IconComponent className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold text-foreground leading-tight">{occ.label}</p>
-                      <p className="text-[11px] text-muted-foreground font-medium mt-0.5">{count} {count === 1 ? "member" : "members"}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                    return (
+                      <Card
+                        key={occ.id}
+                        className="cursor-pointer overflow-hidden border border-border/50 transition-all duration-300 hover:shadow-md hover:border-primary/20 transform hover:-translate-y-0.5 hover:scale-[1.01]"
+                        onClick={() => {
+                          setSelectedOccupation(occ.id);
+                          setSelectedSubOccupation(null);
+                        }}
+                      >
+                        <CardContent className="p-4 flex flex-col justify-between h-full">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex items-center gap-2">
+                              <div className={`p-2 rounded-lg ${occ.bg}`}>
+                                <Icon className={`w-4 h-4 ${occ.color}`} />
+                              </div>
+                              <span className="text-xs font-bold text-foreground">{occ.label}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-base font-extrabold text-foreground">{parentData.total}</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 mt-auto">
+                            {/* Gender split progress bar */}
+                            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden flex">
+                              <div 
+                                className="h-full bg-blue-500 transition-all duration-500" 
+                                style={{ width: `${malePct}%` }}
+                              />
+                              <div 
+                                className="h-full bg-pink-500 transition-all duration-500" 
+                                style={{ width: `${femalePct}%` }}
+                              />
+                            </div>
+                            {/* Gender breakdown numbers */}
+                            <div className="flex justify-between text-[10px] text-muted-foreground font-semibold">
+                              <span className="flex items-center gap-0.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                M: {parentData.male} ({malePct}%)
+                              </span>
+                              <span className="flex items-center gap-0.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-pink-500" />
+                                F: {parentData.female} ({femalePct}%)
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 animate-fade-in">
+                {/* Level 2 Sub-categories Details */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/30 border border-border/40 p-3 rounded-xl mb-4">
+                  <div className="flex items-center gap-3">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="gap-1.5 h-8 text-xs font-medium"
+                      onClick={() => {
+                        setSelectedOccupation(null);
+                        setSelectedSubOccupation(null);
+                      }}
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Back to Main Occupations
+                    </Button>
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      Active Filter View: <strong className="text-foreground">{selectedOccupation} Breakdown Matrix</strong>
+                    </span>
+                  </div>
+                  {selectedSubOccupation && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedSubOccupation(null)}
+                      className="text-xs h-8 text-primary hover:bg-primary/5"
+                    >
+                      Clear Sub-trade Filter
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {activeSubCategoryStats.map((sub) => {
+                    const subMalePct = sub.total > 0 ? Math.round((sub.male / sub.total) * 100) : 0;
+                    const subFemalePct = sub.total > 0 ? Math.round((sub.female / sub.total) * 100) : 0;
+                    const isSelected = selectedSubOccupation === sub.name;
+                    const isEmpty = sub.total === 0;
+
+                    return (
+                      <Card 
+                        key={sub.name}
+                        onClick={() => setSelectedSubOccupation(isSelected ? null : sub.name)}
+                        className={`cursor-pointer overflow-hidden transition-all duration-300 border ${
+                          isEmpty 
+                            ? "opacity-60 bg-muted/10 border-border/40" 
+                            : isSelected 
+                              ? "border-primary ring-2 ring-primary/20 bg-primary/5 shadow-sm scale-[1.01]" 
+                              : "border-border/50 hover:shadow-sm hover:border-primary/20"
+                        }`}
+                      >
+                        <CardContent className="p-4 flex flex-col justify-between h-full">
+                          <div className="mb-2">
+                            <h4 className="text-xs font-bold text-foreground line-clamp-1 truncate" title={sub.name}>
+                              {sub.name}
+                            </h4>
+                          </div>
+
+                          <div className="space-y-2 mt-auto">
+                            {/* Total and breakdown numbers */}
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-muted-foreground">Total:</span>
+                              <strong className="text-foreground">{sub.total}</strong>
+                            </div>
+
+                            {isEmpty ? (
+                              <p className="text-[10px] text-muted-foreground font-semibold italic mt-1">
+                                Total Members: 0 (Male: 0 | Female: 0)
+                              </p>
+                            ) : (
+                              <>
+                                {/* Gender split progress bar */}
+                                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden flex">
+                                  <div 
+                                    className="h-full bg-blue-500" 
+                                    style={{ width: `${subMalePct}%` }}
+                                  />
+                                  <div 
+                                    className="h-full bg-pink-500" 
+                                    style={{ width: `${subFemalePct}%` }}
+                                  />
+                                </div>
+                                {/* Gender breakdown percentages */}
+                                <div className="flex justify-between text-[10px] text-muted-foreground font-semibold">
+                                  <span className="flex items-center gap-0.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                    M: {sub.male} ({subMalePct})
+                                  </span>
+                                  <span className="flex items-center gap-0.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-pink-500" />
+                                    F: {sub.female} ({subFemalePct})
+                                  </span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Loading State */}
@@ -383,7 +747,17 @@ const Members = () => {
                           <span className="text-foreground capitalize">{member.role || "-"}</span>
                         </td>
                         <td>
-                          <span className="text-foreground capitalize">{member.gender || "-"}</span>
+                          {member.gender?.toLowerCase() === "male" ? (
+                            <span className="inline-flex items-center gap-1 text-blue-700 text-xs font-semibold bg-blue-50/80 dark:bg-blue-950/20 dark:text-blue-400 border border-blue-100 dark:border-blue-900/50 px-2.5 py-0.5 rounded-full capitalize">
+                              Male
+                            </span>
+                          ) : member.gender?.toLowerCase() === "female" ? (
+                            <span className="inline-flex items-center gap-1 text-pink-700 text-xs font-semibold bg-pink-50/80 dark:bg-pink-950/20 dark:text-pink-400 border border-pink-100 dark:border-pink-900/50 px-2.5 py-0.5 rounded-full capitalize">
+                              Female
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground italic px-2">-</span>
+                          )}
                         </td>
                         <td>
                           <div className="flex items-center gap-2">
@@ -637,6 +1011,188 @@ const Members = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="demographics">
+          {!selectedParentOcc ? (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">Occupational Demographics Matrix</h3>
+                  <p className="text-sm text-muted-foreground">Select an occupation category to explore detailed localized sub-categories and metrics</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {OCCUPATIONS_CONFIG.map((occ) => {
+                  const parentData = demographicStats[occ.id] || { total: 0, male: 0, female: 0 };
+                  const malePct = parentData.total > 0 ? Math.round((parentData.male / parentData.total) * 100) : 0;
+                  const femalePct = parentData.total > 0 ? Math.round((parentData.female / parentData.total) * 100) : 0;
+                  const Icon = occ.icon;
+
+                  return (
+                    <Card 
+                      key={occ.id}
+                      className="kpi-card group cursor-pointer overflow-hidden border border-border/50 transition-all duration-300 hover:shadow-lg hover:border-primary/20 transform hover:-translate-y-1 hover:scale-[1.01]"
+                      onClick={() => setSelectedParentOcc(occ.id)}
+                    >
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className={`p-3 rounded-lg ${occ.bg} transition-colors group-hover:bg-primary/20`}>
+                            <Icon className={`w-6 h-6 ${occ.color} transition-colors group-hover:text-primary`} />
+                          </div>
+                          <div className="text-right">
+                            <span className="text-2xl font-black text-foreground">{parentData.total}</span>
+                            <span className="block text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Registered</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-bold text-foreground group-hover:text-primary transition-colors">{occ.label}</h4>
+                            <span className="text-xs text-muted-foreground">
+                              {Object.keys(demographicStats[occ.id]?.subCategories || {}).length} Sub-categories
+                            </span>
+                          </div>
+
+                          {/* Gender breakdown numbers */}
+                          <div className="flex justify-between text-xs font-semibold text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full bg-blue-500" />
+                              Male: <strong className="text-foreground">{parentData.male}</strong> ({malePct}%)
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="w-2 h-2 rounded-full bg-pink-500" />
+                              Female: <strong className="text-foreground">{parentData.female}</strong> ({femalePct}%)
+                            </span>
+                          </div>
+
+                          {/* Split Bar */}
+                          <div className="w-full h-2 bg-muted rounded-full overflow-hidden flex">
+                            <div 
+                              className="h-full bg-blue-500 transition-all duration-500" 
+                              style={{ width: `${malePct}%` }}
+                              title={`Male: ${malePct}%`}
+                            />
+                            <div 
+                              className="h-full bg-pink-500 transition-all duration-500" 
+                              style={{ width: `${femalePct}%` }}
+                              title={`Female: ${femalePct}%`}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6 animate-fade-in">
+              {/* Level 2 Sub-categories Details */}
+              <div className="flex items-center gap-4">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={() => setSelectedParentOcc(null)}
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to Grid
+                </Button>
+                <div>
+                  <h3 className="text-lg font-bold text-foreground">
+                    {OCCUPATIONS_CONFIG.find(c => c.id === selectedParentOcc)?.label || selectedParentOcc} Breakdown
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Total: {demographicStats[selectedParentOcc]?.total || 0} members • {Object.keys(demographicStats[selectedParentOcc]?.subCategories || {}).length} active sub-categories
+                  </p>
+                </div>
+              </div>
+
+              {Object.keys(demographicStats[selectedParentOcc]?.subCategories || {}).length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-12 bg-card border border-border/50 rounded-xl text-muted-foreground text-sm italic">
+                  No sub-category records registered for {selectedParentOcc} yet.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {Object.entries(demographicStats[selectedParentOcc].subCategories).map(([subName, sub]) => {
+                    const subMalePct = sub.total > 0 ? Math.round((sub.male / sub.total) * 100) : 0;
+                    const subFemalePct = sub.total > 0 ? Math.round((sub.female / sub.total) * 100) : 0;
+                    
+                    // Top location
+                    let topLocation = "N/A";
+                    let maxCount = 0;
+                    Object.entries(sub.locations).forEach(([loc, count]) => {
+                      if (count > maxCount) {
+                        maxCount = count;
+                        topLocation = loc;
+                      }
+                    });
+
+                    // Average age
+                    const avgAge = sub.ages.length > 0 ? Math.round(sub.ages.reduce((a, b) => a + b, 0) / sub.ages.length) : null;
+
+                    return (
+                      <Card 
+                        key={subName}
+                        className="bg-card border border-border/50 rounded-xl shadow-sm transition-all duration-300 hover:shadow-md"
+                      >
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm font-bold text-foreground line-clamp-2 min-h-[40px] leading-tight">
+                            {subName}
+                          </CardTitle>
+                          <CardDescription className="text-xs text-muted-foreground">
+                            Total Members: <strong className="text-foreground text-sm">{sub.total}</strong>
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {/* Gender metrics */}
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs font-semibold text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                Male: {sub.male} ({subMalePct}%)
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-pink-500" />
+                                Female: {sub.female} ({subFemalePct}%)
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden flex">
+                              <div 
+                                className="h-full bg-blue-500" 
+                                style={{ width: `${subMalePct}%` }}
+                              />
+                              <div 
+                                className="h-full bg-pink-500" 
+                                style={{ width: `${subFemalePct}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pt-3 border-t border-border/50 grid grid-cols-2 gap-2 text-xs">
+                            <div className="space-y-0.5">
+                              <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Top Ward & LGA</span>
+                              <span className="font-semibold text-foreground truncate block text-left" title={topLocation}>
+                                {topLocation}
+                              </span>
+                            </div>
+                            <div className="space-y-0.5 text-right">
+                              <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Average Age</span>
+                              <span className="font-semibold text-foreground block">
+                                {avgAge ? `${avgAge} yrs` : "N/A"}
+                              </span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </DashboardLayout>

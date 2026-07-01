@@ -257,7 +257,17 @@ export const navItems: NavItem[] = [
     icon: Sparkles,
     path: "/post-generator",
     group: "Tools",
-    roles: ["super_admin", "member"],
+    roles: [
+      "super_admin",
+      "org_admin",
+      "member",
+      "lga_chairman",
+      "councillor",
+      "polling_unit_agent",
+      "senatorial_leader",
+      "federal_rep",
+      "house_assembly_member",
+    ],
   },
   {
     label: "Chats",

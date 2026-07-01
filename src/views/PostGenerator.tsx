@@ -23,6 +23,7 @@ const PostGenerator = () => {
   const [language, setLanguage] = useState<Language>("english");
   const [paragraphs, setParagraphs] = useState([2]);
   const [tone, setTone] = useState<Tone>("inspirational");
+  const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
 
   // Local state for editing the generated post
   const [editablePost, setEditablePost] = useState("");
@@ -43,7 +44,8 @@ const PostGenerator = () => {
       topic,
       language,
       paragraphs: paragraphs[0],
-      tone
+      tone,
+      model: selectedModel
     });
   };
 
@@ -104,16 +106,35 @@ const PostGenerator = () => {
 
       {!generatedPost ? (
         <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {step === 1 && <><MessageSquare className="h-5 w-5" /> What topic do you want to write about?</>}
-              {step === 2 && <><Languages className="h-5 w-5" /> Choose your language</>}
-              {step === 3 && <><AlignLeft className="h-5 w-5" /> How many paragraphs?</>}
-              {step === 4 && <><Palette className="h-5 w-5" /> Select the tone</>}
-            </CardTitle>
-            <CardDescription>
-              Step {step} of 4
-            </CardDescription>
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1.5">
+              <CardTitle className="flex items-center gap-2">
+                {step === 1 && <><MessageSquare className="h-5 w-5" /> What topic do you want to write about?</>}
+                {step === 2 && <><Languages className="h-5 w-5" /> Choose your language</>}
+                {step === 3 && <><AlignLeft className="h-5 w-5" /> How many paragraphs?</>}
+                {step === 4 && <><Palette className="h-5 w-5" /> Select the tone</>}
+              </CardTitle>
+              <CardDescription>
+                Step {step} of 4
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">AI Model:</span>
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger className="w-[180px] h-9 text-xs">
+                  <SelectValue placeholder="Select Model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                  <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                  <SelectItem value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</SelectItem>
+                  <SelectItem value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B</SelectItem>
+                  <SelectItem value="google/gemini-2.5-flash:free">Gemini 2.5 Flash (Free)</SelectItem>
+                  <SelectItem value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (Free)</SelectItem>
+                  <SelectItem value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B (Free)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Step 1: Topic */}
@@ -270,14 +291,33 @@ const PostGenerator = () => {
       ) : (
         /* Generated Post Display */
         <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5" style={{ color: 'hsl(var(--apc-green))' }} />
-              Your Generated Post
-            </CardTitle>
-            <CardDescription>
-              Review, edit, and share your campaign post!
-            </CardDescription>
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1.5">
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" style={{ color: 'hsl(var(--apc-green))' }} />
+                Your Generated Post
+              </CardTitle>
+              <CardDescription>
+                Review, edit, and share your campaign post!
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">AI Model:</span>
+              <Select value={selectedModel} onValueChange={setSelectedModel}>
+                <SelectTrigger className="w-[180px] h-9 text-xs">
+                  <SelectValue placeholder="Select Model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                  <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                  <SelectItem value="meta-llama/llama-3.3-70b-instruct">Llama 3.3 70B</SelectItem>
+                  <SelectItem value="meta-llama/llama-3.1-8b-instruct">Llama 3.1 8B</SelectItem>
+                  <SelectItem value="google/gemini-2.5-flash:free">Gemini 2.5 Flash (Free)</SelectItem>
+                  <SelectItem value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (Free)</SelectItem>
+                  <SelectItem value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B (Free)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             <Textarea

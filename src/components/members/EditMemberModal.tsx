@@ -44,6 +44,118 @@ const COMMON_OCCUPATIONS = [
   "Other"
 ];
 
+const TRADER_SUB_TRADES = [
+  "Grain / Produce Merchant (Mai Hatsi)",
+  "Livestock Trader (Mai Dabbobi)",
+  "Textile / Wrapper Dealer (Mai Atamfa da Yadudduka)",
+  "Provisions Shop Owner (Mai Kantin Shago)",
+  "Tea & Bread Vendor (Mai Shayi da Buredi)",
+  "Perishable Goods / Vegetable Vendor (Mai Kayan Miya)",
+  "Mobile Phone Accessory / Charging Point (Mai Charge da Waya)",
+  "POS Agent / Mobile Money Operator (Mai POS)",
+  "Butcher / Meat Vendor (Mai Naman Shanu/Akuya)",
+  "Cosmetics & Perfume Seller (Mai Kayan Kwalliya)",
+  "Footwear & Shoe Dealer (Mai Takalma)",
+  "Hardware & Building Materials (Mai Kayan Gini)",
+  "Auto / Motorcycle Spare Parts (Mai Kayan Mota da Keke)",
+  "Second-Hand Clothes Merchant (Mai Gwanjo)",
+  "Gold & Silver Goldsmith (Mai Gyaran Gwal)",
+  "Charcoal / Firewood Seller (Mai Gawayi da Itace)",
+  "Catering / Cooked Food Vendor (Mai Abinci)",
+  "Cement Dealer (Mai Simenti)",
+  "Plastic Ware & Kitchen Utensils (Mai Kayan Robobi)",
+  "Electrical Appliances Dealer (Mai Kayan Wutar Lantarki)",
+  "Tailoring Materials Merchant (Mai Kayan Dinki)",
+  "Other Trader"
+];
+
+const STUDENT_INSTITUTIONS = [
+  "Umaru Musa Yar'adua University (UMYU), Katsina",
+  "Federal University Dutsin-Ma (FUDMA)",
+  "Al-Qalam University, Katsina",
+  "Federal University of Transportation, Daura",
+  "Hassan Usman Katsina Polytechnic (HUK Poly), Katsina",
+  "Federal Polytechnic, Daura",
+  "Isa Kaita College of Education (IKCOE), Dutsin-Ma",
+  "Katsina State College of Health Sciences (COHESKAT), Katsina Campus",
+  "Katsina State College of Health Sciences, Daura Campus",
+  "Kasimu Kofarsauri College of Education, Katsina",
+  "College of Nursing and Midwifery, Katsina",
+  "Cherish College of Nursing and Midwifery, Batsari",
+  "National Open University of Nigeria (NOUN), Katsina Centre",
+  "Federal College of Education (FCE), Katsina",
+  "Yusuf Bala Usman College of Legal and General Studies, Daura",
+  "Katsina State Institute of Technology and Management (KSITM)",
+  "Al-Asala College of Health Sciences, Katsina",
+  "School of Basic and Remedial Studies (SBRS), Funtua",
+  "Malumfashi College of Nursing and Midwifery",
+  "Institute of Almighty Management and Technology, Katsina",
+  "Other Higher Institution Outside Katsina"
+];
+
+const BUSINESS_SECTORS = [
+  "Commercial Transport Fleet (Mota/Buses)",
+  "Tricycle Operations Owner (Keke Napep Fleet)",
+  "Commercial Motorcycle Fleet (Achaba Operator)",
+  "Pharmacy / Wholesale Chemist",
+  "Patent Medicine Store (Local Chemist Shop)",
+  "Block Industry & Concrete Molding Yard",
+  "Tailoring & Embroidery Fashion Center",
+  "Computer Cyber Café & IT Support Center",
+  "Welding & Iron Fabrication Workshop",
+  "Carpentry & Furniture Showroom",
+  "Grain Milling & Agro-Processing Factory (Gidan Nika)",
+  "Bakery / Confectionery Factory",
+  "Dry Cleaning & Laundry Business",
+  "Barbing / Hair Dressing Salon",
+  "Poultry / Livestock Farm Enterprise",
+  "Pure Water / Sachet Water Factory",
+  "Car Wash Outlet",
+  "Printing Press & Graphic Design Studio",
+  "Scrap Metal Yard (Mai Kayan Ruwa)",
+  "Electrical / Solar Installation Agency",
+  "Artisan Workshop (Mechanic, Panel Beater)",
+  "Other / Unknown Business"
+];
+
+const KATSINA_MINISTRIES = [
+  "Ministry of Agriculture and Natural Resources",
+  "Ministry of Education",
+  "Ministry of Health",
+  "Ministry of Finance",
+  "Ministry of Works, Housing and Transport",
+  "Ministry of Justice",
+  "Ministry of Local Government and Chieftaincy Affairs",
+  "Ministry of Information, Culture and Home Affairs",
+  "Ministry of Environment",
+  "Ministry of Women Affairs and Social Development",
+  "Ministry of Youth and Sports Development",
+  "Ministry of Water Resources",
+  "Ministry of Commerce, Industry and Tourism",
+  "Ministry of Lands and Physical Planning",
+  "Ministry of Religious Affairs",
+  "Katsina State Internal Revenue Service",
+  "State Emergency Management Agency (SEMA)",
+  "Other Ministry / Parastatal"
+];
+
+const KATSINA_SECONDARY_SCHOOLS = [
+  "Government College, Katsina",
+  "Government Pilot Secondary School, Katsina",
+  "Government Girls College, Katsina",
+  "Government Girls Unity Secondary School, Daura",
+  "Government Science Secondary School, Funtua",
+  "Government Science Secondary School, Katsina",
+  "Government Secondary School, Dutsin-Ma",
+  "Government Secondary School, Malumfashi",
+  "Government Secondary School, Mani",
+  "Government Secondary School, Kankia",
+  "Government Day Secondary School, Katsina",
+  "Family Support Program (FSP) Secondary School, Katsina",
+  "Other Secondary School"
+];
+
+
 export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProps) => {
   const { role } = useAuth();
   const { data: userOrg } = useUserOrganization();
@@ -52,6 +164,94 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
   // Parse name into first and last
   const [firstName, ...lastNameParts] = member.full_name.split(" ");
   const lastName = lastNameParts.join(" ");
+
+  const parseOccupationFields = (m: typeof member) => {
+    const occ = m.occupation || "";
+    const schoolName = m.school_name || "";
+    const schoolLevel = m.school_level || "";
+
+    let subTrader = "";
+    let otherTrader = "";
+    let studentInstitution = "";
+    let otherInstitution = "";
+    let businessSector = "";
+    let otherBusiness = "";
+    let teacherSchoolLevel = "";
+    let teacherSchoolName = "";
+    let otherTeacherSchoolName = "";
+    let farmerLga = "";
+    let farmerWard = "";
+    let farmerSize = "";
+    let farmerSeasonalType = "";
+    let civilServantJurisdiction = "";
+    let civilServantMinistry = "";
+
+    if (occ === "Trader") {
+      if (TRADER_SUB_TRADES.includes(schoolName)) {
+        subTrader = schoolName;
+      } else {
+        subTrader = "Other Trader";
+        otherTrader = schoolName;
+      }
+    } else if (occ === "Student") {
+      if (STUDENT_INSTITUTIONS.includes(schoolName)) {
+        studentInstitution = schoolName;
+      } else {
+        studentInstitution = "Other Higher Institution Outside Katsina";
+        otherInstitution = schoolName;
+      }
+    } else if (occ === "Business Owner") {
+      if (BUSINESS_SECTORS.includes(schoolName)) {
+        businessSector = schoolName;
+      } else {
+        businessSector = "Other / Unknown Business";
+        otherBusiness = schoolName;
+      }
+    } else if (occ === "Teacher") {
+      teacherSchoolLevel = schoolLevel;
+      if (KATSINA_SECONDARY_SCHOOLS.includes(schoolName)) {
+        teacherSchoolName = schoolName;
+      } else if (schoolLevel === "Secondary") {
+        teacherSchoolName = "Other Secondary School";
+        otherTeacherSchoolName = schoolName;
+      } else {
+        teacherSchoolName = schoolName;
+      }
+    } else if (occ === "Farmer") {
+      const lgaMatch = schoolName.match(/LGA:\s*([^,]+)/);
+      const wardMatch = schoolName.match(/Ward:\s*(.+)/);
+      farmerLga = lgaMatch ? lgaMatch[1].trim() : "";
+      farmerWard = wardMatch ? wardMatch[1].trim() : "";
+
+      const sizeMatch = schoolLevel.match(/Size:\s*([^\s]+)/);
+      const seasonMatch = schoolLevel.match(/Season:\s*(.+)/);
+      farmerSize = sizeMatch ? sizeMatch[1].trim() : "";
+      farmerSeasonalType = seasonMatch ? seasonMatch[1].trim() : "";
+    } else if (occ === "Civil Servant") {
+      civilServantJurisdiction = schoolLevel;
+      civilServantMinistry = schoolName;
+    }
+
+    return {
+      subTrader,
+      otherTrader,
+      studentInstitution,
+      otherInstitution,
+      businessSector,
+      otherBusiness,
+      teacherSchoolLevel,
+      teacherSchoolName,
+      otherTeacherSchoolName,
+      farmerLga,
+      farmerWard,
+      farmerSize,
+      farmerSeasonalType,
+      civilServantJurisdiction,
+      civilServantMinistry
+    };
+  };
+
+  const initialParsed = parseOccupationFields(member);
 
   const [formData, setFormData] = useState({
     firstName: firstName || "",
@@ -71,6 +271,7 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
     schoolName: member.school_name || "",
     schoolLevel: member.school_level || "",
     isDeceased: member.is_deceased || false,
+    ...initialParsed
   });
 
   const [showOccupationDropdown, setShowOccupationDropdown] = useState(false);
@@ -85,6 +286,7 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
   useEffect(() => {
     if (isOpen && member) {
       const [fName, ...lNameParts] = member.full_name.split(" ");
+      const parsedFields = parseOccupationFields(member);
       setFormData({
         firstName: fName || "",
         lastName: lNameParts.join(" ") || "",
@@ -103,6 +305,7 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
         schoolName: member.school_name || "",
         schoolLevel: member.school_level || "",
         isDeceased: member.is_deceased || false,
+        ...parsedFields
       });
       setVotersCardFile(null);
     }
@@ -112,6 +315,7 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
   const updateMember = useUpdateMember();
   const { data: organizations = [] } = useOrganizations();
   const wards = formData.lga ? getWardsForLga(formData.lga) : [];
+  const farmWards = formData.farmerLga ? getWardsForLga(formData.farmerLga) : [];
 
   if (!isOpen) return null;
 
@@ -218,6 +422,33 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
         }
       }
 
+      let finalOccupation = formData.occupation || null;
+      let finalSchoolName = null;
+      let finalSchoolLevel = null;
+
+      if (finalOccupation === "Trader") {
+        finalSchoolName = formData.subTrader === "Other Trader" ? formData.otherTrader : formData.subTrader;
+      } else if (finalOccupation === "Student") {
+        finalSchoolName = formData.studentInstitution === "Other Higher Institution Outside Katsina" ? formData.otherInstitution : formData.studentInstitution;
+        finalSchoolLevel = "Tertiary";
+      } else if (finalOccupation === "Business Owner") {
+        finalSchoolName = formData.businessSector === "Other / Unknown Business" ? formData.otherBusiness : formData.businessSector;
+      } else if (finalOccupation === "Teacher") {
+        finalSchoolLevel = formData.teacherSchoolLevel;
+        finalSchoolName = formData.teacherSchoolLevel === "Secondary" && formData.teacherSchoolName === "Other Secondary School"
+          ? formData.otherTeacherSchoolName
+          : formData.teacherSchoolName;
+      } else if (finalOccupation === "Farmer") {
+        finalSchoolName = `LGA: ${formData.farmerLga || ""}, Ward: ${formData.farmerWard || ""}`;
+        finalSchoolLevel = `Size: ${formData.farmerSize || "0"} ha, Season: ${formData.farmerSeasonalType || ""}`;
+      } else if (finalOccupation === "Civil Servant") {
+        finalSchoolLevel = formData.civilServantJurisdiction;
+        finalSchoolName = formData.civilServantJurisdiction === "State Ministry" ? formData.civilServantMinistry : "";
+      } else {
+        finalSchoolName = formData.schoolName || null;
+        finalSchoolLevel = formData.schoolLevel || null;
+      }
+
       const memberUpdates = {
         id: member.id,
         full_name: `${formData.firstName} ${formData.lastName}`,
@@ -234,9 +465,9 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
         polling_unit: finalPollingUnitName,
         polling_unit_id: resolvedPollingUnitId,
         marital_status: formData.maritalStatus || null,
-        occupation: formData.occupation || null,
-        school_name: formData.occupation.toLowerCase() === "student" ? formData.schoolName || null : null,
-        school_level: formData.occupation.toLowerCase() === "student" ? formData.schoolLevel || null : null,
+        occupation: finalOccupation,
+        school_name: finalSchoolName || null,
+        school_level: finalSchoolLevel || null,
         is_deceased: formData.isDeceased,
       };
 
@@ -338,88 +569,294 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
                 <option value="Widower">Widower</option>
               </select>
             </div>
-            <div className="space-y-2 relative">
+            <div className="space-y-2">
               <label className="text-sm font-medium">Trade / Occupation</label>
-              <input
-                type="text"
+              <select
                 required
                 className="input-premium w-full"
-                placeholder="e.g. Student, Trader"
                 value={formData.occupation}
                 onChange={(e) => {
                   setFormData({
                     ...formData,
                     occupation: e.target.value,
-                    ...(e.target.value.toLowerCase() !== "student" ? { schoolName: "", schoolLevel: "" } : {})
+                    subTrader: "",
+                    otherTrader: "",
+                    studentInstitution: "",
+                    otherInstitution: "",
+                    businessSector: "",
+                    otherBusiness: "",
+                    teacherSchoolLevel: "",
+                    teacherSchoolName: "",
+                    otherTeacherSchoolName: "",
+                    farmerLga: "",
+                    farmerWard: "",
+                    farmerSize: "",
+                    farmerSeasonalType: "",
+                    civilServantJurisdiction: "",
+                    civilServantMinistry: "",
                   });
-                  setShowOccupationDropdown(true);
                 }}
-                onFocus={() => setShowOccupationDropdown(true)}
-                onBlur={() => {
-                  setTimeout(() => setShowOccupationDropdown(false), 200);
-                }}
-              />
-              {showOccupationDropdown && filteredOccupations.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
-                  {filteredOccupations.map((occ) => (
-                    <button
-                      key={occ}
-                      type="button"
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
-                      onMouseDown={() => {
-                        setFormData({
-                          ...formData,
-                          occupation: occ,
-                          ...(occ.toLowerCase() !== "student" ? { schoolName: "", schoolLevel: "" } : {})
-                        });
-                        setShowOccupationDropdown(false);
-                      }}
-                    >
-                      {occ}
-                    </button>
-                  ))}
-                </div>
-              )}
+              >
+                <option value="">Select Occupation</option>
+                {COMMON_OCCUPATIONS.map((occ) => (
+                  <option key={occ} value={occ}>{occ}</option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {formData.occupation.toLowerCase() === "student" && (
+          {/* Conditional Sub-Categories fields based on Occupation Selection */}
+          {formData.occupation === "Trader" && (
             <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">School Name</label>
-                <input
-                  required
-                  type="text"
-                  className="input-premium w-full bg-card"
-                  placeholder="e.g. Katsina State University"
-                  value={formData.schoolName}
-                  onChange={(e) => setFormData({ ...formData, schoolName: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Level / Year of Study</label>
+              <div className="space-y-2 col-span-2">
+                <label className="text-sm font-medium">Trade Sub-Category</label>
                 <select
                   required
                   className="input-premium w-full bg-card"
-                  value={formData.schoolLevel}
-                  onChange={(e) => setFormData({ ...formData, schoolLevel: e.target.value })}
+                  value={formData.subTrader}
+                  onChange={(e) => setFormData({ ...formData, subTrader: e.target.value, otherTrader: "" })}
+                >
+                  <option value="">Select Trade Type</option>
+                  {TRADER_SUB_TRADES.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+              {formData.subTrader === "Other Trader" && (
+                <div className="space-y-2 col-span-2 animate-fade-in">
+                  <label className="text-sm font-medium">Specify Other Trade</label>
+                  <input
+                    required
+                    type="text"
+                    className="input-premium w-full bg-card"
+                    placeholder="e.g. Kola nut seller"
+                    value={formData.otherTrader}
+                    onChange={(e) => setFormData({ ...formData, otherTrader: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {formData.occupation === "Student" && (
+            <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+              <div className="space-y-2 col-span-2">
+                <label className="text-sm font-medium">Higher Institution</label>
+                <select
+                  required
+                  className="input-premium w-full bg-card"
+                  value={formData.studentInstitution}
+                  onChange={(e) => setFormData({ ...formData, studentInstitution: e.target.value, otherInstitution: "" })}
+                >
+                  <option value="">Select Institution</option>
+                  {STUDENT_INSTITUTIONS.map((inst) => (
+                    <option key={inst} value={inst}>{inst}</option>
+                  ))}
+                </select>
+              </div>
+              {formData.studentInstitution === "Other Higher Institution Outside Katsina" && (
+                <div className="space-y-2 col-span-2 animate-fade-in">
+                  <label className="text-sm font-medium">Specify Institution Name</label>
+                  <input
+                    required
+                    type="text"
+                    className="input-premium w-full bg-card"
+                    placeholder="e.g. Ahmadu Bello University, Zaria"
+                    value={formData.otherInstitution}
+                    onChange={(e) => setFormData({ ...formData, otherInstitution: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {formData.occupation === "Business Owner" && (
+            <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+              <div className="space-y-2 col-span-2">
+                <label className="text-sm font-medium">Business Sector</label>
+                <select
+                  required
+                  className="input-premium w-full bg-card"
+                  value={formData.businessSector}
+                  onChange={(e) => setFormData({ ...formData, businessSector: e.target.value, otherBusiness: "" })}
+                >
+                  <option value="">Select Business Sector</option>
+                  {BUSINESS_SECTORS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              {formData.businessSector === "Other / Unknown Business" && (
+                <div className="space-y-2 col-span-2 animate-fade-in">
+                  <label className="text-sm font-medium">Specify Other Business</label>
+                  <input
+                    required
+                    type="text"
+                    className="input-premium w-full bg-card"
+                    placeholder="e.g. Solar panel manufacturing"
+                    value={formData.otherBusiness}
+                    onChange={(e) => setFormData({ ...formData, otherBusiness: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {formData.occupation === "Teacher" && (
+            <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+              <div className="space-y-2 col-span-2">
+                <label className="text-sm font-medium">School Level</label>
+                <select
+                  required
+                  className="input-premium w-full bg-card"
+                  value={formData.teacherSchoolLevel}
+                  onChange={(e) => setFormData({ ...formData, teacherSchoolLevel: e.target.value, teacherSchoolName: "", otherTeacherSchoolName: "" })}
                 >
                   <option value="">Select Level</option>
-                  <option value="100 Level">100 Level</option>
-                  <option value="200 Level">200 Level</option>
-                  <option value="300 Level">300 Level</option>
-                  <option value="400 Level">400 Level</option>
-                  <option value="500 Level">500 Level</option>
-                  <option value="ND 1">ND 1</option>
-                  <option value="ND 2">ND 2</option>
-                  <option value="HND 1">HND 1</option>
-                  <option value="HND 2">HND 2</option>
-                  <option value="Primary School">Primary School</option>
-                  <option value="Secondary School">Secondary School</option>
-                  <option value="Postgraduate">Postgraduate</option>
+                  <option value="Primary">Primary</option>
+                  <option value="Secondary">Secondary</option>
+                  <option value="Tertiary">Tertiary</option>
+                </select>
+              </div>
+              {formData.teacherSchoolLevel === "Secondary" && (
+                <div className="space-y-2 col-span-2 animate-fade-in">
+                  <label className="text-sm font-medium">Secondary School Name</label>
+                  <select
+                    required
+                    className="input-premium w-full bg-card"
+                    value={formData.teacherSchoolName}
+                    onChange={(e) => setFormData({ ...formData, teacherSchoolName: e.target.value, otherTeacherSchoolName: "" })}
+                  >
+                    <option value="">Select School</option>
+                    {KATSINA_SECONDARY_SCHOOLS.map((sch) => (
+                      <option key={sch} value={sch}>{sch}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {formData.teacherSchoolLevel && formData.teacherSchoolLevel !== "Secondary" && (
+                <div className="space-y-2 col-span-2 animate-fade-in">
+                  <label className="text-sm font-medium">School Name</label>
+                  <input
+                    required
+                    type="text"
+                    className="input-premium w-full bg-card"
+                    placeholder="e.g. Government Day Primary School"
+                    value={formData.teacherSchoolName}
+                    onChange={(e) => setFormData({ ...formData, teacherSchoolName: e.target.value })}
+                  />
+                </div>
+              )}
+              {formData.teacherSchoolName === "Other Secondary School" && (
+                <div className="space-y-2 col-span-2 animate-fade-in">
+                  <label className="text-sm font-medium">Specify Secondary School Name</label>
+                  <input
+                    required
+                    type="text"
+                    className="input-premium w-full bg-card"
+                    placeholder="Enter secondary school name"
+                    value={formData.otherTeacherSchoolName}
+                    onChange={(e) => setFormData({ ...formData, otherTeacherSchoolName: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {formData.occupation === "Farmer" && (
+            <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Farm LGA</label>
+                <select
+                  required
+                  className="input-premium w-full bg-card"
+                  value={formData.farmerLga}
+                  onChange={(e) => setFormData({ ...formData, farmerLga: e.target.value, farmerWard: "" })}
+                >
+                  <option value="">Select LGA</option>
+                  {KATSINA_LGAS.map((lga) => (
+                    <option key={lga} value={lga}>{lga}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Farm Ward</label>
+                <select
+                  required
+                  disabled={!formData.farmerLga}
+                  className="input-premium w-full bg-card disabled:opacity-75"
+                  value={formData.farmerWard}
+                  onChange={(e) => setFormData({ ...formData, farmerWard: e.target.value })}
+                >
+                  <option value="">Select Ward</option>
+                  {farmWards.map((w) => (
+                    <option key={w} value={w}>{w}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Size in Hectares</label>
+                <input
+                  required
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  className="input-premium w-full bg-card"
+                  placeholder="e.g. 2.5"
+                  value={formData.farmerSize}
+                  onChange={(e) => setFormData({ ...formData, farmerSize: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Seasonal Type</label>
+                <select
+                  required
+                  className="input-premium w-full bg-card"
+                  value={formData.farmerSeasonalType}
+                  onChange={(e) => setFormData({ ...formData, farmerSeasonalType: e.target.value })}
+                >
+                  <option value="">Select Season</option>
+                  <option value="Noman Damana (Rain-fed)">Noman Damana (Rain-fed)</option>
+                  <option value="Noman Rani (Irrigation)">Noman Rani (Irrigation)</option>
+                  <option value="Both">Both</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {formData.occupation === "Civil Servant" && (
+            <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+              <div className="space-y-2 col-span-2">
+                <label className="text-sm font-medium">Employment Jurisdiction</label>
+                <select
+                  required
+                  className="input-premium w-full bg-card"
+                  value={formData.civilServantJurisdiction}
+                  onChange={(e) => setFormData({ ...formData, civilServantJurisdiction: e.target.value, civilServantMinistry: "" })}
+                >
+                  <option value="">Select Jurisdiction</option>
+                  <option value="State Ministry">State Ministry</option>
+                  <option value="Local Government">Local Government</option>
+                  <option value="Federal">Federal</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
+              {formData.civilServantJurisdiction === "State Ministry" && (
+                <div className="space-y-2 col-span-2 animate-fade-in">
+                  <label className="text-sm font-medium">Katsina State Ministry</label>
+                  <select
+                    required
+                    className="input-premium w-full bg-card"
+                    value={formData.civilServantMinistry}
+                    onChange={(e) => setFormData({ ...formData, civilServantMinistry: e.target.value })}
+                  >
+                    <option value="">Select Ministry</option>
+                    {KATSINA_MINISTRIES.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           )}
 
