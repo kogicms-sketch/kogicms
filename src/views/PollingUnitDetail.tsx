@@ -33,6 +33,7 @@ import {
 } from "@/hooks/usePollingUnitCells";
 import { useCouncillor } from "@/hooks/useCouncillors";
 import { useAuth } from "@/contexts/AuthContext";
+import { useParty } from "@/contexts/PartyContext";
 import AssignAgentModal from "@/components/modals/AssignAgentModal";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -120,6 +121,7 @@ const fetchRealVoters = async (lgaName: string, wardName: string, puCode: string
 };
 
 const PollingUnitDetail = () => {
+    const { partyId } = useParty();
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
     const id = searchParams.get('id');
@@ -132,6 +134,7 @@ const PollingUnitDetail = () => {
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const { data: councillor } = useCouncillor();
     const { role: userRole } = useAuth();
+    const isApc = partyId === "apc";
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [selectedStatus, setSelectedStatus] = useState<string>("forming");
     const [isUpdating, setIsUpdating] = useState(false);
@@ -702,11 +705,15 @@ const PollingUnitDetail = () => {
                                             </div>
                                             <div>
                                                 <h4 className="font-semibold text-lg">
-                                                    {leadership?.puAgent?.name || unit.canvasser_name}
+                                                    {isApc 
+                                                        ? (leadership?.puAgent?.name || unit.canvasser_name)
+                                                        : `${unit.name || "Polling Unit"} Agent`}
                                                 </h4>
                                                 <div className="flex items-center gap-2 text-muted-foreground mt-1">
                                                     <Phone className="w-4 h-4" />
-                                                    {leadership?.puAgent?.phone || unit.canvasser_phone || "No phone number"}
+                                                    {isApc 
+                                                        ? (leadership?.puAgent?.phone || unit.canvasser_phone || "No phone number")
+                                                        : "Active in cell"}
                                                 </div>
                                                 <Badge variant="outline" className="mt-2">Active</Badge>
                                             </div>
@@ -933,10 +940,12 @@ const PollingUnitDetail = () => {
                                     {unit.lga_chairman ? (
                                         <div className="flex items-center gap-3">
                                             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
-                                                {unit.lga_chairman.charAt(0)}
+                                                {isApc ? unit.lga_chairman.charAt(0) : "L"}
                                             </div>
                                             <div>
-                                                <p className="font-medium">{unit.lga_chairman}</p>
+                                                <p className="font-medium">
+                                                    {isApc ? unit.lga_chairman : `${unit.lga || "Katsina"} LGA Chairman`}
+                                                </p>
                                                 <p className="text-sm text-muted-foreground">{unit.lga} LGA</p>
                                             </div>
                                         </div>
@@ -955,11 +964,15 @@ const PollingUnitDetail = () => {
                                     {leadership?.wardChairman ? (
                                         <div className="flex items-center gap-3">
                                             <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold">
-                                                {leadership.wardChairman.name.charAt(0)}
+                                                {isApc ? leadership.wardChairman.name.charAt(0) : "W"}
                                             </div>
                                             <div>
-                                                <p className="font-medium">{leadership.wardChairman.name}</p>
-                                                <p className="text-sm text-muted-foreground">{leadership.wardChairman.phone}</p>
+                                                <p className="font-medium">
+                                                    {isApc ? leadership.wardChairman.name : `${unit.ward_name || "Ward"} Chairman`}
+                                                </p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {isApc ? leadership.wardChairman.phone : "Active in ward"}
+                                                </p>
                                             </div>
                                         </div>
                                     ) : (
@@ -977,11 +990,15 @@ const PollingUnitDetail = () => {
                                     {leadership?.wardCouncilor ? (
                                         <div className="flex items-center gap-3">
                                             <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold">
-                                                {leadership.wardCouncilor.name.charAt(0)}
+                                                {isApc ? leadership.wardCouncilor.name.charAt(0) : "C"}
                                             </div>
                                             <div>
-                                                <p className="font-medium">{leadership.wardCouncilor.name}</p>
-                                                <p className="text-sm text-muted-foreground">{leadership.wardCouncilor.phone}</p>
+                                                <p className="font-medium">
+                                                    {isApc ? leadership.wardCouncilor.name : `${unit.ward_name || "Ward"} Councillor`}
+                                                </p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {isApc ? leadership.wardCouncilor.phone : "Active in ward"}
+                                                </p>
                                             </div>
                                         </div>
                                     ) : (
@@ -999,11 +1016,15 @@ const PollingUnitDetail = () => {
                                     {leadership?.puAgent ? (
                                         <div className="flex items-center gap-3">
                                             <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 font-bold">
-                                                {leadership.puAgent.name.charAt(0)}
+                                                {isApc ? leadership.puAgent.name.charAt(0) : "A"}
                                             </div>
                                             <div>
-                                                <p className="font-medium">{leadership.puAgent.name}</p>
-                                                <p className="text-sm text-muted-foreground">{leadership.puAgent.phone}</p>
+                                                <p className="font-medium">
+                                                    {isApc ? leadership.puAgent.name : `${unit.name || "Polling Unit"} Agent`}
+                                                </p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {isApc ? leadership.puAgent.phone : "Active in unit"}
+                                                </p>
                                             </div>
                                         </div>
                                     ) : (
