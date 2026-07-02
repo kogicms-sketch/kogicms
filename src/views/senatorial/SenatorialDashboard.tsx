@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from 'next/navigation';
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { useParty } from "@/contexts/PartyContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useSenatorialLeader, useSenatorialZoneData } from "@/hooks/useSenatorialLeader";
 import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
@@ -29,6 +30,7 @@ const ZONE_GRADIENTS: Record<string, { from: string; to: string; accent: string 
 };
 
 const SenatorialDashboard = () => {
+    const { partyId } = useParty();
     const router = useRouter();
   const navigate = (path, options) => { if (path === -1) router.back(); else router.push(path); };
     const { data: leader, isLoading: leaderLoading } = useSenatorialLeader();
@@ -122,7 +124,7 @@ const SenatorialDashboard = () => {
                                 {leader.photo_url ? (
                                     <img 
                                         src={leader.photo_url} 
-                                        alt={leader.leader_name} 
+                                        alt={partyId === "apc" ? leader.leader_name : leader.zone_name} 
                                         className="w-full h-full object-cover" 
                                         onError={(e) => {
                                             e.currentTarget.src = "/placeholder.svg";
@@ -136,7 +138,11 @@ const SenatorialDashboard = () => {
                                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight">
                                     {leader.zone_name}
                                 </h1>
-                                <p className="text-white/80 font-medium text-lg mt-1">{leader.leader_name}</p>
+                                <p className="text-white/80 font-medium text-lg mt-1">
+                                    {partyId === "apc" 
+                                        ? leader.leader_name 
+                                        : `${leader.lga_list.join(", ")} Local Government${leader.lga_list.length > 1 ? "s" : ""}`}
+                                </p>
                             </div>
                         </div>
                     </div>

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from 'next/navigation';
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { useParty } from "@/contexts/PartyContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useFederalRep, useFederalConstituencyData } from "@/hooks/useFederalRep";
 import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
@@ -22,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CandidateSupportGroupsTab } from "@/components/support-groups/CandidateSupportGroupsTab";
 
 const FederalRepDashboard = () => {
+    const { partyId } = useParty();
     const router = useRouter();
   const navigate = (path, options) => { if (path === -1) router.back(); else router.push(path); };
     const { data: rep, isLoading: repLoading } = useFederalRep();
@@ -110,7 +112,7 @@ const FederalRepDashboard = () => {
                                 {rep.photo_url ? (
                                     <img 
                                         src={rep.photo_url} 
-                                        alt={rep.rep_name} 
+                                        alt={partyId === "apc" ? rep.rep_name : rep.constituency_name} 
                                         className="w-full h-full object-cover" 
                                         onError={(e) => {
                                             // Fallback to placeholder if image not found
@@ -125,7 +127,11 @@ const FederalRepDashboard = () => {
                                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight">
                                     {rep.constituency_name}
                                 </h1>
-                                <p className="text-white/80 font-medium text-lg mt-1">{rep.rep_name}</p>
+                                <p className="text-white/80 font-medium text-lg mt-1">
+                                    {partyId === "apc" 
+                                        ? rep.rep_name 
+                                        : `${rep.lga_list.join(", ")} Local Government${rep.lga_list.length > 1 ? "s" : ""}`}
+                                </p>
                             </div>
                         </div>
                     </div>
