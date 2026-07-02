@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { usePostGenerator, Language, Tone } from "@/hooks/usePostGenerator";
+import { useParty } from "@/contexts/PartyContext";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const PostGenerator = () => {
+  const { partyId, party } = useParty();
   const [step, setStep] = useState(1);
   const [topic, setTopic] = useState("");
   const [language, setLanguage] = useState<Language>("english");
@@ -100,7 +102,9 @@ const PostGenerator = () => {
           <h1 className="text-2xl md:text-3xl font-bold">AI Post Generator</h1>
         </div>
         <p className="text-muted-foreground text-sm md:text-base">
-          Create professional, viral-worthy political posts for Dikko Radda's campaign
+          {partyId === "apc" 
+            ? "Create professional, viral-worthy political posts for Dikko Radda's campaign"
+            : "Create professional, viral-worthy posts for your campaign"}
         </p>
       </div>
 
@@ -144,7 +148,9 @@ const PostGenerator = () => {
                   <Label htmlFor="topic">Topic / Subject</Label>
                   <Textarea
                     id="topic"
-                    placeholder="E.g., Security in Katsina, Development plans, Youth empowerment, Why DR is the best candidate..."
+                    placeholder={partyId === "apc"
+                      ? "E.g., Security in Katsina, Development plans, Youth empowerment, Why DR is the best candidate..."
+                      : "E.g., Local development, Community healthcare plans, Youth empowerment, Our progress..."}
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
                     rows={4}

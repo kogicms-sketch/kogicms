@@ -4,6 +4,7 @@ import { CAMPAIGN_NAME } from "@/lib/campaign-data";
 import QRCode from "react-qr-code";
 import { format } from "date-fns";
 import { forwardRef } from "react";
+import { useParty } from "@/contexts/PartyContext";
 
 interface PrintableIDCardMember {
     id: string;
@@ -28,6 +29,10 @@ interface PrintableIDCardProps {
 
 export const PrintableIDCard = forwardRef<HTMLDivElement, PrintableIDCardProps>(
     ({ member }, ref) => {
+        const { partyId } = useParty();
+        const campaignName = partyId === "apc" 
+            ? CAMPAIGN_NAME 
+            : `${member.lga || "Katsina State"} Campaign`;
         const initials = member.full_name
             .split(" ")
             .map((n) => n[0])
@@ -97,7 +102,7 @@ export const PrintableIDCard = forwardRef<HTMLDivElement, PrintableIDCardProps>(
                         }}>
                             <img
                                 src="/app-logo.png"
-                                alt="CMS for Dikko"
+                                alt={campaignName}
                                 style={{ width: "100%", height: "100%", objectFit: "cover", padding: "4px" }}
                                 crossOrigin="anonymous"
                             />
@@ -110,7 +115,7 @@ export const PrintableIDCard = forwardRef<HTMLDivElement, PrintableIDCardProps>(
                                 letterSpacing: "0.5px",
                                 lineHeight: 1.2,
                             }}>
-                                {CAMPAIGN_NAME}
+                                {campaignName}
                             </div>
                             <div style={{
                                 color: "#0D8C3A",
@@ -351,7 +356,7 @@ export const PrintableIDCard = forwardRef<HTMLDivElement, PrintableIDCardProps>(
                             fontSize: "9px",
                             lineHeight: 1.6,
                         }}>
-                            <p style={{ margin: "0 0 3px" }}>1. This card remains property of {CAMPAIGN_NAME}.</p>
+                            <p style={{ margin: "0 0 3px" }}>1. This card remains property of {campaignName}.</p>
                             <p style={{ margin: "0 0 3px" }}>2. If found, return to the nearest campaign office.</p>
                             <p style={{ margin: "0" }}>3. This card is non-transferable.</p>
                         </div>

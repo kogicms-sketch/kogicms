@@ -26,6 +26,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CAMPAIGN_STATE, KATSINA_LGAS, getWardsForLga, getConstituencyForLga } from "@/lib/campaign-data";
 import { Loader2, Eye, EyeOff, UserPlus, AlertCircle, Info } from "lucide-react";
 import { toast } from "sonner";
+import { useParty } from "@/contexts/PartyContext";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -129,6 +130,7 @@ interface SupportGroupRegistrationFormProps {
 }
 
 export const SupportGroupRegistrationForm = ({ onSuccess }: SupportGroupRegistrationFormProps) => {
+  const { partyId } = useParty();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -388,7 +390,12 @@ export const SupportGroupRegistrationForm = ({ onSuccess }: SupportGroupRegistra
               <FormItem className="md:col-span-2">
                 <FormLabel>Group Name *</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., Dikko Awareness Forum" {...field} />
+                  <Input 
+                    placeholder={partyId === "apc" 
+                      ? "e.g., Dikko Awareness Forum" 
+                      : "e.g., Grassroots Development Forum"} 
+                    {...field} 
+                  />
                 </FormControl>
                 <FormDescription>
                   The official name of your support group

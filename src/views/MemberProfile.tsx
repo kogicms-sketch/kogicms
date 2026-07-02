@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import QRCode from "react-qr-code";
 import { CAMPAIGN_NAME } from "@/lib/campaign-data";
+import { useParty } from "@/contexts/PartyContext";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { format } from "date-fns";
 import { EditMemberModal } from "@/components/members/EditMemberModal";
@@ -42,6 +43,7 @@ import { useVerifyMember } from "@/hooks/useMembers";
 import { useMemberIncentives } from "@/hooks/useIncentives";
 
 const MemberProfile = () => {
+    const { partyId } = useParty();
     const searchParams = useSearchParams();
     const id = searchParams.get('id');
     const router = useRouter();
@@ -125,6 +127,10 @@ const MemberProfile = () => {
         enabled: !!id && !userRoleLoading && (userProfile?.role !== "polling_unit_agent" || !!puAgent?.polling_unit_id || !!puAgent?.polling_unit_name),
         retry: 1,
     });
+
+    const campaignName = partyId === "apc" 
+        ? CAMPAIGN_NAME 
+        : `${member?.lga || "Katsina State"} Campaign`;
 
     // Debug log
     console.log("Member query result:", { member, isLoading, memberError, id });
@@ -307,7 +313,7 @@ const MemberProfile = () => {
                     {/* Digital ID Card */}
                     <Card className="overflow-hidden border-navy-deep/20 shadow-premium bg-gradient-to-br from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
                         <div className="bg-navy-deep p-4 text-white text-center">
-                            <h3 className="font-bold text-lg">{CAMPAIGN_NAME}</h3>
+                            <h3 className="font-bold text-lg">{campaignName}</h3>
                             <p className="text-xs opacity-90">Official Member ID</p>
                         </div>
                         <CardContent className="flex flex-col items-center pt-8 pb-8">

@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/loose-client";
 import { MemberWithOrganization } from "@/hooks/useMembers";
 import QRCode from "react-qr-code";
 import { getPositionLabel } from "@/hooks/useMyStructure";
+import { useParty } from "@/contexts/PartyContext";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,12 @@ export const DigitalMembershipCard = ({
   campaignName = "Dikko Radda Campaign",
   onCardGenerated,
 }: DigitalMembershipCardProps) => {
+  const { partyId } = useParty();
+  const isApc = partyId === "apc";
+  const resolvedCampaignName = isApc 
+    ? campaignName 
+    : `${member.lga || "Katsina State"} Campaign`;
+
   const cardRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(member.digital_card_url);
@@ -123,11 +130,13 @@ export const DigitalMembershipCard = ({
 
   const shareToWhatsApp = () => {
     const message = encodeURIComponent(
-      `🇳🇬 I'm a proud member of ${campaignName}!\n\n` +
+      `🇳🇬 I'm a proud member of ${resolvedCampaignName}!\n\n` +
       `Name: ${member.full_name}\n` +
       `Member ID: ${member.membership_id}\n` +
       `Position: ${getPositionLabel(member.political_position || "member")}\n\n` +
-      `Join the movement for a better Katsina! #DR2027 #DikkoRadda`
+      (isApc 
+        ? `Join the movement for a better Katsina! #DR2027 #DikkoRadda`
+        : `Join the movement for a better Katsina! #${(member.lga || "Katsina").replace(/\s+/g, "")}Campaign`)
     );
     window.open(`https://wa.me/?text=${message}`, "_blank");
   };
@@ -142,9 +151,11 @@ export const DigitalMembershipCard = ({
 
   const shareToTwitter = () => {
     const text = encodeURIComponent(
-      `🇳🇬 Proud to be part of ${campaignName}! ` +
+      `🇳🇬 Proud to be part of ${resolvedCampaignName}! ` +
       `Together we're building a better Katsina. ` +
-      `#DR2027 #DikkoRadda #KatsinaFirst`
+      (isApc 
+        ? `#DR2027 #DikkoRadda #KatsinaFirst`
+        : `#${(member.lga || "Katsina").replace(/\s+/g, "")}Campaign #KatsinaFirst`)
     );
     window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank");
   };
@@ -171,7 +182,7 @@ export const DigitalMembershipCard = ({
               <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9IndoaXRlIi8+PC9zdmc+')] opacity-30" />
             </div>
             <h2 className="text-white font-bold text-lg relative z-10 tracking-wider">
-              {campaignName}
+              {resolvedCampaignName}
             </h2>
             <p className="text-white/80 text-xs relative z-10">Official Digital Membership</p>
           </div>
@@ -242,7 +253,7 @@ export const DigitalMembershipCard = ({
           {/* Footer */}
           <div className="bg-black/20 p-3 text-center">
             <p className="text-white/60 text-xs">
-              © 2027 Dikko Radda Campaign
+              © 2027 {resolvedCampaignName}
             </p>
           </div>
         </div>
