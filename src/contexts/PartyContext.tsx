@@ -49,11 +49,28 @@ function applyPartyToDom(party: PartyBrand) {
 
     // Swap favicon + apple touch icon to the active party logo
     try {
-        const links = document.querySelectorAll<HTMLLinkElement>("link[rel='icon'], link[rel='apple-touch-icon'], link[rel='mask-icon']");
-        links.forEach((l) => { l.href = party.logo; });
-        // Update document title prefix
-        const baseTitle = document.title.replace(/^.+? · /, "");
-        document.title = `${party.shortName} · ${baseTitle}`;
+        let iconLink = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+        if (!iconLink) {
+            iconLink = document.createElement("link");
+            iconLink.rel = "icon";
+            document.head.appendChild(iconLink);
+        }
+        iconLink.href = party.logo;
+
+        let appleLink = document.querySelector<HTMLLinkElement>("link[rel='apple-touch-icon']");
+        if (!appleLink) {
+            appleLink = document.createElement("link");
+            appleLink.rel = "apple-touch-icon";
+            document.head.appendChild(appleLink);
+        }
+        appleLink.href = party.logo;
+
+        // Update document title dynamically
+        if (party.id === "apc") {
+            document.title = "DikkoCMS";
+        } else {
+            document.title = `${party.shortName} CMS`;
+        }
     } catch { /* noop */ }
 }
 
