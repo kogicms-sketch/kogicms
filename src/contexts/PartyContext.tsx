@@ -87,7 +87,37 @@ export const PartyProvider = ({ children }: { children: ReactNode }) => {
 
     // Apply on mount and on change
     useEffect(() => {
-        applyPartyToDom(PARTIES[partyId]);
+        const party = PARTIES[partyId];
+        applyPartyToDom(party);
+
+        if (typeof window === "undefined") return;
+
+        let observer: MutationObserver | null = null;
+        try {
+            const titleEl = document.querySelector("title");
+            if (titleEl) {
+                const expectedTitle = partyId === "apc" ? "DikkoCMS" : `${party.shortName} CMS`;
+                if (document.title !== expectedTitle) {
+                    document.title = expectedTitle;
+                }
+
+                observer = new MutationObserver(() => {
+                    const currentExpected = partyId === "apc" ? "DikkoCMS" : `${PARTIES[partyId].shortName} CMS`;
+                    if (document.title !== currentExpected) {
+                        document.title = currentExpected;
+                    }
+                });
+                observer.observe(titleEl, { childList: true, subtree: true, characterData: true });
+            }
+        } catch (e) {
+            console.error("Error setting up MutationObserver for title:", e);
+        }
+
+        return () => {
+            if (observer) {
+                observer.disconnect();
+            }
+        };
     }, [partyId]);
 
     // Fetch global setting from backend (overrides local if present)
