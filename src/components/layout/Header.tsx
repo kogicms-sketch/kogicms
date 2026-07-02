@@ -1,7 +1,10 @@
 "use client";
+import { useState, useEffect } from "react";
 import { Search, Download, Share, Bell } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
+import { useParty } from "@/contexts/PartyContext";
+import { supabase } from "@/integrations/supabase/loose-client";
 import { NotificationToggle } from "@/components/notifications/NotificationToggle";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -15,7 +18,29 @@ interface HeaderProps {
 }
 
 const Header = ({ title, subtitle }: HeaderProps) => {
+  const { partyId } = useParty();
   const { user, role } = useAuth();
+  const [userLga, setUserLga] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchProfile = async () => {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("lga")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (data?.lga) {
+          setUserLga(data.lga);
+        }
+      } catch (err) {
+        console.error("Error fetching profile in Header:", err);
+      }
+    };
+    fetchProfile();
+  }, [user]);
+
   const { canInstall, isIOS, install } = usePWAInstall();
   const isMobile = useIsMobile();
 
@@ -50,19 +75,19 @@ const Header = ({ title, subtitle }: HeaderProps) => {
     }
   };
 
-  const getInitials = () => {
-    if (user?.user_metadata?.full_name) {
-      const names = user.user_metadata.full_name.split(" ");
-      return names.map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
-    }
-    if (user?.email) {
-      return user.email.slice(0, 2).toUpperCase();
-    }
-    return "U";
+  const getUserName = () => {
+    const rawName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+    if (partyId === "apc") return rawName;
+    return `${userLga || "Katsina State"}`;
   };
 
-  const getUserName = () => {
-    return user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
+  const getInitials = () => {
+    const activeName = getUserName();
+    const names = activeName.split(" ");
+    if (names.length > 0) {
+      return names.map((n: string) => n[0]).filter(Boolean).join("").toUpperCase().slice(0, 2);
+    }
+    return "U";
   };
 
   return (
