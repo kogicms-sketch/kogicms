@@ -432,19 +432,21 @@ export const useLiveStreaming = () => {
         if (!user || viewerPcsRef.current[agentId]) return;
 
         try {
+            console.log(`[Viewer] Starting connection to agent ${agentId}`);
             // 1. Establish RTCPeerConnection
             const pc = new RTCPeerConnection(iceServers);
             viewerPcsRef.current[agentId] = pc;
-
-            // Add audio/video transceivers for receiving only
-            pc.addTransceiver("video", { direction: "recvonly" });
-            pc.addTransceiver("audio", { direction: "recvonly" });
 
             // Create signaling channel
             const channelName = `live-signaling:${agentId}`;
             const channel: import('@supabase/supabase-js').RealtimeChannel = supabase.channel(channelName);
             viewerChannelsRef.current[agentId] = channel;
 
+            let isSubscribed = false;
+            let pendingNegotiation = true; // Initialize to true to ensure we always run the initial offer
+            const pendingCandidates: RTCIceCandidateInit[] = [];
+
+            // Helper to send signaling messages
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sendViewerSignal = (payload: any) => {
                 console.log(`[Viewer] Sending signal to agent ${agentId}:`, Object.keys(payload));
@@ -459,41 +461,6 @@ export const useLiveStreaming = () => {
                 });
             };
 
-            // Set up Admin Mic Track for Intercom (initially added but disabled)
-            let micStream: MediaStream | null = null;
-            try {
-                micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                const micTrack = micStream.getAudioTracks()[0];
-                if (micTrack) {
-                    micTrack.enabled = false; // Muted by default
-                    adminMicTrackRef.current = micTrack;
-                    pc.addTrack(micTrack, micStream);
-                }
-            } catch (micErr) {
-                console.warn("Could not load admin microphone initially. Intercom will prompt when used.", micErr);
-            }
-
-            // Gather local ICE candidates
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    console.log(`[Viewer] Gathered ICE candidate for agent ${agentId}`);
-                    sendViewerSignal({ candidate: event.candidate });
-                }
-            };
-
-            // Capture remote stream
-            pc.ontrack = (event) => {
-                console.log(`[Viewer] Received remote stream track for agent ${agentId}:`, event.track.kind);
-                setRemoteStreams(prev => ({
-                    ...prev,
-                    [agentId]: event.streams[0]
-                }));
-            };
-
-            let isSubscribed = false;
-            let pendingNegotiation = false;
-            const pendingCandidates: RTCIceCandidateInit[] = [];
-
             const triggerNegotiation = async () => {
                 try {
                     console.log(`[Viewer] Creating SDP offer for agent ${agentId}`);
@@ -505,7 +472,7 @@ export const useLiveStreaming = () => {
                 }
             };
 
-            // Handshake negotiation
+            // Register handlers BEFORE any asynchronous operations
             pc.onnegotiationneeded = async () => {
                 console.log(`[Viewer] onnegotiationneeded triggered. isSubscribed = ${isSubscribed}`);
                 if (isSubscribed) {
@@ -515,7 +482,31 @@ export const useLiveStreaming = () => {
                 }
             };
 
-            // Listen for agent signals
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log(`[Viewer] Gathered ICE candidate for agent ${agentId}`);
+                    sendViewerSignal({ candidate: event.candidate });
+                }
+            };
+
+            pc.ontrack = (event) => {
+                console.log(`[Viewer] Received remote stream track for agent ${agentId}:`, event.track.kind);
+                setRemoteStreams(prev => ({
+                    ...prev,
+                    [agentId]: event.streams[0]
+                }));
+            };
+
+            pc.onconnectionstatechange = () => {
+                console.log(`[Viewer] Connection state with agent ${agentId} changed to: ${pc.connectionState}`);
+            };
+
+            // Add transceivers synchronously
+            console.log(`[Viewer] Adding recvonly transceivers for audio/video`);
+            pc.addTransceiver("video", { direction: "recvonly" });
+            pc.addTransceiver("audio", { direction: "recvonly" });
+
+            // Subscribe to the channel synchronously
             channel
                 .on("broadcast", { event: "signal" }, async ({ payload }) => {
                     const { from, to, sdp, candidate } = payload;
@@ -564,6 +555,24 @@ export const useLiveStreaming = () => {
                         }
                     }
                 });
+
+            // Asynchronous setup for Mic (does not block listener registration!)
+            (async () => {
+                let micStream: MediaStream | null = null;
+                try {
+                    console.log(`[Viewer] Attempting to access local mic for intercom...`);
+                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const micTrack = micStream.getAudioTracks()[0];
+                    if (micTrack) {
+                        micTrack.enabled = false; // Muted by default
+                        adminMicTrackRef.current = micTrack;
+                        pc.addTrack(micTrack, micStream);
+                        console.log(`[Viewer] Added muted intercom audio track to peer connection`);
+                    }
+                } catch (micErr) {
+                    console.warn("Could not load admin microphone initially. Intercom will prompt when used.", micErr);
+                }
+            })();
 
         } catch (err) {
             console.error("Failed to connect to agent stream:", err);
