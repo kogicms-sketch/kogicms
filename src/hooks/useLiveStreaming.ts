@@ -33,6 +33,7 @@ export const useLiveStreaming = () => {
 
     // References for Broadcaster (Agent)
     const pcsRef = useRef<{ [viewerId: string]: RTCPeerConnection }>({});
+    const pendingCandidatesRef = useRef<{ [peerId: string]: RTCIceCandidateInit[] }>({});
     const localStreamRef = useRef<MediaStream | null>(null);
     const agentChannelRef = useRef<RealtimeChannel | null>(null);
     const qualityLevelRef = useRef<"high" | "medium" | "low">("high");
@@ -130,6 +131,7 @@ export const useLiveStreaming = () => {
             // Helper to send signals to specific viewer admins
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sendAgentSignal = (viewerId: string, payload: any) => {
+                console.log(`[Agent] Sending signal to viewer ${viewerId}:`, Object.keys(payload));
                 channel.send({
                     type: "broadcast",
                     event: "signal",
@@ -145,11 +147,13 @@ export const useLiveStreaming = () => {
             const createAgentPC = (viewerId: string) => {
                 if (pcsRef.current[viewerId]) return pcsRef.current[viewerId];
 
+                console.log(`[Agent] Creating peer connection for viewer: ${viewerId}`);
                 const pc = new RTCPeerConnection(iceServers);
                 pcsRef.current[viewerId] = pc;
 
                 // Add local stream tracks
                 if (localStreamRef.current) {
+                    console.log(`[Agent] Adding ${localStreamRef.current.getTracks().length} tracks to viewer PC`);
                     localStreamRef.current.getTracks().forEach(track => {
                         pc.addTrack(track, localStreamRef.current!);
                     });
@@ -158,6 +162,7 @@ export const useLiveStreaming = () => {
                 // Gather and send ICE candidates to the viewer
                 pc.onicecandidate = (event) => {
                     if (event.candidate) {
+                        console.log(`[Agent] Gathered ICE candidate for viewer ${viewerId}`);
                         sendAgentSignal(viewerId, { candidate: event.candidate });
                     }
                 };
@@ -165,6 +170,7 @@ export const useLiveStreaming = () => {
                 // Handle incoming audio track for the intercom
                 pc.ontrack = (event) => {
                     if (event.track.kind === "audio") {
+                        console.log(`[Agent] Received intercom audio track from ${viewerId}`);
                         // Play admin voice
                         const audio = new Audio();
                         audio.srcObject = event.streams[0];
@@ -173,9 +179,11 @@ export const useLiveStreaming = () => {
                 };
 
                 pc.onconnectionstatechange = () => {
+                    console.log(`[Agent] Connection state with viewer ${viewerId} changed to: ${pc.connectionState}`);
                     if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
                         pc.close();
                         delete pcsRef.current[viewerId];
+                        delete pendingCandidatesRef.current[viewerId];
                     }
                 };
 
@@ -188,6 +196,8 @@ export const useLiveStreaming = () => {
                     const { from: viewerId, to, sdp, candidate, type } = payload;
 
                     if (to !== user.id) return; // Ignore messages not meant for me
+
+                    console.log(`[Agent] Received signal from ${viewerId}:`, { hasSdp: !!sdp, hasCandidate: !!candidate, type });
 
                     // Handle audio active indicators
                     if (type === "intercom-audio-active") {
@@ -203,17 +213,47 @@ export const useLiveStreaming = () => {
                     let pc = pcsRef.current[viewerId];
 
                     if (sdp) {
+                        console.log(`[Agent] Setting remote SDP (${sdp.type}) from viewer ${viewerId}`);
                         if (!pc) pc = createAgentPC(viewerId);
                         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
 
+                        // Process any queued candidates for this viewer
+                        const queued = pendingCandidatesRef.current[viewerId] || [];
+                        if (queued.length > 0) {
+                            console.log(`[Agent] Processing ${queued.length} queued ICE candidates for ${viewerId}`);
+                            for (const cand of queued) {
+                                try {
+                                    await pc.addIceCandidate(new RTCIceCandidate(cand));
+                                } catch (e) {
+                                    console.error("[Agent] Error adding queued candidate:", e);
+                                }
+                            }
+                            pendingCandidatesRef.current[viewerId] = [];
+                        }
+
                         if (sdp.type === "offer") {
+                            console.log(`[Agent] Creating answer for viewer ${viewerId}`);
                             const answer = await pc.createAnswer();
                             await pc.setLocalDescription(answer);
                             sendAgentSignal(viewerId, { sdp: pc.localDescription });
                         }
                     } else if (candidate) {
                         if (!pc) pc = createAgentPC(viewerId);
-                        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+
+                        if (pc.remoteDescription) {
+                            console.log(`[Agent] Adding ICE candidate from ${viewerId}`);
+                            try {
+                                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                            } catch (e) {
+                                console.error("[Agent] Error adding candidate:", e);
+                            }
+                        } else {
+                            console.log(`[Agent] Queuing ICE candidate from ${viewerId} (remoteDescription not set)`);
+                            if (!pendingCandidatesRef.current[viewerId]) {
+                                pendingCandidatesRef.current[viewerId] = [];
+                            }
+                            pendingCandidatesRef.current[viewerId].push(candidate);
+                        }
                     }
                 })
                 .subscribe((status) => {
@@ -407,6 +447,7 @@ export const useLiveStreaming = () => {
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sendViewerSignal = (payload: any) => {
+                console.log(`[Viewer] Sending signal to agent ${agentId}:`, Object.keys(payload));
                 channel.send({
                     type: "broadcast",
                     event: "signal",
@@ -435,12 +476,14 @@ export const useLiveStreaming = () => {
             // Gather local ICE candidates
             pc.onicecandidate = (event) => {
                 if (event.candidate) {
+                    console.log(`[Viewer] Gathered ICE candidate for agent ${agentId}`);
                     sendViewerSignal({ candidate: event.candidate });
                 }
             };
 
             // Capture remote stream
             pc.ontrack = (event) => {
+                console.log(`[Viewer] Received remote stream track for agent ${agentId}:`, event.track.kind);
                 setRemoteStreams(prev => ({
                     ...prev,
                     [agentId]: event.streams[0]
@@ -449,9 +492,11 @@ export const useLiveStreaming = () => {
 
             let isSubscribed = false;
             let pendingNegotiation = false;
+            const pendingCandidates: RTCIceCandidateInit[] = [];
 
             const triggerNegotiation = async () => {
                 try {
+                    console.log(`[Viewer] Creating SDP offer for agent ${agentId}`);
                     const offer = await pc.createOffer();
                     await pc.setLocalDescription(offer);
                     sendViewerSignal({ sdp: pc.localDescription });
@@ -462,6 +507,7 @@ export const useLiveStreaming = () => {
 
             // Handshake negotiation
             pc.onnegotiationneeded = async () => {
+                console.log(`[Viewer] onnegotiationneeded triggered. isSubscribed = ${isSubscribed}`);
                 if (isSubscribed) {
                     await triggerNegotiation();
                 } else {
@@ -475,10 +521,36 @@ export const useLiveStreaming = () => {
                     const { from, to, sdp, candidate } = payload;
                     if (to !== user.id || from !== agentId) return;
 
+                    console.log(`[Viewer] Received signal from agent ${agentId}:`, { hasSdp: !!sdp, hasCandidate: !!candidate });
+
                     if (sdp) {
+                        console.log(`[Viewer] Setting remote SDP (${sdp.type}) from agent ${agentId}`);
                         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+
+                        // Process any queued candidates
+                        if (pendingCandidates.length > 0) {
+                            console.log(`[Viewer] Processing ${pendingCandidates.length} queued ICE candidates for ${agentId}`);
+                            for (const cand of pendingCandidates) {
+                                try {
+                                    await pc.addIceCandidate(new RTCIceCandidate(cand));
+                                } catch (e) {
+                                    console.error("[Viewer] Error adding queued candidate:", e);
+                                }
+                            }
+                            pendingCandidates.length = 0;
+                        }
                     } else if (candidate) {
-                        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                        if (pc.remoteDescription) {
+                            console.log(`[Viewer] Adding ICE candidate from agent ${agentId}`);
+                            try {
+                                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+                            } catch (e) {
+                                console.error("[Viewer] Error adding candidate:", e);
+                            }
+                        } else {
+                            console.log(`[Viewer] Queuing ICE candidate from agent ${agentId} (remoteDescription not set)`);
+                            pendingCandidates.push(candidate);
+                        }
                     }
                 })
                 .subscribe(async (status) => {
@@ -486,6 +558,7 @@ export const useLiveStreaming = () => {
                         console.log(`Viewer subscribed to agent: ${agentId}`);
                         isSubscribed = true;
                         if (pendingNegotiation) {
+                            console.log(`[Viewer] Processing pending negotiation for ${agentId}`);
                             pendingNegotiation = false;
                             await triggerNegotiation();
                         }
