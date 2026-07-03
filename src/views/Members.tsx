@@ -45,6 +45,7 @@ import { usePUAgent } from "@/hooks/usePUAgent";
 import { useAuthorizedLgas } from "@/hooks/useAuthorizedLgas";
 import { useCouncillor } from "@/hooks/useCouncillors";
 import { APCBanner } from "@/components/branding/APCBanner";
+import { useParty } from "@/contexts/PartyContext";
 import {
   AreaChart,
   Area,
@@ -168,6 +169,7 @@ const OCCUPATION_SUB_CATEGORIES_DEFAULTS: Record<string, string[]> = {
 };
 
 const Members = () => {
+  const { party } = useParty();
   const router = useRouter();
   const navigate = (path: string | number) => { if (path === -1) router.back(); else router.push(path as string); };
   const [searchQuery, setSearchQuery] = useState("");
@@ -416,7 +418,7 @@ const Members = () => {
       {/* APC Banner */}
       <APCBanner
         title="Member Management"
-        subtitle="All Progressives Congress - Katsina State"
+        subtitle={`${party.fullName} - Katsina State`}
       />
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">

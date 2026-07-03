@@ -162,6 +162,20 @@ export const navItems: NavItem[] = [
     ],
   },
   {
+    label: "Command Video Wall",
+    icon: Radio,
+    path: "/situation-room/live",
+    group: "Operations",
+    roles: [
+      "super_admin",
+      "lga_chairman",
+      "councillor",
+      "senatorial_leader",
+      "federal_rep",
+      "house_assembly_member",
+    ],
+  },
+  {
     label: "Election Day",
     icon: ClipboardList,
     path: "/election-day",

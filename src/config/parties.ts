@@ -110,7 +110,7 @@ export const PARTIES: Record<PartyId, PartyBrand> = {
     neutral: {
         id: "neutral",
         name: "Neutral",
-        fullName: "Civic Management System",
+        fullName: "Campaign Management System",
         shortName: "CMS",
         tagline: "Manage. Engage. Empower.",
         logo: "/parties/neutral-logo.svg",

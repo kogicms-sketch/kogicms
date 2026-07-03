@@ -14,10 +14,15 @@ import {
     Search,
     UserCircle,
     CheckCircle2,
-    Loader2
+    Loader2,
+    Video,
+    VideoOff,
+    Volume2,
+    RefreshCw
 } from "lucide-react";
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useLiveStreaming } from "@/hooks/useLiveStreaming";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { Geolocation } from "@capacitor/geolocation";
@@ -30,6 +35,22 @@ const PUAgentDashboard = () => {
     const { data: agent, isLoading: agentLoading } = usePUAgent();
     const { data: members = [], isLoading: membersLoading, refetch: refetchMembers } = useMembers(undefined, agent?.polling_unit_id || undefined, agent?.polling_unit_name || undefined, "polling_unit");
     const { mutate: verifyMember, isPending: isVerifying } = useVerifyMember();
+
+    const {
+        localStream,
+        activeBroadcast,
+        isIntercomSpeaking,
+        facingMode,
+        startBroadcast,
+        stopBroadcast,
+        toggleCameraFacing
+    } = useLiveStreaming();
+
+    const videoRef = useCallback((node: HTMLVideoElement | null) => {
+        if (node && localStream) {
+            node.srcObject = localStream;
+        }
+    }, [localStream]);
 
     useEffect(() => {
         // Trigger a background query refetch on mount to ensure fresh data
@@ -110,10 +131,11 @@ const PUAgentDashboard = () => {
                     setGpsStatus('error');
                     setGpsErrorMsg(!permissionGranted ? "Location permission denied." : "Could not retrieve GPS coordinates. Please ensure GPS/Location Services are turned on.");
                 }
-            } catch (err: any) {
+            } catch (err) {
+                const errorMsg = err instanceof Error ? err.message : "GPS tracking failed.";
                 console.warn("⚠️ Error tracking location:", err);
                 setGpsStatus('error');
-                setGpsErrorMsg(err?.message || "GPS tracking failed.");
+                setGpsErrorMsg(errorMsg);
             }
         };
 
@@ -214,6 +236,109 @@ const PUAgentDashboard = () => {
                     </div>
                 </div>
             )}
+
+            {/* Live Media Stream Broadcast Section */}
+            <Card className="border-none shadow-premium overflow-hidden bg-slate-900 text-white rounded-xl">
+                <CardHeader className="bg-slate-950 p-4 border-b border-slate-800">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="relative flex h-3 w-3">
+                                {activeBroadcast ? (
+                                    <>
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-red-600" />
+                                    </>
+                                ) : (
+                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-slate-600" />
+                                )}
+                            </span>
+                            <CardTitle className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                                <Video className="w-4 h-4 text-emerald-500" />
+                                Live Movement Broadcast
+                            </CardTitle>
+                        </div>
+                        {activeBroadcast && (
+                            <Badge className="bg-red-600 hover:bg-red-700 text-white animate-pulse text-[10px] uppercase font-bold py-0.5 px-2 rounded-full">
+                                Streaming Live
+                            </Badge>
+                        )}
+                    </div>
+                    <CardDescription className="text-xs text-slate-400 mt-1">
+                        Securely stream tactical polling unit movements directly to the ward and super-admin command walls.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="p-4 flex flex-col gap-4">
+                    {isIntercomSpeaking && (
+                        <div className="bg-green-950/80 border border-green-500/35 text-green-300 rounded-xl p-3 flex items-center gap-3 animate-pulse">
+                            <Volume2 className="w-5 h-5 text-green-400 flex-shrink-0 animate-bounce" />
+                            <div>
+                                <p className="font-bold text-xs uppercase tracking-wider text-green-200">Command Intercom Active</p>
+                                <p className="text-[10px] text-green-400/90 mt-0.5">🔊 Command Centre Is Speaking...</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeBroadcast && localStream ? (
+                        <div className="space-y-4">
+                            {/* Video preview container */}
+                            <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-slate-950 border border-slate-800">
+                                <video
+                                    ref={videoRef}
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    className="w-full h-full object-cover scale-x-[-1]"
+                                />
+                                <div className="absolute bottom-2 left-2 bg-slate-950/85 px-2.5 py-1 rounded text-[10px] font-medium text-slate-300 flex items-center gap-1.5 backdrop-blur-sm border border-slate-800/80">
+                                    <MapPin className="w-3 h-3 text-red-500" />
+                                    {agent.polling_unit_name}
+                                </div>
+                                <div className="absolute top-2 right-2 bg-slate-950/85 px-2 py-0.5 rounded text-[9px] font-bold text-slate-300 flex items-center gap-1 backdrop-blur-sm border border-slate-800/80">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                    ABR ENABLED
+                                </div>
+                            </div>
+
+                            {/* Stream controls */}
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="destructive"
+                                    onClick={stopBroadcast}
+                                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold h-11 text-xs sm:text-sm rounded-lg"
+                                >
+                                    <VideoOff className="w-4 h-4 mr-2" />
+                                    Stop Streaming
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={toggleCameraFacing}
+                                    className="bg-slate-800 hover:bg-slate-700 border-slate-700 hover:border-slate-600 text-slate-100 font-medium h-11 text-xs px-4 rounded-lg"
+                                >
+                                    <RefreshCw className="w-4 h-4 mr-2" />
+                                    Flip Camera
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <Button
+                            onClick={() => {
+                                startBroadcast({
+                                    agent_name: agent.agent_name,
+                                    polling_unit_id: agent.polling_unit_id,
+                                    polling_unit_code: null,
+                                    polling_unit_name: agent.polling_unit_name,
+                                    ward: agent.ward,
+                                    lga: agent.lga
+                                });
+                            }}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold h-12 text-sm rounded-lg shadow-lg hover:shadow-emerald-950/20 transition-all uppercase tracking-wider"
+                        >
+                            <Video className="w-4.5 h-4.5 mr-2 animate-pulse" />
+                            Go Live / Broadcast Election Movement
+                        </Button>
+                    )}
+                </CardContent>
+            </Card>
 
             {/* KPI Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">

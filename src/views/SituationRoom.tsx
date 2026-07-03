@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -128,7 +129,7 @@ const SituationRoom = () => {
     pollingUnitName: isAgent ? puAgent?.polling_unit_name : undefined,
   });
 
-  const rows = results || [];
+  const rows = useMemo(() => results || [], [results]);
   const summary = useMemo(() => summarize(rows), [rows]);
   const lgaRows = useMemo(() => breakdownByLga(rows), [rows]);
   const pendingCount = useMemo(
@@ -177,6 +178,13 @@ const SituationRoom = () => {
             <Button onClick={() => setSubmitOpen(true)} className="gap-2">
               <Plus className="w-4 h-4" /> Submit Results
             </Button>
+          )}
+          {!isAgent && (
+            <Link href="/situation-room/live">
+              <Button className="gap-2 bg-slate-900 border border-slate-800 text-slate-100 hover:bg-slate-800">
+                <Radio className="w-4 h-4 text-emerald-500 animate-pulse" /> Command Video Wall
+              </Button>
+            </Link>
           )}
           <Button
             variant="outline"

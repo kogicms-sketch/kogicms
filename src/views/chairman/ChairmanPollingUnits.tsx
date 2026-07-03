@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { APCFlag } from "@/components/branding/APCFlag";
+import { useParty } from "@/contexts/PartyContext";
 
 // Coverage colour helpers
 const coverageColor = (pct: number) => {
@@ -53,6 +54,7 @@ const getStatus = (s?: string) => STATUS_CONFIG[s || ""] ?? STATUS_CONFIG.formin
 
 // ─────────────────────────────────────────────────────────────────
 const ChairmanPollingUnits = () => {
+    const { party } = useParty();
     const { data: chairman } = useChairman();
     const { data: wards } = useChairmanWards();
     const [selectedWard, setSelectedWard] = useState<string>("all");
@@ -109,7 +111,7 @@ const ChairmanPollingUnits = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="text-xs sm:text-sm font-semibold text-white/70 uppercase tracking-widest mb-1">
-                                    APC — All Progressives Congress
+                                    {party.shortName} — {party.fullName}
                                 </div>
                                 <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight">
                                     Polling Units
