@@ -84,6 +84,9 @@ export const useLiveStreaming = () => {
         if (!user) return null;
 
         try {
+            if (typeof window !== "undefined" && (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)) {
+                throw new Error("Camera/microphone access is blocked. Ensure you are on a secure origin (localhost or HTTPS).");
+            }
             // 1. Get Camera and Microphone Stream
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
