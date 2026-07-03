@@ -115,7 +115,7 @@ export const useLiveStreaming = () => {
                     lga: agentInfo.lga,
                     status: "active",
                     updated_at: new Date().toISOString()
-                })
+                }, { onConflict: "agent_id" })
                 .select()
                 .single();
 
