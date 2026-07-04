@@ -36,7 +36,10 @@ import {
   HelpCircle,
   BarChart3,
   ArrowLeft,
+  Printer,
+  Link,
 } from "lucide-react";
+import { toast } from "sonner";
 import { AddMemberModal } from "@/components/members/AddMemberModal";
 import MemberCard from "@/components/members/MemberCard";
 import { useMembers, useMemberStats, useVerifyMember } from "@/hooks/useMembers";
@@ -487,6 +490,30 @@ const Members = () => {
               <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-initial">
                 <Download className="w-4 h-4" />
                 <span className="hidden sm:inline">Export</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 flex-1 sm:flex-initial"
+                onClick={() => {
+                  const url = `${window.location.origin}/register`;
+                  navigator.clipboard.writeText(url);
+                  toast.success("Registration link copied!");
+                }}
+                title="Copy public registration link to clipboard"
+              >
+                <Link className="w-4 h-4" />
+                <span className="hidden sm:inline">Registration Link</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 flex-1 sm:flex-initial"
+                onClick={() => window.open('/member-registration-form.html', '_blank')}
+                title="Open printable registration form"
+              >
+                <Printer className="w-4 h-4" />
+                <span className="hidden sm:inline">Print Form</span>
               </Button>
               <Button size="sm" className="btn-action gap-2 flex-1 sm:flex-initial" onClick={() => setIsAddModalOpen(true)}>
                 <Plus className="w-4 h-4" />

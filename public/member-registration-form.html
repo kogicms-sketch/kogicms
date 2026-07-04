@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Member Registration & Voter Accreditation Form</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:10pt;color:#111;background:#f0f0f0}
+    .page{width:210mm;min-height:297mm;margin:10mm auto;background:#fff;padding:10mm 12mm;box-shadow:0 4px 24px rgba(0,0,0,.15)}
+    .header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1a5c2a;padding-bottom:6px;margin-bottom:8px}
+    .header-left{display:flex;align-items:center;gap:10px}
+    .header-logo{width:52px;height:52px;border-radius:50%;border:2px solid #1a5c2a;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18pt;color:#1a5c2a;background:#e8f5e9;flex-shrink:0}
+    .header-title h1{font-size:13pt;font-weight:900;color:#1a5c2a;line-height:1.2}
+    .header-title h2{font-size:9pt;font-weight:600;color:#555}
+    .header-title p{font-size:8pt;color:#777}
+    .header-right{text-align:right}
+    .form-no{font-size:8pt;color:#555;border:1px solid #ccc;padding:3px 8px;border-radius:4px;margin-bottom:4px;display:inline-block}
+    .form-code{font-size:7pt;color:#999}
+    .sponsor-block{margin-bottom:6px;text-align:right}
+    .sponsor-label{font-size:6.5pt;color:#999;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:2px}
+    .sponsor-badge{display:inline-flex;align-items:center;gap:5px;border:2px solid #b8860b;border-radius:4px;padding:3px 8px;background:linear-gradient(135deg,#fffbea,#fff8dc)}
+    .sponsor-icon{width:18px;height:18px;border-radius:50%;background:#b8860b;color:#fff;font-size:8pt;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1}
+    .sponsor-name{font-size:10pt;font-weight:900;color:#7a5800;letter-spacing:.5px;font-family:Georgia,serif}
+    .form-title{background:linear-gradient(135deg,#1a5c2a,#2d8a44);color:#fff;text-align:center;padding:5px 12px;border-radius:4px;margin-bottom:10px}
+    .form-title h3{font-size:12pt;font-weight:900;letter-spacing:1px}
+    .form-title p{font-size:8pt;opacity:.85;margin-top:1px}
+    .top-row{display:flex;gap:10px;margin-bottom:8px}
+    .photo-box{width:80px;flex-shrink:0;border:2px dashed #1a5c2a;height:95px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:4px;color:#888;font-size:7.5pt;text-align:center;gap:4px}
+    .camera-icon{font-size:18pt;opacity:.4}
+    .section{margin-bottom:8px}
+    .section-title{font-size:8.5pt;font-weight:900;color:#1a5c2a;text-transform:uppercase;letter-spacing:.5px;border-bottom:1.5px solid #1a5c2a;padding-bottom:2px;margin-bottom:6px}
+    .section-title span{background:#1a5c2a;color:#fff;border-radius:2px;padding:1px 6px;margin-right:6px;font-size:7.5pt}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+    .grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px}
+    .col-span-2{grid-column:span 2}
+    .col-span-3{grid-column:span 3}
+    .field{display:flex;flex-direction:column;gap:1px}
+    .field label{font-size:7pt;font-weight:700;color:#444;text-transform:uppercase;letter-spacing:.3px}
+    .req{color:#c0392b;margin-left:1px}
+    .field-line{border:none;border-bottom:1.5px solid #333;height:16px;width:100%;background:transparent}
+    .field-box{border:1.5px solid #999;border-radius:2px;height:16px;width:100%;background:#fafafa}
+    .check-row{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:2px}
+    .check-item{display:flex;align-items:center;gap:4px;font-size:8pt;color:#333}
+    .check-box{width:11px;height:11px;border:1.5px solid #555;border-radius:1px;display:inline-block;flex-shrink:0}
+    .vin-grid{display:grid;grid-template-columns:repeat(19,1fr);gap:3px;margin-top:2px}
+    .vin-cell{border:1.5px solid #555;height:18px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:7pt;color:#bbb}
+    .sig-row{display:flex;gap:12px;margin-top:4px}
+    .sig-box{flex:1}
+    .sig-box label{font-size:7pt;font-weight:700;color:#444;text-transform:uppercase}
+    .sig-line{border-bottom:1.5px solid #333;height:28px;margin-top:2px}
+    .thumb-box{width:55px;flex-shrink:0;border:1.5px dashed #999;height:55px;border-radius:3px;display:flex;align-items:center;justify-content:center;text-align:center;color:#aaa;font-size:7pt}
+    .office-box{border:1.5px solid #1a5c2a;border-radius:4px;padding:6px 8px;background:#f0faf2;margin-top:6px}
+    .office-title{font-size:8pt;font-weight:900;color:#1a5c2a;text-transform:uppercase;margin-bottom:5px;border-bottom:1px dashed #1a5c2a;padding-bottom:3px}
+    .footer{margin-top:8px;border-top:1px solid #ccc;padding-top:5px;display:flex;justify-content:space-between;align-items:center}
+    .footer p{font-size:7pt;color:#888}
+    .barcode{font-size:7pt;color:#aaa;font-family:monospace;letter-spacing:2px}
+    .print-btn-wrapper{text-align:center;padding:12px}
+    .print-btn{background:#1a5c2a;color:#fff;border:none;padding:10px 28px;border-radius:6px;font-size:11pt;cursor:pointer;font-weight:700;box-shadow:0 3px 8px rgba(0,0,0,.2)}
+    .print-btn:hover{background:#2d8a44}
+    @media print{body{background:none}.page{width:100%;margin:0;box-shadow:none;padding:8mm 10mm}@page{size:A4;margin:0}.no-print{display:none}}
+  </style>
+</head>
+<body>
+<div class="print-btn-wrapper no-print">
+  <button class="print-btn" onclick="window.print()">Print Form</button>
+</div>
+<div class="page">
+  <div class="header">
+    <div class="header-left">
+      <div class="header-logo">DR</div>
+      <div class="header-title">
+        <h1>Dikko Radda Campaign Management System</h1>
+        <h2>Katsina State - Member Registration &amp; Voter Accreditation</h2>
+        <p>Confidential - For Official Use Only</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="sponsor-block">
+        <span class="sponsor-label">Proudly Sponsored by</span>
+        <div class="sponsor-badge">
+          <div class="sponsor-icon">A</div>
+          <span class="sponsor-name">ABA &amp; SONS</span>
+        </div>
+      </div>
+      <div class="form-no">Form No: MBR-____/2026</div><br/>
+      <div class="form-code">Date Received: ____/____/________</div>
+    </div>
+  </div>
+  <div class="form-title">
+    <h3>MEMBER REGISTRATION &amp; VOTER ACCREDITATION FORM</h3>
+    <p>Please fill all fields clearly in BLOCK LETTERS using black or blue pen</p>
+  </div>
+  <div class="top-row">
+    <div class="photo-box">
+      <div class="camera-icon">&#128247;</div>
+      <div>Passport<br/>Photo<br/>(35mm x 45mm)</div>
+    </div>
+    <div style="flex:1;">
+      <div class="section-title"><span>01</span>Personal Information</div>
+      <div class="grid-2" style="gap:5px;">
+        <div class="field"><label>Surname / Last Name <span class="req">*</span></label><div class="field-line"></div></div>
+        <div class="field"><label>First Name <span class="req">*</span></label><div class="field-line"></div></div>
+        <div class="field"><label>Date of Birth (DD/MM/YYYY) <span class="req">*</span></label><div class="field-line"></div></div>
+        <div class="field"><label>Gender <span class="req">*</span></label>
+          <div class="check-row" style="margin-top:4px;">
+            <div class="check-item"><div class="check-box"></div> Male</div>
+            <div class="check-item"><div class="check-box"></div> Female</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title"><span>02</span>Voter Identification Number (VIN / PVC)</div>
+    <div class="field" style="margin-bottom:4px;"><label>Enter your 19-digit Voter Identification Number - one character per box</label></div>
+    <div class="vin-grid">
+      <div class="vin-cell"></div><div class="vin-cell"></div><div class="vin-cell"></div>
+      <div class="vin-cell"></div><div class="vin-cell"></div><div class="vin-cell"></div>
+      <div class="vin-cell"></div><div class="vin-cell"></div><div class="vin-cell"></div>
+      <div class="vin-cell"></div><div class="vin-cell"></div><div class="vin-cell"></div>
+      <div class="vin-cell"></div><div class="vin-cell"></div><div class="vin-cell"></div>
+      <div class="vin-cell"></div><div class="vin-cell"></div><div class="vin-cell"></div>
+      <div class="vin-cell"></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title"><span>03</span>Contact Information</div>
+    <div class="grid-3">
+      <div class="field"><label>Mobile Phone Number <span class="req">*</span></label><div class="field-line"></div></div>
+      <div class="field"><label>Email Address</label><div class="field-line"></div></div>
+      <div class="field"><label>Social Media Handle</label><div class="field-line"></div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title"><span>04</span>Location &amp; Polling Unit</div>
+    <div class="grid-3">
+      <div class="field"><label>Local Government Area (LGA) <span class="req">*</span></label><div class="field-line"></div></div>
+      <div class="field"><label>Ward <span class="req">*</span></label><div class="field-line"></div></div>
+      <div class="field"><label>Polling Unit Name / Code <span class="req">*</span></label><div class="field-line"></div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title"><span>05</span>Personal Details</div>
+    <div class="grid-3">
+      <div class="field"><label>Marital Status <span class="req">*</span></label>
+        <div class="check-row" style="margin-top:4px;">
+          <div class="check-item"><div class="check-box"></div> Single</div>
+          <div class="check-item"><div class="check-box"></div> Married</div>
+          <div class="check-item"><div class="check-box"></div> Divorced</div>
+          <div class="check-item"><div class="check-box"></div> Widowed</div>
+        </div>
+      </div>
+      <div class="field col-span-2"><label>Occupation <span class="req">*</span></label>
+        <div class="check-row" style="margin-top:4px;">
+          <div class="check-item"><div class="check-box"></div> Student</div>
+          <div class="check-item"><div class="check-box"></div> Farmer</div>
+          <div class="check-item"><div class="check-box"></div> Trader</div>
+          <div class="check-item"><div class="check-box"></div> Teacher</div>
+          <div class="check-item"><div class="check-box"></div> Civil Servant</div>
+          <div class="check-item"><div class="check-box"></div> Business Owner</div>
+          <div class="check-item"><div class="check-box"></div> Artisan</div>
+          <div class="check-item"><div class="check-box"></div> Housewife</div>
+          <div class="check-item"><div class="check-box"></div> Retired</div>
+          <div class="check-item"><div class="check-box"></div> Unemployed</div>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:6px;">
+      <div class="field"><label>Occupation Detail / Specify</label><div class="field-line"></div></div>
+      <div class="field"><label>School / Institution Name (if Student or Teacher)</label><div class="field-line"></div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title"><span>06</span>Banking / Wallet Details</div>
+    <div class="grid-3">
+      <div class="field"><label>Bank Name</label><div class="field-line"></div></div>
+      <div class="field"><label>Account Number</label><div class="field-line"></div></div>
+      <div class="field"><label>Account Name</label><div class="field-line"></div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title"><span>07</span>Role &amp; Group Affiliation</div>
+    <div class="grid-2">
+      <div class="field"><label>Member Role / Position <span class="req">*</span></label>
+        <div class="check-row" style="margin-top:4px;">
+          <div class="check-item"><div class="check-box"></div> Member</div>
+          <div class="check-item"><div class="check-box"></div> Mobilizer</div>
+          <div class="check-item"><div class="check-box"></div> Field Officer</div>
+          <div class="check-item"><div class="check-box"></div> Coordinator</div>
+          <div class="check-item"><div class="check-box"></div> Secretary</div>
+          <div class="check-item"><div class="check-box"></div> Treasurer</div>
+        </div>
+      </div>
+      <div class="field"><label>Support Group / Organization Name</label><div class="field-line"></div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-title"><span>08</span>Declaration &amp; Signature</div>
+    <p style="font-size:7.5pt;color:#555;margin-bottom:6px;line-height:1.5;">I, the undersigned, hereby declare that all information provided on this form is true, accurate and complete to the best of my knowledge. I voluntarily join the Dikko Radda Campaign Management System and consent to the use of my data for campaign coordination and communication purposes.</p>
+    <div class="sig-row">
+      <div class="sig-box">
+        <label>Applicant Signature</label>
+        <div class="sig-line"></div>
+        <div style="height:14px;"></div>
+      </div>
+      <div class="sig-box">
+        <label>Date Signed (DD/MM/YYYY)</label>
+        <div class="sig-line"></div>
+        <div style="height:14px;"></div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+        <label style="font-size:7pt;font-weight:700;color:#444;text-transform:uppercase;">Right Thumb Print</label>
+        <div class="thumb-box">Thumb<br/>Print</div>
+      </div>
+    </div>
+  </div>
+  <div class="office-box">
+    <div class="office-title">For Office Use Only - Do Not Fill Below This Line</div>
+    <div class="grid-4">
+      <div class="field"><label>Member ID / Code</label><div class="field-box"></div></div>
+      <div class="field"><label>Registered By</label><div class="field-box"></div></div>
+      <div class="field"><label>Date of Entry</label><div class="field-box"></div></div>
+      <div class="field"><label>Status</label>
+        <div class="check-row" style="margin-top:3px;">
+          <div class="check-item"><div class="check-box"></div> Verified</div>
+          <div class="check-item"><div class="check-box"></div> Rejected</div>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:6px;">
+      <div class="field"><label>Remarks / Notes</label><div class="field-line"></div></div>
+      <div class="field"><label>Registration Officer Signature &amp; Stamp</label><div class="field-line"></div></div>
+    </div>
+  </div>
+  <div class="footer">
+    <p>For assistance contact your Ward Coordinator or Polling Unit Agent<br/>2026 Dikko Radda Campaign Management System - Katsina State - Strictly Confidential</p>
+    <div class="barcode">||||||||||||||||||||||||||||||</div>
+  </div>
+</div>
+</body>
+</html>
