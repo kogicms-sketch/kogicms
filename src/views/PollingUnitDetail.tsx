@@ -342,18 +342,30 @@ const PollingUnitDetail = () => {
             if (!unit?.pu_code || !unit?.lga) return [];
             const standardCode = getStandardPuCode(unit.lga, unit.pu_code);
             
-            const { data, error } = await supabase
-                .from("voter_registry")
-                .select("id, vin, full_name, dob_year, gender, polling_unit_code, polling_unit_name, voter_status, photo_url")
-                .eq("polling_unit_code", standardCode)
-                .order("full_name", { ascending: true })
-                .limit(2000);
+            let allVoters: any[] = [];
+            let page = 0;
+            const PAGE_SIZE = 1000;
+            let hasMore = true;
+            
+            while (hasMore) {
+                const { data, error } = await supabase
+                    .from("voter_registry")
+                    .select("id, vin, full_name, dob_year, gender, polling_unit_code, polling_unit_name, voter_status, photo_url")
+                    .eq("polling_unit_code", standardCode)
+                    .order("full_name", { ascending: true })
+                    .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+                    
+                if (error) {
+                    console.error("Error fetching registry voters:", error);
+                    return allVoters.length > 0 ? allVoters : [];
+                }
                 
-            if (error) {
-                console.error("Error fetching registry voters:", error);
-                return [];
+                allVoters = allVoters.concat(data || []);
+                hasMore = (data?.length || 0) === PAGE_SIZE;
+                page++;
             }
-            return data || [];
+            
+            return allVoters;
         },
         enabled: !!unit?.pu_code,
     });
