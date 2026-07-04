@@ -17,7 +17,7 @@ import {
     TableHeader, TableRow,
 } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/loose-client";
 
 const RecentAgentActivity = ({ lga, ward }: { lga: string; ward: string }) => {
     const { data: locations = [], isLoading } = useQuery({
@@ -93,7 +93,7 @@ const CouncillorDashboard = () => {
     const { data: councillor, isLoading: councillorLoading } = useCouncillor();
     const { data: wardData, isLoading: wardLoading } = useCouncillorWardData();
 
-    if (councillorLoading || wardLoading) {
+    if (councillorLoading || (councillor && wardLoading)) {
         return (
             <DashboardLayout>
                 <div className="flex items-center justify-center min-h-[60vh]">

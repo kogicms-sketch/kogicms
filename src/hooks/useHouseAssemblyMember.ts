@@ -60,6 +60,8 @@ export const useHouseAssemblyMember = () => {
             if (error) throw error;
             return data as HouseAssemblyMember;
         },
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 30, // 30 minutes
     });
 };
 
@@ -150,5 +152,7 @@ export const useAssemblyLGAStats = () => {
             } as AssemblyLGAStats;
         },
         enabled: !!member,
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 30, // 30 minutes
     });
 };

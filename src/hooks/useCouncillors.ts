@@ -51,6 +51,8 @@ export const useCouncillor = (options?: { enabled?: boolean }) => {
             if (error) throw error;
             return data as unknown as Councillor;
         },
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 30, // 30 minutes
         ...options
     });
 };
@@ -108,6 +110,8 @@ export const useCouncillorWardData = () => {
             } as CouncillorWardData;
         },
         enabled: !!councillor,
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 30, // 30 minutes
     });
 };
 

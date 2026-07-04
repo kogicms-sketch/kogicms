@@ -32,7 +32,7 @@ const FederalRepDashboard = () => {
     const [search, setSearch] = useState("");
     const [lgaFilter, setLgaFilter] = useState("All");
 
-    const isLoading = repLoading || constLoading || trendLoading;
+    const isLoading = repLoading || (!!rep && (constLoading || trendLoading));
 
     if (isLoading) {
         return (

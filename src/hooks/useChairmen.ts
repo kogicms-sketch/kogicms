@@ -63,6 +63,8 @@ export const useChairman = () => {
             return data as unknown as LGAChairman;
         },
         enabled: role === "lga_chairman", // Only run for lga_chairman role
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 30, // 30 minutes
     });
 };
 
@@ -157,6 +159,8 @@ export const useChairmanDashboardStats = () => {
             } as ChairmanDashboardStats;
         },
         enabled: !!chairman,
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 30, // 30 minutes
     });
 };
 

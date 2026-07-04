@@ -70,6 +70,8 @@ export const useSenatorialLeader = () => {
             if (error) throw error;
             return data as SenatorialLeader;
         },
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 30, // 30 minutes
     });
 };
 
@@ -172,5 +174,7 @@ export const useSenatorialZoneData = () => {
             } as SenatorialZoneData;
         },
         enabled: !!leader,
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 30, // 30 minutes
     });
 };

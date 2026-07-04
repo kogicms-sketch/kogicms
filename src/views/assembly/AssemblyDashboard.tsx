@@ -30,7 +30,7 @@ const AssemblyDashboard = () => {
     const [search, setSearch] = useState("");
     const [wardFilter, setWardFilter] = useState("All");
 
-    const isLoading = memberLoading || statsLoading || trendLoading;
+    const isLoading = memberLoading || (!!member && (statsLoading || trendLoading));
 
     if (isLoading) {
         return (

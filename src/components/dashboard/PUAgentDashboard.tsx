@@ -26,7 +26,7 @@ import { useLiveStreaming } from "@/hooks/useLiveStreaming";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { motion } from "framer-motion";
 import { Geolocation } from "@capacitor/geolocation";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/loose-client";
 
 const PUAgentDashboard = () => {
     const router = useRouter();
@@ -142,7 +142,7 @@ const PUAgentDashboard = () => {
         trackLocation();
     }, [agent, user]);
 
-    const isLoading = agentLoading || membersLoading;
+    const isLoading = agentLoading || (!!agent && membersLoading);
 
     if (isLoading) {
         return (

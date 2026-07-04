@@ -17,7 +17,7 @@ const ChairmanDashboard = () => {
     const { data: chairman, isLoading: chairmanLoading } = useChairman();
     const { data: stats, isLoading: statsLoading } = useChairmanDashboardStats();
 
-    if (chairmanLoading || statsLoading) {
+    if (chairmanLoading || (chairman && statsLoading)) {
         return (
             <DashboardLayout>
                 <div className="flex items-center justify-center min-h-[60vh]">

@@ -41,7 +41,7 @@ const SenatorialDashboard = () => {
     const [expandedLGA, setExpandedLGA] = useState<string | null>(null);
     const [isPUOpen, setIsPUOpen] = useState(false);
 
-    const isLoading = leaderLoading || zoneLoading || trendLoading;
+    const isLoading = leaderLoading || (!!leader && (zoneLoading || trendLoading));
 
     if (isLoading) {
         return (

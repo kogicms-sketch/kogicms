@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/loose-client";
 import { useCouncillor } from "@/hooks/useCouncillors";
 import { useChairman } from "@/hooks/useChairmen";
 import { MapPin, Calendar, Users, RefreshCw, Navigation } from "lucide-react";

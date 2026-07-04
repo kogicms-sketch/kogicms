@@ -70,6 +70,8 @@ export const useFederalRep = () => {
             if (error) throw error;
             return data as FederalRep;
         },
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 30, // 30 minutes
     });
 };
 
@@ -159,5 +161,7 @@ export const useFederalConstituencyData = () => {
             } as FederalConstituencyData;
         },
         enabled: !!rep,
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        gcTime: 1000 * 60 * 30, // 30 minutes
     });
 };
