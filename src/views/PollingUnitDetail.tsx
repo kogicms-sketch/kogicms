@@ -346,7 +346,8 @@ const PollingUnitDetail = () => {
                 .from("voter_registry")
                 .select("id, vin, full_name, dob_year, gender, polling_unit_code, polling_unit_name, voter_status, photo_url")
                 .eq("polling_unit_code", standardCode)
-                .order("full_name", { ascending: true });
+                .order("full_name", { ascending: true })
+                .limit(2000);
                 
             if (error) {
                 console.error("Error fetching registry voters:", error);

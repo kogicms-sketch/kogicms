@@ -28,6 +28,7 @@ import {
   CELL_STATUS_LABELS,
 } from "@/hooks/usePollingUnitCells";
 import { useAuthorizedLgas } from "@/hooks/useAuthorizedLgas";
+import { useProfile } from "@/hooks/useSettings";
 import { KATSINA_LGAS, ALL_WARDS } from "@/data/aggregated_lga_data";
 import {
   Select,
@@ -55,6 +56,18 @@ const PollingUnitCells = () => {
     status: "",
   });
 
+  const { data: profile } = useProfile();
+
+  useEffect(() => {
+    if (profile) {
+      setFilters(f => ({
+        ...f,
+        lga: f.lga || profile.lga || "",
+        ward: f.ward || (profile.role === "councillor" ? (profile.ward || "") : "") || "",
+      }));
+    }
+  }, [profile]);
+
   const { data: authorizedLgas, isLoading: jurisdictionLoading } = useAuthorizedLgas();
   const { data: cells, isLoading: cellsLoading } = usePollingUnitCells({
     lga: filters.lga || undefined,
@@ -62,7 +75,10 @@ const PollingUnitCells = () => {
     status: filters.status || undefined,
   });
 
-  const { data: stats, isLoading: statsLoading } = usePollingUnitStats();
+  const { data: stats, isLoading: statsLoading } = usePollingUnitStats({
+    lga: filters.lga || undefined,
+    ward: filters.ward || undefined,
+  });
 
   const isSuperAdmin = authorizedLgas?.includes("ALL");
   const filteredLgas = isSuperAdmin ? KATSINA_LGAS : (authorizedLgas || []);
@@ -199,7 +215,7 @@ const PollingUnitCells = () => {
               <Select
                 value={filters.ward || "all"}
                 onValueChange={(v) => setFilters(f => ({ ...f, ward: v === "all" ? "" : v }))}
-                disabled={!filters.lga}
+                disabled={!filters.lga || profile?.role === "councillor"}
               >
                 <SelectTrigger className="w-[150px]">
                   <MapPin className="w-4 h-4 mr-2" />

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/loose-client";
 // Voter registry (with real INEC registered-voter data) lives on the Lovable Cloud backend.
 import { supabase as registrySupabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useProfile } from "./useSettings";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -21,12 +22,19 @@ const puMatchKey = (ward?: string | null, code?: string | null): string | null =
 
 // Fetch the real registered-voter counts per polling unit from the voter registry.
 // Returns a Map keyed by `${WARD}|${seq}` -> registered_count.
-const fetchRegisteredVoterCounts = async (): Promise<Map<string, number>> => {
+const fetchRegisteredVoterCounts = async (ward?: string): Promise<Map<string, number>> => {
   const map = new Map<string, number>();
   try {
-    const { data, error } = await registrySupabase
+    let query = registrySupabase
       .from("voter_pu_counts")
-      .select("ward, polling_unit_code, registered_count");
+      .select("ward, polling_unit_code, registered_count")
+      .limit(2000);
+    
+    if (ward) {
+      query = query.eq("ward", ward);
+    }
+
+    const { data, error } = await query;
     if (error) {
       console.error("Error fetching voter registry counts:", error);
       return map;
@@ -63,10 +71,26 @@ export const usePollingUnitCells = (filters?: {
   status?: string;
   canvasserId?: string;
 }) => {
+  const { data: profile } = useProfile();
+
   return useQuery({
-    queryKey: ["polling-unit-cells", filters],
-    staleTime: 0, // Always fetch fresh data
+    queryKey: ["polling-unit-cells", filters, profile?.id],
+    staleTime: 1000 * 60 * 5, // 5 mins cache
+    gcTime: 1000 * 60 * 30,
+    enabled: !!profile,
     queryFn: async () => {
+      let targetLga = filters?.lga;
+      let targetWard = filters?.ward;
+
+      if (profile) {
+        if (profile.role === "councillor") {
+          targetLga = profile.lga || undefined;
+          targetWard = profile.ward || undefined;
+        } else if (profile.role === "lga_chairman" || profile.role === "house_assembly_member") {
+          targetLga = profile.lga || undefined;
+        }
+      }
+
       let query = db
         .from("polling_unit_cells")
         .select(`
@@ -76,11 +100,11 @@ export const usePollingUnitCells = (filters?: {
         `)
         .order("created_at", { ascending: false });
 
-      if (filters?.lga) {
-        query = query.eq("lga", filters.lga);
+      if (targetLga) {
+        query = query.eq("lga", targetLga);
       }
-      if (filters?.ward) {
-        query = query.eq("ward", filters.ward);
+      if (targetWard) {
+        query = query.eq("ward", targetWard);
       }
       if (filters?.status) {
         query = query.eq("status", filters.status);
@@ -108,11 +132,11 @@ export const usePollingUnitCells = (filters?: {
           .order("name", { ascending: true })
           .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-        if (filters?.lga) {
-          query = query.eq("lga_name", filters.lga);
+        if (targetLga) {
+          query = query.eq("lga_name", targetLga);
         }
-        if (filters?.ward) {
-          query = query.eq("ward_name", filters.ward);
+        if (targetWard) {
+          query = query.eq("ward_name", targetWard);
         }
 
         const { data, error: puError } = await query;
@@ -148,11 +172,11 @@ export const usePollingUnitCells = (filters?: {
         .from("members")
         .select("lga, ward, polling_unit");
 
-      if (filters?.lga) {
-        memberCountsQuery = memberCountsQuery.eq("lga", filters.lga);
+      if (targetLga) {
+        memberCountsQuery = memberCountsQuery.eq("lga", targetLga);
       }
-      if (filters?.ward) {
-        memberCountsQuery = memberCountsQuery.eq("ward", filters.ward);
+      if (targetWard) {
+        memberCountsQuery = memberCountsQuery.eq("ward", targetWard);
       }
 
       const { data: allMembers, error: membersError } = await memberCountsQuery;
@@ -168,7 +192,7 @@ export const usePollingUnitCells = (filters?: {
       });
 
       // Real registered-voter counts from the INEC voter registry
-      const voterCountMap = await fetchRegisteredVoterCounts();
+      const voterCountMap = await fetchRegisteredVoterCounts(targetWard);
 
       // Create a map of existing cells for O(1) lookup
       const dbCellMap = new Map();
@@ -462,13 +486,42 @@ export const useRemoveCellMember = () => {
 };
 
 // Stats
-export const usePollingUnitStats = () => {
+export const usePollingUnitStats = (filters?: {
+  lga?: string;
+  ward?: string;
+}) => {
+  const { data: profile } = useProfile();
+
   return useQuery({
-    queryKey: ["polling-unit-stats"],
+    queryKey: ["polling-unit-stats", filters, profile?.id],
+    staleTime: 1000 * 60 * 5, // 5 mins cache
+    gcTime: 1000 * 60 * 30,
+    enabled: !!profile,
     queryFn: async () => {
-      const { data: dbCells, error } = await db
+      let targetLga = filters?.lga;
+      let targetWard = filters?.ward;
+
+      if (profile) {
+        if (profile.role === "councillor") {
+          targetLga = profile.lga || undefined;
+          targetWard = profile.ward || undefined;
+        } else if (profile.role === "lga_chairman" || profile.role === "house_assembly_member") {
+          targetLga = profile.lga || undefined;
+        }
+      }
+
+      let cellsQuery = db
         .from("polling_unit_cells")
         .select("status, target_voters, registered_voters, reliable_voters, lga, ward, polling_unit_name");
+
+      if (targetLga) {
+        cellsQuery = cellsQuery.eq("lga", targetLga);
+      }
+      if (targetWard) {
+        cellsQuery = cellsQuery.eq("ward", targetWard);
+      }
+
+      const { data: dbCells, error } = await cellsQuery;
 
       if (error) throw error;
 
@@ -479,11 +532,19 @@ export const usePollingUnitStats = () => {
       let hasMore = true;
 
       while (hasMore) {
-        const { data, error: puError } = await supabase
+        let query = supabase
           .from("polling_units")
           .select("lga_name, ward_name, name, code, target_voters, registered_voters")
           .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
+        if (targetLga) {
+          query = query.eq("lga_name", targetLga);
+        }
+        if (targetWard) {
+          query = query.eq("ward_name", targetWard);
+        }
+
+        const { data, error: puError } = await query;
         if (puError) throw puError;
 
         pollingUnits = pollingUnits.concat(data || []);
@@ -492,9 +553,18 @@ export const usePollingUnitStats = () => {
       }
 
       // Fetch all members to count per polling unit
-      const { data: allMembers, error: membersError } = await supabase
+      let memberCountsQuery = supabase
         .from("members")
         .select("lga, ward, polling_unit");
+
+      if (targetLga) {
+        memberCountsQuery = memberCountsQuery.eq("lga", targetLga);
+      }
+      if (targetWard) {
+        memberCountsQuery = memberCountsQuery.eq("ward", targetWard);
+      }
+
+      const { data: allMembers, error: membersError } = await memberCountsQuery;
 
       if (membersError) console.error("Error fetching members for stats:", membersError);
 
@@ -510,7 +580,7 @@ export const usePollingUnitStats = () => {
       });
 
       // Real registered-voter counts from the INEC voter registry
-      const voterCountMap = await fetchRegisteredVoterCounts();
+      const voterCountMap = await fetchRegisteredVoterCounts(targetWard);
 
       // Create Map of DB cells for quick lookup
       const dbCellMap = new Map();
