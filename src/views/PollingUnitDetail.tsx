@@ -166,6 +166,9 @@ const PollingUnitDetail = () => {
                         full_name,
                         phone,
                         membership_id
+                      ),
+                      polling_unit:polling_unit_id (
+                        code
                       )
                     `)
                     .eq("polling_unit_id", realId)
@@ -178,7 +181,7 @@ const PollingUnitDetail = () => {
                     }, 0);
                     
                     const chairmanData = getChairmanByLGA(dbCell.lga || '');
-                    const puCode = getPollingUnitCode(dbCell.lga, dbCell.ward, dbCell.polling_unit_name);
+                    const puCode = dbCell.polling_unit?.code || getPollingUnitCode(dbCell.lga, dbCell.ward, dbCell.polling_unit_name);
                     const realCount = await fetchRealVoters(dbCell.lga || '', dbCell.ward, puCode);
 
                     return {
@@ -186,8 +189,8 @@ const PollingUnitDetail = () => {
                         pu_code: puCode,
                         type: 'database',
                         registered_voters: realCount ?? dbCell.registered_voters ?? 0,
-                        canvasser_name: dbCell.canvasser?.full_name || null,
-                        canvasser_phone: dbCell.canvasser?.phone,
+                        canvasser_name: dbCell.canvasser?.full_name || dbCell.canvasser_name || null,
+                        canvasser_phone: dbCell.canvasser?.phone || dbCell.canvasser_phone || null,
                         lga_chairman: dbCell.lga_chairman || chairmanData?.chairman || null,
                     };
                 }
@@ -234,6 +237,9 @@ const PollingUnitDetail = () => {
             full_name,
             phone,
             membership_id
+          ),
+          polling_unit:polling_unit_id (
+            code
           )
         `)
                 .eq("id", id)
@@ -242,7 +248,7 @@ const PollingUnitDetail = () => {
             if (dbUnit) {
                 // Auto-assign LGA chairman from static data
                 const chairmanData = getChairmanByLGA(dbUnit.lga || '');
-                const puCode = getPollingUnitCode(dbUnit.lga, dbUnit.ward, dbUnit.polling_unit_name);
+                const puCode = dbUnit.polling_unit?.code || getPollingUnitCode(dbUnit.lga, dbUnit.ward, dbUnit.polling_unit_name);
                 const realCount = await fetchRealVoters(dbUnit.lga || '', dbUnit.ward, puCode);
 
                 return {
@@ -250,8 +256,8 @@ const PollingUnitDetail = () => {
                     pu_code: puCode,
                     type: 'database',
                     registered_voters: realCount ?? dbUnit.registered_voters ?? 0,
-                    canvasser_name: dbUnit.canvasser?.full_name || null,
-                    canvasser_phone: dbUnit.canvasser?.phone,
+                    canvasser_name: dbUnit.canvasser?.full_name || dbUnit.canvasser_name || null,
+                    canvasser_phone: dbUnit.canvasser?.phone || dbUnit.canvasser_phone || null,
                     lga_chairman: dbUnit.lga_chairman || chairmanData?.chairman || null,
                 };
             }
