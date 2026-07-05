@@ -163,8 +163,7 @@ const PollingUnitDetail = () => {
                       *,
                       canvasser:canvasser_id (
                         id,
-                        first_name,
-                        last_name,
+                        full_name,
                         phone,
                         membership_id
                       )
@@ -187,7 +186,7 @@ const PollingUnitDetail = () => {
                         pu_code: puCode,
                         type: 'database',
                         registered_voters: realCount ?? dbCell.registered_voters ?? 0,
-                        canvasser_name: dbCell.canvasser ? `${dbCell.canvasser.first_name} ${dbCell.canvasser.last_name}` : null,
+                        canvasser_name: dbCell.canvasser?.full_name || null,
                         canvasser_phone: dbCell.canvasser?.phone,
                         lga_chairman: dbCell.lga_chairman || chairmanData?.chairman || null,
                     };
@@ -232,8 +231,7 @@ const PollingUnitDetail = () => {
           *,
           canvasser:canvasser_id (
             id,
-            first_name,
-            last_name,
+            full_name,
             phone,
             membership_id
           )
@@ -252,7 +250,7 @@ const PollingUnitDetail = () => {
                     pu_code: puCode,
                     type: 'database',
                     registered_voters: realCount ?? dbUnit.registered_voters ?? 0,
-                    canvasser_name: dbUnit.canvasser ? `${dbUnit.canvasser.first_name} ${dbUnit.canvasser.last_name}` : null,
+                    canvasser_name: dbUnit.canvasser?.full_name || null,
                     canvasser_phone: dbUnit.canvasser?.phone,
                     lga_chairman: dbUnit.lga_chairman || chairmanData?.chairman || null,
                 };
