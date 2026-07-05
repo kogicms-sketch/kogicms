@@ -167,8 +167,7 @@ const PollingUnitDetail = () => {
                         last_name,
                         phone,
                         membership_id
-                      ),
-                      members:members (count)
+                      )
                     `)
                     .eq("polling_unit_id", realId)
                     .maybeSingle();
@@ -237,8 +236,7 @@ const PollingUnitDetail = () => {
             last_name,
             phone,
             membership_id
-          ),
-          members:members (count)
+          )
         `)
                 .eq("id", id)
                 .maybeSingle();
