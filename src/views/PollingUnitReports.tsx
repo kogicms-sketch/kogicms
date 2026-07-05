@@ -89,6 +89,11 @@ export const PollingUnitReports = () => {
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<LocationLog[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [mapKey, setMapKey] = useState<string>("reports-map-init");
+
+  useEffect(() => {
+    setMapKey(`reports-map-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
+  }, [selectedAgentId, logs.length]);
 
   // Katsina approximate center
   const katsinaCenter: [number, number] = [12.9908, 7.5965];
@@ -229,8 +234,20 @@ export const PollingUnitReports = () => {
           {/* Interactive Map */}
           <Card className="lg:col-span-3 border rounded-xl shadow-sm h-[600px] flex flex-col overflow-hidden">
             <CardContent className="p-0 flex-1 relative">
-              <div style={{ height: "100%", width: "100%" }} className="absolute inset-0">
+              <div 
+                ref={(el) => {
+                  if (el) {
+                    const mapDiv = el.querySelector('.leaflet-container') || el;
+                    if (mapDiv) {
+                      delete (mapDiv as any)._leaflet_id;
+                    }
+                  }
+                }}
+                style={{ height: "100%", width: "100%" }} 
+                className="absolute inset-0"
+              >
                 <MapContainer
+                  key={mapKey}
                   center={katsinaCenter}
                   zoom={11}
                   style={{ height: "100%", width: "100%" }}
