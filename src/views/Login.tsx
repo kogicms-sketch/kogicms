@@ -11,6 +11,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { motion } from "framer-motion";
 import { APCFlag } from "@/components/branding/APCFlag";
 import { useParty } from "@/contexts/PartyContext";
+import { PARTIES, DEFAULT_PARTY } from "@/config/parties";
 
 const emailSchema = z.string().email("Please enter a valid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
@@ -24,7 +25,14 @@ const Login = () => {
   const router = useRouter();
   const navigate = (path, options) => { if (path === -1) router.back(); else router.push(path); };
   const { signIn, signUp, user, loading, role } = useAuth();
-  const { party } = useParty();
+  const { party: contextParty } = useParty();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const party = mounted ? contextParty : PARTIES[DEFAULT_PARTY];
   const { canInstall, isIOS, install } = usePWAInstall();
   const isMobile = useIsMobile();
 
