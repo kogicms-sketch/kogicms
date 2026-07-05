@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Search, Download, Share, Bell } from "lucide-react";
+import { Search, Download, Share, Bell, RefreshCw } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParty } from "@/contexts/PartyContext";
@@ -11,6 +11,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { SyncIndicator } from "./SyncIndicator";
+import { useQueryClient } from "@tanstack/react-query";
+import { localRepository } from "@/services/LocalRepository";
 
 interface HeaderProps {
   title: string;
@@ -21,6 +23,18 @@ const Header = ({ title, subtitle }: HeaderProps) => {
   const { partyId } = useParty();
   const { user, role } = useAuth();
   const [userLga, setUserLga] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const handleForceRefresh = async () => {
+    try {
+      await localRepository.clearAllCache();
+      queryClient.invalidateQueries();
+      toast.success("Cache cleared! Pulling fresh data from server...");
+    } catch (err) {
+      console.error("Error clearing cache:", err);
+      toast.error("Failed to clear cache");
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -107,6 +121,15 @@ const Header = ({ title, subtitle }: HeaderProps) => {
 
         {/* Right Section */}
         <div className="flex items-center gap-2 sm:gap-4">
+          {/* Force cache refresh button */}
+          <button
+            onClick={handleForceRefresh}
+            className="p-2 rounded-lg hover:bg-muted transition-colors flex items-center justify-center text-muted-foreground hover:text-foreground tap-target"
+            title="Force Sync / Refresh Data (Clears local cache)"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+
           {/* Sync status indicator */}
           <SyncIndicator />
 

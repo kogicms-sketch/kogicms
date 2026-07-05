@@ -3,6 +3,8 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { Tables, TablesInsert } from "@/integrations/supabase/loose-types";
 import { toast } from "sonner";
+import { localRepository } from "@/services/LocalRepository";
+import { syncManager } from "@/services/SyncManager";
 
 export type Member = Tables<"members"> & { 
   is_verified?: boolean; 
@@ -48,6 +50,38 @@ export const useMembers = (
     queryKey: ["members", scope, organizationId, pollingUnitId, pollingUnitName, allowedLgas, allowedWard],
     enabled: scope !== "polling_unit" || !!pollingUnitId || !!pollingUnitName,
     queryFn: async () => {
+      // 1. Check local cache first
+      let list = await localRepository.getMembers();
+      
+      // Apply filters locally
+      if (scope === "polling_unit") {
+        if (pollingUnitId && pollingUnitName) {
+          list = list.filter(m => m.polling_unit_id === pollingUnitId || m.polling_unit === pollingUnitName);
+        } else if (pollingUnitId) {
+          list = list.filter(m => m.polling_unit_id === pollingUnitId);
+        } else if (pollingUnitName) {
+          list = list.filter(m => m.polling_unit === pollingUnitName);
+        }
+      } else if (scope === "organization" && organizationId) {
+        list = list.filter(m => m.organization_id === organizationId || m.support_group_id === organizationId);
+      }
+
+      if (allowedWard) {
+        list = list.filter(m => m.ward === allowedWard);
+      }
+
+      if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
+        list = list.filter(m => m.lga && allowedLgas.includes(m.lga));
+      }
+
+      // If cached members exist, return them immediately
+      if (list.length > 0) {
+        console.log(`📦 Loaded ${list.length} members from IndexedDB local cache.`);
+        return list as MemberWithOrganization[];
+      }
+
+      // 2. Fallback to Supabase
+      console.log(`🌐 IndexedDB cache empty. Fetching members from Supabase...`);
       let query = supabase
         .from("members")
         .select(`
@@ -77,9 +111,16 @@ export const useMembers = (
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
-      return (data as any) as MemberWithOrganization[];
+
+      // 3. Populate local cache immediately
+      if (data && data.length > 0) {
+        for (const member of data) {
+          await localRepository.saveMember(member);
+        }
+      }
+
+      return (data || []) as MemberWithOrganization[];
     },
   });
 };
@@ -88,6 +129,15 @@ export const useMember = (id: string) => {
   return useQuery({
     queryKey: ["members", "detail", id],
     queryFn: async () => {
+      // 1. Check local cache
+      const cached = await localRepository.getMemberById(id);
+      if (cached) {
+        console.log(`📦 Loaded member details for ${id} from IndexedDB.`);
+        return cached as MemberWithOrganization;
+      }
+
+      // 2. Fallback to Supabase
+      console.log(`🌐 Member not found in cache. Fetching from Supabase...`);
       const { data, error } = await supabase
         .from("members")
         .select(`
@@ -98,6 +148,10 @@ export const useMember = (id: string) => {
         .maybeSingle();
 
       if (error) throw error;
+
+      if (data) {
+        await localRepository.saveMember(data);
+      }
       return (data as any) as MemberWithOrganization | null;
     },
     enabled: !!id,
@@ -109,23 +163,34 @@ export const useCreateMember = () => {
 
   return useMutation({
     mutationFn: async (member: MemberInsert) => {
-      const membershipId = `DR-${Date.now().toString(36).toUpperCase()}`;
+      const id = member.id || localRepository.generateUUID();
+      const membershipId = member.membership_id || `DR-${Date.now().toString(36).toUpperCase()}`;
+      
+      const newMember = {
+        ...member,
+        id,
+        membership_id: membershipId,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-      const { data, error } = await supabase
-        .from("members")
-        .insert({ ...member, membership_id: membershipId })
-        .select()
-        .single();
+      // 1. Instantly write to local IndexedDB (Optimistic UI update)
+      await localRepository.saveMember(newMember as any);
 
-      if (error) throw error;
-      return data;
+      // 2. Queue the mutation in background outbox
+      await localRepository.enqueueAction("members", "INSERT", id, newMember);
+
+      // 3. Trigger background Supabase synchronization
+      syncManager.sync();
+
+      return newMember;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["members"] });
       queryClient.invalidateQueries({ queryKey: ["organizations"] });
       queryClient.invalidateQueries({ queryKey: ["demographics"] });
       queryClient.invalidateQueries({ queryKey: ["super-admin"] });
-      toast.success("Member registered successfully");
+      toast.success("Member registered successfully (Saved locally)");
     },
     onError: (error) => {
       console.error("Error creating member:", error);
@@ -139,15 +204,26 @@ export const useUpdateMember = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Member> & { id: string }) => {
-      const { data, error } = await supabase
-        .from("members")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
+      // 1. Get existing record from IndexedDB
+      const existing = await localRepository.getMemberById(id);
+      
+      const updatedMember = {
+        ...(existing || {}),
+        ...updates,
+        id,
+        updated_at: new Date().toISOString()
+      };
 
-      if (error) throw error;
-      return data;
+      // 2. Instantly update local IndexedDB (Optimistic UI update)
+      await localRepository.saveMember(updatedMember as any);
+
+      // 3. Queue mutation
+      await localRepository.enqueueAction("members", "UPDATE", id, updates);
+
+      // 4. Trigger background sync
+      syncManager.sync();
+
+      return updatedMember;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["members"] });
@@ -157,7 +233,7 @@ export const useUpdateMember = () => {
       }
       queryClient.invalidateQueries({ queryKey: ["demographics"] });
       queryClient.invalidateQueries({ queryKey: ["super-admin"] });
-      toast.success("Member updated successfully");
+      toast.success("Member updated successfully (Saved locally)");
     },
     onError: (error) => {
       console.error("Error updating member:", error);
@@ -178,6 +254,39 @@ export const useMemberStats = (
     queryKey: ["members", "stats", scope, organizationId, pollingUnitId, pollingUnitName, allowedLgas, allowedWard],
     enabled: scope !== "polling_unit" || !!pollingUnitId || !!pollingUnitName,
     queryFn: async () => {
+      // 1. Check local cache first
+      let list = await localRepository.getMembers();
+      
+      // Apply filters locally
+      if (scope === "polling_unit") {
+        if (pollingUnitId && pollingUnitName) {
+          list = list.filter(m => m.polling_unit_id === pollingUnitId || m.polling_unit === pollingUnitName);
+        } else if (pollingUnitId) {
+          list = list.filter(m => m.polling_unit_id === pollingUnitId);
+        } else if (pollingUnitName) {
+          list = list.filter(m => m.polling_unit === pollingUnitName);
+        }
+      } else if (scope === "organization" && organizationId) {
+        list = list.filter(m => m.organization_id === organizationId || m.support_group_id === organizationId);
+      }
+
+      if (allowedWard) {
+        list = list.filter(m => m.ward === allowedWard);
+      }
+
+      if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
+        list = list.filter(m => m.lga && allowedLgas.includes(m.lga));
+      }
+
+      // If local cache has data, calculate statistics locally
+      if (list.length > 0) {
+        const activeMembers = list.filter((m: any) => !m.is_deceased);
+        const total = activeMembers.length;
+        const active = activeMembers.filter((m) => m.status === "active").length;
+        return { total, active, inactive: total - active };
+      }
+
+      // 2. Fallback to Supabase
       let query = supabase.from("members").select("status, is_deceased");
 
       if (scope === "polling_unit") {
@@ -201,7 +310,6 @@ export const useMemberStats = (
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
 
       const activeMembers = (data || []).filter((m: any) => !m.is_deceased);
@@ -221,50 +329,31 @@ export const useVerifyMember = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data: role, error: roleError } = await (supabase as any).rpc("get_user_role", {
-        _user_id: user.id,
+      // 1. Get existing member from local IndexedDB
+      const existing = await localRepository.getMemberById(id);
+      
+      const updatedMember = {
+        ...(existing || {}),
+        id,
+        is_verified: true,
+        verified_at: new Date().toISOString(),
+        verified_by_agent_id: user.id,
+        updated_at: new Date().toISOString()
+      };
+
+      // 2. Instantly update local IndexedDB (Optimistic UI update)
+      await localRepository.saveMember(updatedMember as any);
+
+      // 3. Queue mutation
+      await localRepository.enqueueAction("members", "UPDATE", id, {
+        is_verified: true,
+        verified_at: updatedMember.verified_at,
+        verified_by_agent_id: user.id
       });
-      if (roleError) throw roleError;
 
-      if (role === "polling_unit_agent") {
-        const { data: agent, error: agentError } = await (supabase as any)
-          .from("polling_unit_agents")
-          .select("polling_unit_id, polling_unit_name")
-          .eq("user_id", user.id)
-          .maybeSingle();
+      // 4. Trigger background sync
+      syncManager.sync();
 
-        if (agentError) throw agentError;
-        if (!agent?.polling_unit_id && !agent?.polling_unit_name) {
-          throw new Error("Agent is not assigned to a polling unit.");
-        }
-
-        const { data: member, error: memberError } = await (supabase as any)
-          .from("members")
-          .select("id, polling_unit_id, polling_unit")
-          .eq("id", id)
-          .maybeSingle();
-
-        if (memberError) throw memberError;
-
-        const matchesPollingUnit =
-          (!!agent?.polling_unit_id && agent.polling_unit_id === member?.polling_unit_id) ||
-          (!!agent?.polling_unit_name && agent.polling_unit_name === member?.polling_unit);
-
-        if (!matchesPollingUnit) {
-          throw new Error("Agents can only verify members within their assigned polling unit.");
-        }
-      }
-
-      const { error } = await (supabase as any)
-        .from("members")
-        .update({
-          is_verified: true,
-          verified_at: new Date().toISOString(),
-          verified_by_agent_id: user.id,
-        })
-        .eq("id", id);
-
-      if (error) throw error;
       return id;
     },
     onSuccess: (id) => {
@@ -272,7 +361,7 @@ export const useVerifyMember = () => {
       queryClient.invalidateQueries({ queryKey: ["member", id] });
       queryClient.invalidateQueries({ queryKey: ["demographics"] });
       queryClient.invalidateQueries({ queryKey: ["super-admin"] });
-      toast.success("Member verified successfully!");
+      toast.success("Member verified successfully! (Saved locally)");
     },
     onError: (error: any) => {
       console.error("Error verifying member:", error);
