@@ -133,6 +133,18 @@ class LocalRepository {
     await offlineDb.activities.clear();
     console.log("Wiped all IndexedDB tables.");
   }
+
+  // ==========================================
+  // POLLING UNIT CELL OPERATIONS
+  // ==========================================
+
+  public async getPollingUnitCells(): Promise<any[]> {
+    return await offlineDb.polling_unit_cells.toArray();
+  }
+
+  public async savePollingUnitCells(cells: any[]): Promise<void> {
+    await offlineDb.polling_unit_cells.bulkPut(cells);
+  }
 }
 
 export const localRepository = new LocalRepository();

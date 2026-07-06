@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/loose-client";
 import { supabase as registrySupabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useProfile } from "./useSettings";
+import { localRepository } from "@/services/LocalRepository";
+import { syncManager } from "@/services/SyncManager";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -91,6 +93,30 @@ export const usePollingUnitCells = (filters?: {
         }
       }
 
+      // 1. Check local cache first
+      let cached = await localRepository.getPollingUnitCells();
+      
+      // Apply filters locally
+      if (targetLga) {
+        cached = cached.filter(c => c.lga === targetLga);
+      }
+      if (targetWard) {
+        cached = cached.filter(c => c.ward === targetWard);
+      }
+      if (filters?.status) {
+        cached = cached.filter(c => c.status === filters.status);
+      }
+      if (filters?.canvasserId) {
+        cached = cached.filter(c => c.canvasser_id === filters.canvasserId);
+      }
+
+      if (cached.length > 0) {
+        console.log(`📦 Loaded ${cached.length} polling unit cells from IndexedDB local cache.`);
+        return cached;
+      }
+
+      // 2. Fallback to Supabase
+      console.log("🌐 IndexedDB cache empty. Querying polling units from database...");
       let query = db
         .from("polling_unit_cells")
         .select(`
@@ -248,6 +274,11 @@ export const usePollingUnitCells = (filters?: {
         };
       });
 
+      // Save to local cache
+      if (mergedCells && mergedCells.length > 0) {
+        await localRepository.savePollingUnitCells(mergedCells);
+      }
+
       // If we have status filter, filter AFTER merging
       if (filters?.status) {
         return mergedCells.filter(cell => cell.status === filters.status);
@@ -268,6 +299,15 @@ export const usePollingUnitCell = (id: string) => {
   return useQuery({
     queryKey: ["polling-unit-cells", id],
     queryFn: async () => {
+      // 1. Check local cache
+      const cached = await localRepository.getPollingUnitCells();
+      const cell = cached.find((c: any) => c.id === id);
+      if (cell) {
+        console.log(`📦 Loaded polling unit cell detail for ${id} from IndexedDB.`);
+        return cell;
+      }
+
+      // 2. Fallback to Supabase
       const { data, error } = await db
         .from("polling_unit_cells")
         .select(`
@@ -299,14 +339,26 @@ export const useCreatePollingUnitCell = () => {
 
   return useMutation({
     mutationFn: async (cell: PollingUnitCellInsert) => {
-      const { data, error } = await db
-        .from("polling_unit_cells")
-        .insert(cell)
-        .select()
-        .single();
+      const id = cell.id || localRepository.generateUUID();
+      const newCell = {
+        ...cell,
+        id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
 
-      if (error) throw error;
-      return data;
+      // 1. Optimistic write to IndexedDB
+      const cached = await localRepository.getPollingUnitCells();
+      cached.unshift(newCell);
+      await localRepository.savePollingUnitCells(cached);
+
+      // 2. Queue mutation
+      await localRepository.enqueueAction("polling_unit_cells", "INSERT", id, newCell);
+
+      // 3. Trigger sync
+      syncManager.sync();
+
+      return newCell;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["polling-unit-cells"] });
@@ -324,15 +376,23 @@ export const useUpdatePollingUnitCell = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: PollingUnitCellUpdate & { id: string }) => {
-      const { data, error } = await db
-        .from("polling_unit_cells")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
+      // 1. Optimistic write to IndexedDB
+      const cached = await localRepository.getPollingUnitCells();
+      const updated = cached.map((c: any) => {
+        if (c.id === id) {
+          return { ...c, ...updates, updated_at: new Date().toISOString() };
+        }
+        return c;
+      });
+      await localRepository.savePollingUnitCells(updated);
 
-      if (error) throw error;
-      return data;
+      // 2. Queue mutation
+      await localRepository.enqueueAction("polling_unit_cells", "UPDATE", id, updates);
+
+      // 3. Trigger sync
+      syncManager.sync();
+
+      return { id, ...updates };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["polling-unit-cells"] });
@@ -360,20 +420,31 @@ export const useAssignCanvasser = () => {
       canvasserName: string;
       canvasserPhone: string;
     }) => {
-      const { data, error } = await db
-        .from("polling_unit_cells")
-        .update({
-          canvasser_id: canvasserId,
-          canvasser_name: canvasserName,
-          canvasser_phone: canvasserPhone,
-          status: "active",
-        })
-        .eq("id", cellId)
-        .select()
-        .single();
+      const updates = {
+        canvasser_id: canvasserId,
+        canvasser_name: canvasserName,
+        canvasser_phone: canvasserPhone,
+        status: "active",
+        updated_at: new Date().toISOString()
+      };
 
-      if (error) throw error;
-      return data;
+      // 1. Optimistic write to IndexedDB
+      const cached = await localRepository.getPollingUnitCells();
+      const updated = cached.map((c: any) => {
+        if (c.id === cellId) {
+          return { ...c, ...updates };
+        }
+        return c;
+      });
+      await localRepository.savePollingUnitCells(updated);
+
+      // 2. Queue mutation
+      await localRepository.enqueueAction("polling_unit_cells", "UPDATE", cellId, updates);
+
+      // 3. Trigger sync
+      syncManager.sync();
+
+      return { id: cellId, ...updates };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["polling-unit-cells"] });

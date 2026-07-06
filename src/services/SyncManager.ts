@@ -23,7 +23,6 @@ class SyncManager {
 
   public subscribe(listener: StatusListener): () => void {
     this.listeners.add(listener);
-    // Emit current state immediately
     listener(this.currentStatus);
 
     return () => {
@@ -37,7 +36,6 @@ class SyncManager {
   }
 
   private async setupNetworkListener() {
-    // Check initial connection status
     try {
       const status = await Network.getStatus();
       this.updateStatus(status.connected);
@@ -46,7 +44,6 @@ class SyncManager {
       this.updateStatus(true);
     }
 
-    // Listen to network status changes
     Network.addListener('networkStatusChange', (status: ConnectionStatus) => {
       console.log('📶 Network status changed:', status.connected ? 'Connected' : 'Disconnected');
       this.updateStatus(status.connected);
@@ -57,19 +54,14 @@ class SyncManager {
     if (!connected) {
       this.emitStatus('Offline');
     } else {
-      // If we reconnected, trigger sync
       this.emitStatus('Synced');
       this.sync();
     }
   }
 
-  /**
-   * Main sync function: Processes the queue items one by one.
-   */
   public async sync(): Promise<void> {
     if (this.syncing) return;
 
-    // Check if we are online before starting
     try {
       const status = await Network.getStatus();
       if (!status.connected) {
@@ -77,7 +69,7 @@ class SyncManager {
         return;
       }
     } catch (e) {
-      // Fallback if plugin fails
+      // Fallback
     }
 
     const queue = await localRepository.getSyncQueue();
@@ -97,7 +89,6 @@ class SyncManager {
           await localRepository.dequeueAction(item.id);
         } else {
           console.warn(`⚠️ Failed to sync queue item ${item.id}. Will retry later.`);
-          // Stop sync loop to prevent out-of-order issues on failure
           break;
         }
       }
@@ -105,7 +96,6 @@ class SyncManager {
       console.error('❌ Error running sync engine:', err);
     } finally {
       this.syncing = false;
-      // Re-evaluate status based on remaining items
       const remainingQueue = await localRepository.getSyncQueue();
       if (remainingQueue.length === 0) {
         this.emitStatus('Synced');
@@ -116,15 +106,11 @@ class SyncManager {
     }
   }
 
-  /**
-   * Syncs a single item to the server and implements Last-Write-Wins (LWW) conflict resolution.
-   */
   private async syncQueueItem(item: SyncQueueItem): Promise<boolean> {
     const payload = JSON.parse(item.payload);
     const localUpdatedAt = new Date(payload.updated_at || item.created_at);
 
     try {
-      // Handle DELETE operation
       if (item.action === 'DELETE') {
         console.log(`🗑️ Syncing DELETE for ID ${item.record_id} on ${item.table_name}`);
         const { error } = await supabase
@@ -139,7 +125,6 @@ class SyncManager {
         return true;
       }
 
-      // Fetch the server-side state for conflict resolution (LWW)
       console.log(`🔍 Fetching server record for conflict resolution: ${item.table_name} / ID ${item.record_id}`);
       const { data: serverRecord, error: fetchError } = await supabase
         .from(item.table_name)
@@ -155,54 +140,36 @@ class SyncManager {
       if (serverRecord) {
         const serverUpdatedAt = new Date(serverRecord.updated_at || serverRecord.created_at);
 
-        // Conflict check: If the server's record has a newer updated_at timestamp, the server wins.
         if (serverUpdatedAt > localUpdatedAt) {
           console.log(`⚠️ Conflict detected: Server record is newer (LWW). Overwriting local db for ID ${item.record_id}`);
           
-          // Overwrite local record with server version (resolving conflict)
           if (item.table_name === 'members') {
-            await localRepository.saveMember({
-              id: serverRecord.id,
-              full_name: serverRecord.full_name,
-              email: serverRecord.email,
-              phone: serverRecord.phone,
-              role: serverRecord.role,
-              organization_id: serverRecord.organization_id,
-              state: serverRecord.state || 'Katsina',
-              lga: serverRecord.lga,
-              ward: serverRecord.ward,
-              polling_unit: serverRecord.polling_unit,
-              gender: serverRecord.gender,
-              date_of_birth: serverRecord.date_of_birth,
-              voters_card_id: serverRecord.voters_card_id,
-              voters_card_image_url: serverRecord.voters_card_image_url
-            });
+            await localRepository.saveMember(serverRecord);
+          } else if (item.table_name === 'polling_unit_cells') {
+            const cached = await localRepository.getPollingUnitCells();
+            const filtered = cached.filter(c => c.id !== serverRecord.id);
+            filtered.push(serverRecord);
+            await localRepository.savePollingUnitCells(filtered);
           }
-          return true; // We successfully resolved conflict by applying server changes locally, so we can discard the queue item
+          return true;
         }
       }
 
-      // No conflict or local is newer: Push local changes to Supabase (upsert)
       console.log(`📤 Push changes to server (LWW won): ${item.table_name} / ID ${item.record_id}`);
       
-      // Map local record properties to database schema
-      const dbRecord = {
+      const dbRecord: any = {
         id: item.record_id,
-        full_name: payload.full_name,
-        email: payload.email,
-        phone: payload.phone,
-        role: payload.role,
-        organization_id: payload.organization_id,
-        state: payload.state || 'Katsina',
-        lga: payload.lga,
-        ward: payload.ward,
-        polling_unit: payload.polling_unit,
-        gender: payload.gender,
-        date_of_birth: payload.date_of_birth,
-        voters_card_id: payload.voters_card_id,
-        voters_card_image_url: payload.voters_card_image_url,
+        ...payload,
         updated_at: localUpdatedAt.toISOString()
       };
+
+      // Clean up joined properties that are not columns in the schema
+      delete dbRecord.organizations;
+      delete dbRecord.members;
+      delete dbRecord.canvasser;
+      delete dbRecord.app_members_count;
+      delete dbRecord.polling_unit_agent_name;
+      delete dbRecord.polling_unit_agent_phone;
 
       const { error: upsertError } = await supabase
         .from(item.table_name)
