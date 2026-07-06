@@ -13,7 +13,6 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
-
   accountStatus: string | null;
 }
 
@@ -22,10 +21,37 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [role, setRole] = useState<AppRole>(null);
-  const [organizationId, setOrganizationId] = useState<string | null>(null);
-  const [accountStatus, setAccountStatus] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Instant local-storage based state initialization
+  const [role, setRole] = useState<AppRole>(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("auth_role") as AppRole) || null;
+    }
+    return null;
+  });
+  
+  const [organizationId, setOrganizationId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("auth_organization_id") || null;
+    }
+    return null;
+  });
+
+  const [accountStatus, setAccountStatus] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("auth_account_status") || "active";
+    }
+    return "active";
+  });
+
+  const [loading, setLoading] = useState(() => {
+    if (typeof window !== "undefined") {
+      // If we already have a cached role, we don't need to block UI with a loading spinner
+      return localStorage.getItem("auth_role") === null;
+    }
+    return true;
+  });
+
   const isMockRef = useRef(false);
   const hasLoadedRef = useRef(false);
   const currentUserIdRef = useRef<string | null>(null);
@@ -35,7 +61,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("Fetching role for user:", userId);
       if (isMockRef.current) return "super_admin";
 
-      // Use RPC to bypass RLS issues
       const { data, error } = await supabase.rpc('get_user_role', {
         _user_id: userId
       });
@@ -77,19 +102,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchUserData = async (userId: string) => {
     const userRole = await fetchUserRole(userId);
     setRole(userRole);
+    if (userRole) {
+      localStorage.setItem("auth_role", userRole);
+    } else {
+      localStorage.removeItem("auth_role");
+    }
 
-    // If org_admin, also fetch their organization
     if (userRole === "org_admin") {
       const orgId = await fetchUserOrganization(userId);
       setOrganizationId(orgId);
+      if (orgId) {
+        localStorage.setItem("auth_organization_id", orgId);
+      } else {
+        localStorage.removeItem("auth_organization_id");
+      }
 
-      // SECURITY: Device Check
       if (!isMockRef.current) {
         const currentDevice = navigator.userAgent;
-
         try {
-          // Use server-side function to check device and auto-suspend if needed
-          // This bypasses RLS issues and ensures the logic runs atomically
           const { data: checkResult, error: checkError } = await (supabase.rpc as any)('check_and_update_device', {
             p_device_info: currentDevice
           });
@@ -103,38 +133,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const action = (checkResult as any).action;
 
             setAccountStatus(status);
+            localStorage.setItem("auth_account_status", status);
 
             if (status === 'suspended') {
               if (action === 'mismatch_detected') {
                 alert("Security Alert: You have been suspended due to a login from an unrecognized device.");
               }
-              // Return early so ProtectedRoute picks up the suspension state
               return;
             }
           } else {
-            // Fallback if null (shouldn't happen with correct SQL)
             const { data } = await supabase
               .from("profiles")
               .select("account_status")
               .eq("id", userId)
               .maybeSingle() as any;
-            setAccountStatus(data?.account_status || 'active');
+            const status = data?.account_status || 'active';
+            setAccountStatus(status);
+            localStorage.setItem("auth_account_status", status);
           }
-
         } catch (err) {
           console.error("Security check exception:", err);
         }
       }
     } else {
       setOrganizationId(null);
-      // For non-org-admins, just get status
+      localStorage.removeItem("auth_organization_id");
+      
       if (!isMockRef.current) {
         const { data } = await supabase
           .from("profiles")
           .select("account_status")
           .eq("id", userId)
           .maybeSingle() as any;
-        setAccountStatus(data?.account_status || 'active');
+        const status = data?.account_status || 'active';
+        setAccountStatus(status);
+        localStorage.setItem("auth_account_status", status);
       }
     }
   };
@@ -155,11 +188,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // Only show loading spinner if:
-          // 1. We haven't loaded the initial data yet
-          // 2. OR the user ID changed (different user logging in)
           const isNewUser = prevUserId !== currentUserId;
-          const shouldShowLoading = !hasLoadedRef.current || isNewUser;
+          const hasCachedRole = localStorage.getItem("auth_role") !== null;
+          const shouldShowLoading = (!hasLoadedRef.current || isNewUser) && !hasCachedRole;
 
           if (shouldShowLoading) {
             setLoading(true);
@@ -171,13 +202,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } catch (error) {
             console.error("Error fetching user data on auth change:", error);
           } finally {
-            if (shouldShowLoading) {
-              setLoading(false);
-            }
+            setLoading(false);
           }
         } else {
           setRole(null);
           setOrganizationId(null);
+          setAccountStatus("active");
+          localStorage.removeItem("auth_role");
+          localStorage.removeItem("auth_organization_id");
+          localStorage.removeItem("auth_account_status");
           hasLoadedRef.current = false;
           setLoading(false);
         }
@@ -196,8 +229,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (session?.user) {
         currentUserIdRef.current = session.user.id;
         
-        // Only show loading spinner if we haven't loaded yet
-        const shouldShowLoading = !hasLoadedRef.current;
+        const hasCachedRole = localStorage.getItem("auth_role") !== null;
+        const shouldShowLoading = !hasLoadedRef.current && !hasCachedRole;
         if (shouldShowLoading) {
           setLoading(true);
         }
@@ -208,9 +241,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } catch (error) {
           console.error("Error fetching user data on initial load:", error);
         } finally {
-          if (shouldShowLoading) {
-            setLoading(false);
-          }
+          setLoading(false);
         }
       } else {
         setLoading(false);
@@ -244,12 +275,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: error as Error | null };
   };
 
-
-
   const signOut = async () => {
     isMockRef.current = false;
     currentUserIdRef.current = null;
     hasLoadedRef.current = false;
+    localStorage.removeItem("auth_role");
+    localStorage.removeItem("auth_organization_id");
+    localStorage.removeItem("auth_account_status");
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
