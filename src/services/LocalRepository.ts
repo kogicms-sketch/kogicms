@@ -131,7 +131,20 @@ class LocalRepository {
     await offlineDb.polling_unit_cells.clear();
     await offlineDb.member_incentives.clear();
     await offlineDb.activities.clear();
-    console.log("Wiped all IndexedDB tables.");
+
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("councillor_profile");
+      
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("ward_data_")) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    }
+    console.log("Wiped all IndexedDB tables and local storage caches.");
   }
 
   // ==========================================
