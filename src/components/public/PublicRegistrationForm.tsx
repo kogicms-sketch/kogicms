@@ -5,6 +5,9 @@ import {
   KATSINA_LGAS,
   getWardsForLga,
   getPollingUnitObjects,
+  getStandardPuCode,
+  generateSequentialMembershipId,
+  insertNewVoterToRegistry,
 } from "@/lib/campaign-data";
 import { createClient } from "@supabase/supabase-js";
 
@@ -38,6 +41,7 @@ interface FormData {
   bankName: string;
   accountNumber: string;
   declaration: boolean;
+  pvcStatus: string;
 
   // Conditional occupation subfields
   subTrader: string;
@@ -75,6 +79,7 @@ const INITIAL_FORM: FormData = {
   bankName: "",
   accountNumber: "",
   declaration: false,
+  pvcStatus: "collected",
 
   subTrader: "",
   otherTrader: "",
@@ -214,7 +219,7 @@ const KATSINA_SECONDARY_SCHOOLS = [
   "Other Secondary School"
 ];
 
-const STEPS = ["Personal", "Location", "Details", "Confirm"];
+const STEPS = ["Location", "Personal", "Details", "Confirm"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateMembershipId() {
@@ -382,6 +387,123 @@ export default function PublicRegistrationForm() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
+
+  const [puVoters, setPuVoters] = useState<any[]>([]);
+  const [puVotersLoading, setPuVotersLoading] = useState(false);
+  const [puVoterSearch, setPuVoterSearch] = useState("");
+  const [showManualPvcOption, setShowManualPvcOption] = useState(false);
+  const [matchedVoter, setMatchedVoter] = useState<any | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [nameQuery, setNameQuery] = useState("");
+  const [nameResults, setNameResults] = useState<any[]>([]);
+
+  // Fetch voters for the selected Polling Unit
+  useEffect(() => {
+    const fetchPuVoters = async () => {
+      if (!form.lga || !form.ward || !form.pollingUnit) {
+        setPuVoters([]);
+        return;
+      }
+      
+      setPuVotersLoading(true);
+      try {
+        const puObj = getPollingUnitObjects(form.lga, form.ward).find(
+          pu => pu.name === form.pollingUnit
+        );
+        
+        if (!puObj?.code) {
+          setPuVoters([]);
+          return;
+        }
+
+        const standardCode = getStandardPuCode(form.lga, puObj.code);
+        
+        const { data, error } = await publicSupabase
+          .from("voter_registry")
+          .select("*")
+          .eq("polling_unit_code", standardCode)
+          .order("full_name", { ascending: true });
+          
+        if (error) throw error;
+        setPuVoters(data || []);
+      } catch (err) {
+        console.error("Error fetching voters for polling unit:", err);
+      } finally {
+        setPuVotersLoading(false);
+      }
+    };
+    
+    fetchPuVoters();
+  }, [form.lga, form.ward, form.pollingUnit]);
+
+  // Helper to split full name from voter registry
+  function splitVoterName(fullName: string) {
+    const parts = fullName.trim().split(/\s+/);
+    const firstName = parts[0] || "";
+    const lastName = parts.slice(1).join(" ") || "";
+    return { firstName, lastName };
+  }
+
+  // Helper to map gender
+  function mapVoterGender(g: string | null) {
+    if (!g) return "";
+    if (g.toUpperCase() === "M") return "male";
+    if (g.toUpperCase() === "F") return "female";
+    return g.toLowerCase();
+  }
+
+  // Helper to map birth year to approximate date
+  function voterDobToDate(year: number | null) {
+    if (!year) return "";
+    return `${year}-01-01`;
+  }
+
+  const applyVoter = (voter: any) => {
+    const { firstName, lastName } = splitVoterName(voter.full_name);
+    setMatchedVoter(voter);
+    setLookupError(null);
+    setNameResults([]);
+    setForm((prev) => ({
+      ...prev,
+      firstName,
+      lastName,
+      gender: mapVoterGender(voter.gender) || prev.gender,
+      dateOfBirth: voterDobToDate(voter.dob_year) || prev.dateOfBirth,
+      votersCardId: voter.vin,
+      pvcStatus: "collected",
+    }));
+  };
+
+  const handleNameSearch = async () => {
+    if (!form.lga || !form.ward) {
+      setLookupError("Please select LGA and Ward first.");
+      return;
+    }
+    setLookupError(null);
+    setSearching(true);
+    try {
+      const { data, error } = await publicSupabase
+        .from("voter_registry")
+        .select("*")
+        .eq("lga", form.lga)
+        .eq("ward", form.ward)
+        .ilike("full_name", `%${nameQuery.trim()}%`)
+        .order("full_name", { ascending: true })
+        .limit(200);
+
+      if (error) throw error;
+
+      setNameResults(data || []);
+      if (!data || data.length === 0) {
+        setLookupError("No registered voters match that name in this ward.");
+      }
+    } catch {
+      setLookupError("Search failed. Please try again.");
+    } finally {
+      setSearching(false);
+    }
+  };
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState("");
@@ -429,16 +551,19 @@ export default function PublicRegistrationForm() {
   function validateStep(s: number): boolean {
     const errs: Partial<Record<keyof FormData, string>> = {};
     if (s === 0) {
+      if (!form.lga) errs.lga = "Required";
+      if (!form.ward) errs.ward = "Required";
+      if (!form.pollingUnit) errs.pollingUnit = "Required";
+      if (!matchedVoter && !showManualPvcOption) {
+        errs.pollingUnit = "Please select a voter from the list or click Add manually";
+      }
+    }
+    if (s === 1) {
       if (!form.firstName.trim()) errs.firstName = "Required";
       if (!form.lastName.trim()) errs.lastName = "Required";
       if (!form.gender) errs.gender = "Required";
       if (!form.dateOfBirth) errs.dateOfBirth = "Required";
       if (!form.phone.trim()) errs.phone = "Required";
-    }
-    if (s === 1) {
-      if (!form.lga) errs.lga = "Required";
-      if (!form.ward) errs.ward = "Required";
-      if (!form.pollingUnit) errs.pollingUnit = "Required";
     }
     if (s === 2) {
       if (!form.maritalStatus) errs.maritalStatus = "Required";
@@ -489,13 +614,12 @@ export default function PublicRegistrationForm() {
     setSubmitting(true);
     setSubmitStatus("1. Initializing registration details...");
     try {
-      const membershipId = generateMembershipId();
-      const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`;
-
       // Resolve final school name / school level (matching AddMemberModal.tsx)
       let finalOccupation = form.occupation || null;
       let finalSchoolName = null;
       let finalSchoolLevel = null;
+      let resolvedPollingUnitId = form.pollingUnitId || null;
+      let finalPollingUnitName = form.pollingUnit || null;
 
       if (finalOccupation === "Trader") {
         finalSchoolName = form.subTrader === "Other Trader" ? form.otherTrader : form.subTrader;
@@ -536,11 +660,6 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
   ]);
 }
 
-      setSubmitStatus("2. Connecting to database to locate Polling Unit ID...");
-      // Resolve the database UUID and correct name for this polling unit
-      let resolvedPollingUnitId: string | null = null;
-      let finalPollingUnitName: string = form.pollingUnit;
-
       if (form.lga && form.ward && form.pollingUnit) {
         const localPuObj = getPollingUnitObjects(form.lga, form.ward)
           .find(p => p.name === form.pollingUnit);
@@ -573,6 +692,36 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
         }
       }
 
+      const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`;
+      const membershipId = await generateSequentialMembershipId(
+        form.lga,
+        form.ward,
+        finalPollingUnitName,
+        form.votersCardId
+      );
+
+      let vinToUse = form.votersCardId || null;
+      if (form.pvcStatus === "not collected") {
+        if (!vinToUse) {
+          const lgaAbbr = (form.lga || "UNK").toUpperCase().slice(0, 3);
+          const wardAbbr = (form.ward || "W00").toUpperCase().slice(0, 3);
+          const puMatch = (form.pollingUnit || "").match(/PU\s*(\d+)/i);
+          const puNum = puMatch ? puMatch[1] : "000";
+          const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase();
+          vinToUse = `NC-${lgaAbbr}-${wardAbbr}-${puNum}-${randomStr}`;
+        }
+        
+        await insertNewVoterToRegistry(
+          fullName,
+          form.lga,
+          form.ward,
+          finalPollingUnitName,
+          vinToUse,
+          form.gender,
+          form.dateOfBirth
+        );
+      }
+
       setSubmitStatus("3. Saving member record to database...");
       // Wrap the member insert in an 8-second timeout to guarantee button resets on slow network
       const insertResult = await withTimeout(
@@ -586,7 +735,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
             social_media_handle: form.socialMediaHandle || null,
             gender: form.gender || null,
             date_of_birth: form.dateOfBirth || null,
-            voters_card_id: form.votersCardId || null,
+            voters_card_id: vinToUse,
+            pvc_status: form.pvcStatus || 'collected',
             state: "Katsina",
             lga: form.lga || null,
             ward: form.ward || null,
@@ -679,41 +829,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
 
         <StepIndicator current={step} />
 
-        {/* ── STEP 0: Personal ── */}
+        {/* ── STEP 0: Location & Polling Unit ── */}
         {step === 0 && (
-          <div>
-            <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111", marginBottom: 20 }}>Personal Information</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
-              <Field label="First Name" required error={errors.firstName}>
-                <input style={inputStyle} placeholder="e.g. Amina" value={form.firstName} onChange={set("firstName")} />
-              </Field>
-              <Field label="Surname" required error={errors.lastName}>
-                <input style={inputStyle} placeholder="e.g. Sani" value={form.lastName} onChange={set("lastName")} />
-              </Field>
-            </div>
-            <Field label="Gender" required error={errors.gender}>
-              <RadioGroup name="gender" options={["Male", "Female"]} value={form.gender} onChange={setVal("gender")} />
-            </Field>
-            <Field label="Date of Birth" required error={errors.dateOfBirth}>
-              <input type="date" style={inputStyle} value={form.dateOfBirth} onChange={set("dateOfBirth")} max={new Date().toISOString().split("T")[0]} />
-            </Field>
-            <Field label="Voter ID Number (VIN)" error={errors.votersCardId}>
-              <input style={inputStyle} placeholder="19-character VIN on your PVC" value={form.votersCardId} onChange={set("votersCardId")} maxLength={19} />
-            </Field>
-            <Field label="Phone Number" required error={errors.phone}>
-              <input type="tel" style={inputStyle} placeholder="e.g. 08012345678" value={form.phone} onChange={set("phone")} />
-            </Field>
-            <Field label="Email Address">
-              <input type="email" style={inputStyle} placeholder="Optional" value={form.email} onChange={set("email")} />
-            </Field>
-            <Field label="Social Media Handle">
-              <input style={inputStyle} placeholder="Twitter/Facebook handle (optional)" value={form.socialMediaHandle} onChange={set("socialMediaHandle")} />
-            </Field>
-          </div>
-        )}
-
-        {/* ── STEP 1: Location ── */}
-        {step === 1 && (
           <div>
             <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111", marginBottom: 20 }}>Location &amp; Polling Unit</h2>
             <Field label="Local Government Area (LGA)" required error={errors.lga}>
@@ -735,6 +852,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                 onChange={e => {
                   const pu = pollingUnits.find(p => p.name === e.target.value);
                   setForm(f => ({ ...f, pollingUnit: e.target.value, pollingUnitId: (pu as any)?.id || "" }));
+                  setMatchedVoter(null);
+                  setShowManualPvcOption(false);
                 }}
                 disabled={!form.ward}
               >
@@ -742,13 +861,297 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                 {pollingUnits.map(pu => <option key={pu.name} value={pu.name}>{pu.name}</option>)}
               </select>
             </Field>
+
+            {/* Polling Unit Voters */}
             {form.pollingUnit && (
-              <div style={{ background: "#f0faf2", border: "1.5px solid #86efac", borderRadius: 8, padding: "10px 14px", marginTop: -4, marginBottom: 16 }}>
-                <p style={{ margin: 0, fontSize: 12, color: "#15803d", fontWeight: 600 }}>
-                  ✅ Your registration will be submitted to the agent at <strong>{form.pollingUnit}</strong>, {form.ward} Ward, {form.lga} LGA.
+              <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: 16, marginTop: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>Polling Unit Voters</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, background: "#e8f5e9", color: "#1a5c2a", padding: "2px 8px", borderRadius: 12 }}>
+                    {puVotersLoading ? "Loading..." : `${puVoters.length} Voters`}
+                  </span>
+                </div>
+
+                {puVotersLoading ? (
+                  <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
+                    <div className="animate-spin" style={{ width: 20, height: 20, border: "2px solid #1a5c2a", borderTopColor: "transparent", borderRadius: "50%" }} />
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <input
+                      style={{ ...inputStyle, height: 36, fontSize: 12, marginBottom: 8 }}
+                      placeholder="Filter PU voters by name..."
+                      value={puVoterSearch}
+                      onChange={(e) => setPuVoterSearch(e.target.value)}
+                    />
+
+                    <div style={{ maxHeight: 150, overflowY: "auto", border: "1.5px solid #e5e7eb", borderRadius: 6, background: "#fff" }}>
+                      {puVoters
+                        .filter(v => 
+                          !puVoterSearch ||
+                          v.full_name.toLowerCase().includes(puVoterSearch.toLowerCase()) ||
+                          v.vin.toLowerCase().includes(puVoterSearch.toLowerCase())
+                        )
+                        .map(voter => (
+                          <div
+                            key={voter.id}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              padding: "8px 12px",
+                              borderBottom: "1px solid #f3f4f6",
+                              background: matchedVoter?.id === voter.id ? "#f0faf2" : "transparent"
+                            }}
+                          >
+                            <div style={{ textAlign: "left" }}>
+                              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#111" }}>{voter.full_name}</p>
+                              <p style={{ margin: 0, fontSize: 10, color: "#6b7280" }}>VIN: {voter.vin}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                applyVoter(voter);
+                                setShowManualPvcOption(false);
+                              }}
+                              style={{
+                                padding: "4px 8px",
+                                borderRadius: 4,
+                                border: matchedVoter?.id === voter.id ? "none" : "1px solid #d1d5db",
+                                background: matchedVoter?.id === voter.id ? "#1a5c2a" : "#fff",
+                                color: matchedVoter?.id === voter.id ? "#fff" : "#374151",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                cursor: "pointer"
+                              }}
+                            >
+                              {matchedVoter?.id === voter.id ? "Selected" : "Select"}
+                            </button>
+                          </div>
+                        ))}
+                      {puVoters.length === 0 && (
+                        <div style={{ padding: 12, textAlign: "center", fontSize: 12, color: "#9ca3af" }}>
+                          No registered voters found in this Polling Unit.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Ward Search */}
+            {form.ward && (
+              <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: 16, marginTop: 12 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#111", display: "block", marginBottom: 8, textAlign: "left" }}>
+                  Search Ward Registry
+                </span>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input
+                    style={{ ...inputStyle, height: 36, fontSize: 12 }}
+                    placeholder="Search by name in ward..."
+                    value={nameQuery}
+                    onChange={(e) => setNameQuery(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleNameSearch}
+                    disabled={searching || nameQuery.trim().length < 2}
+                    style={{
+                      height: 36,
+                      padding: "0 12px",
+                      background: "#1a5c2a",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 8,
+                      fontWeight: 700,
+                      fontSize: 12,
+                      cursor: "pointer"
+                    }}
+                  >
+                    {searching ? "..." : "Search"}
+                  </button>
+                </div>
+                {nameResults.length > 0 && (
+                  <div style={{ maxHeight: 120, overflowY: "auto", border: "1.5px solid #e5e7eb", borderRadius: 6, background: "#fff", marginTop: 8 }}>
+                    {nameResults.map(voter => (
+                      <div
+                        key={voter.id}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "8px 12px",
+                          borderBottom: "1px solid #f3f4f6"
+                        }}
+                      >
+                        <div style={{ textAlign: "left" }}>
+                          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#111" }}>{voter.full_name}</p>
+                          <p style={{ margin: 0, fontSize: 10, color: "#6b7280" }}>VIN: {voter.vin} • PU: {voter.polling_unit_name}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            applyVoter(voter);
+                            setShowManualPvcOption(false);
+                          }}
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: 4,
+                            border: matchedVoter?.id === voter.id ? "none" : "1px solid #d1d5db",
+                            background: matchedVoter?.id === voter.id ? "#1a5c2a" : "#fff",
+                            color: matchedVoter?.id === voter.id ? "#fff" : "#374151",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            cursor: "pointer"
+                          }}
+                        >
+                          {matchedVoter?.id === voter.id ? "Selected" : "Select"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {lookupError && (
+                  <p style={{ fontSize: 11, color: "#dc2626", marginTop: 6, textAlign: "left" }}>{lookupError}</p>
+                )}
+              </div>
+            )}
+
+            {/* Manual entry option */}
+            {form.pollingUnit && (
+              <div style={{ marginTop: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowManualPvcOption(true);
+                    setMatchedVoter(null);
+                    setForm(prev => ({
+                      ...prev,
+                      pvcStatus: "not collected",
+                      firstName: "",
+                      lastName: "",
+                      votersCardId: "",
+                    }));
+                  }}
+                  style={{
+                    width: "100%",
+                    height: 38,
+                    borderRadius: 8,
+                    border: "1.5px dashed #1a5c2a",
+                    background: showManualPvcOption ? "#f0faf2" : "#fff",
+                    color: "#1a5c2a",
+                    fontWeight: 700,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  ➕ Person not in list / PVC not collected (Add manually)
+                </button>
+              </div>
+            )}
+
+            {errors.pollingUnit && (
+              <p style={{ fontSize: 11, color: "#dc2626", marginTop: 8, textAlign: "left" }}>{errors.pollingUnit}</p>
+            )}
+
+            {(matchedVoter || showManualPvcOption) && (
+              <div style={{ background: "#f0faf2", border: "1.5px solid #86efac", borderRadius: 8, padding: "10px 14px", marginTop: 16, textAlign: "left" }}>
+                <p style={{ margin: 0, fontSize: 12, color: "#15803d", fontWeight: 700 }}>
+                  {matchedVoter ? `✅ Selected: ${matchedVoter.full_name} (VIN: ${matchedVoter.vin})` : "✅ Ready to enter details manually"}
                 </p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── STEP 1: Personal Information ── */}
+        {step === 1 && (
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111", marginBottom: 20 }}>Personal Information</h2>
+
+            {matchedVoter && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "#f0faf2", border: "1.5px solid #86efac", borderRadius: 8, padding: "10px 14px", marginBottom: 16 }}>
+                <div style={{ textAlign: "left" }}>
+                  <p style={{ margin: 0, fontSize: 12, color: "#15803d", fontWeight: 700 }}>
+                    Linked to Registered Voter:
+                  </p>
+                  <p style={{ margin: 0, fontSize: 13, color: "#111", fontWeight: 800 }}>
+                    {matchedVoter.full_name} (VIN: {matchedVoter.vin})
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMatchedVoter(null);
+                    setForm(prev => ({ ...prev, firstName: "", lastName: "", votersCardId: "" }));
+                  }}
+                  style={{ fontSize: 11, background: "transparent", border: "none", color: "#b91c1c", fontWeight: 700, cursor: "pointer" }}
+                >
+                  Unlink
+                </button>
+              </div>
+            )}
+
+            {showManualPvcOption && (
+              <div style={{ background: "#fffbea", border: "1.5px solid #fde68a", borderRadius: 8, padding: "10px 14px", marginBottom: 16, textAlign: "left" }}>
+                <p style={{ margin: 0, fontSize: 12, color: "#b45309", fontWeight: 700 }}>
+                  Manual Entry (PVC Not Collected / Not in List)
+                </p>
+              </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 12px" }}>
+              <Field label="First Name" required error={errors.firstName}>
+                <input style={inputStyle} placeholder="e.g. Amina" value={form.firstName} onChange={set("firstName")} />
+              </Field>
+              <Field label="Surname" required error={errors.lastName}>
+                <input style={inputStyle} placeholder="e.g. Sani" value={form.lastName} onChange={set("lastName")} />
+              </Field>
+            </div>
+            <Field label="Gender" required error={errors.gender}>
+              <RadioGroup name="gender" options={["Male", "Female"]} value={form.gender} onChange={setVal("gender")} />
+            </Field>
+            <Field label="Date of Birth" required error={errors.dateOfBirth}>
+              <input type="date" style={inputStyle} value={form.dateOfBirth} onChange={set("dateOfBirth")} max={new Date().toISOString().split("T")[0]} />
+            </Field>
+            <Field label="Voter ID Number (VIN)" error={errors.votersCardId}>
+              <input style={inputStyle} placeholder="19-character VIN on your PVC" value={form.votersCardId} onChange={set("votersCardId")} maxLength={19} />
+            </Field>
+            <Field label="Do you have your PVC (Voters Card)?" required>
+              <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "#374151" }}>
+                  <input
+                    type="radio"
+                    name="pvcStatus"
+                    checked={form.pvcStatus === "collected"}
+                    onChange={() => setForm(f => ({ ...f, pvcStatus: "collected" }))}
+                    style={{ cursor: "pointer" }}
+                  />
+                  Yes, I have it
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "#374151" }}>
+                  <input
+                    type="radio"
+                    name="pvcStatus"
+                    checked={form.pvcStatus === "not collected"}
+                    onChange={() => setForm(f => ({ ...f, pvcStatus: "not collected" }))}
+                    style={{ cursor: "pointer" }}
+                  />
+                  No, Not Collected / Not in List
+                </label>
+              </div>
+            </Field>
+            <Field label="Phone Number" required error={errors.phone}>
+              <input type="tel" style={inputStyle} placeholder="e.g. 08012345678" value={form.phone} onChange={set("phone")} />
+            </Field>
+            <Field label="Email Address">
+              <input type="email" style={inputStyle} placeholder="Optional" value={form.email} onChange={set("email")} />
+            </Field>
+            <Field label="Social Media Handle">
+              <input style={inputStyle} placeholder="Twitter/Facebook handle (optional)" value={form.socialMediaHandle} onChange={set("socialMediaHandle")} />
+            </Field>
           </div>
         )}
 

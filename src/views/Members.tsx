@@ -826,12 +826,16 @@ const Members = () => {
                                 <span>Pending Visit</span>
                               </div>
                             )}
-                            {role === "polling_unit_agent" && !member.is_verified && (puAgent?.polling_unit_id === member.polling_unit_id || puAgent?.polling_unit_name === member.polling_unit) && (
+                            {(role === "polling_unit_agent" || role === "councillor") && !member.is_verified && (
+                              role === "councillor" ||
+                              puAgent?.polling_unit_id === member.polling_unit_id || 
+                              puAgent?.polling_unit_name === member.polling_unit
+                            ) && (
                               <Button 
                                 size="sm" 
                                 variant="ghost" 
                                 disabled={isVerifying}
-                                className="h-7 text-[10px] text-apc-green hover:text-white hover:bg-apc-green gap-1 px-2 border border-apc-green/30"
+                                className="h-7 text-[10px] text-apc-green hover:text-white hover:bg-apc-green gap-1 px-2 border border-apc-green/30 mt-1"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (window.confirm(`Confirm physical verification for ${member.full_name}?`)) {

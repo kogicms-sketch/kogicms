@@ -4,10 +4,9 @@ import { useRouter } from 'next/navigation';
 import { X, Check, Loader2, Upload, Search, BadgeCheck, IdCard, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { VoterIdCard } from "@/components/members/VoterIdCard";
-import { KATSINA_LGAS, getWardsForLga, getPollingUnitObjects } from "@/lib/campaign-data";
+import { KATSINA_LGAS, getWardsForLga, getPollingUnitObjects, getStandardPuCode, insertNewVoterToRegistry } from "@/lib/campaign-data";
 import { useCreateMember } from "@/hooks/useMembers";
 import {
-  useVoterRegistry,
   splitVoterName,
   mapVoterGender,
   voterDobToDate,
@@ -223,7 +222,53 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
     farmerSeasonalType: "",
     civilServantJurisdiction: "",
     civilServantMinistry: "",
+    pvcStatus: "collected",
   });
+
+  const [puVoters, setPuVoters] = useState<VoterRecord[]>([]);
+  const [puVotersLoading, setPuVotersLoading] = useState(false);
+  const [puVoterSearch, setPuVoterSearch] = useState("");
+  const [showManualPvcOption, setShowManualPvcOption] = useState(false);
+  const [searching, setSearching] = useState(false);
+
+  // Fetch voters for the selected Polling Unit
+  useEffect(() => {
+    const fetchPuVoters = async () => {
+      if (!formData.lga || !formData.ward || !formData.polling_unit) {
+        setPuVoters([]);
+        return;
+      }
+      
+      setPuVotersLoading(true);
+      try {
+        const puObj = getPollingUnitObjects(formData.lga, formData.ward).find(
+          pu => pu.name === formData.polling_unit
+        );
+        
+        if (!puObj?.code) {
+          setPuVoters([]);
+          return;
+        }
+
+        const standardCode = getStandardPuCode(formData.lga, puObj.code);
+        
+        const { data, error } = await supabase
+          .from("voter_registry")
+          .select("*")
+          .eq("polling_unit_code", standardCode)
+          .order("full_name", { ascending: true });
+          
+        if (error) throw error;
+        setPuVoters(data || []);
+      } catch (err) {
+        console.error("Error fetching voters for polling unit:", err);
+      } finally {
+        setPuVotersLoading(false);
+      }
+    };
+    
+    fetchPuVoters();
+  }, [formData.lga, formData.ward, formData.polling_unit]);
 
   const [showOccupationDropdown, setShowOccupationDropdown] = useState(false);
   const filteredOccupations = COMMON_OCCUPATIONS.filter(occ => 
@@ -234,7 +279,6 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
   const [uploading, setUploading] = useState(false);
 
   // Voter registry lookup state
-  const { findByVin, searchByName, searching } = useVoterRegistry();
   const [lookupMode, setLookupMode] = useState<"vin" | "name">("vin");
   const [vinInput, setVinInput] = useState("");
   const [nameQuery, setNameQuery] = useState("");
@@ -296,30 +340,65 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
   };
 
   const handleVinLookup = async () => {
+    if (!formData.lga || !formData.ward) {
+      setLookupError("Please select LGA and Ward first.");
+      return;
+    }
     setLookupError(null);
+    setSearching(true);
     try {
-      const voter = await findByVin(vinInput);
-      if (voter) {
-        applyVoter(voter);
+      const { data, error } = await supabase
+        .from("voter_registry")
+        .select("*")
+        .eq("vin", vinInput.trim())
+        .eq("lga", formData.lga)
+        .eq("ward", formData.ward)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        applyVoter(data as VoterRecord);
+        setFormData(prev => ({ ...prev, pvcStatus: "collected" }));
+        setShowManualPvcOption(false);
       } else {
         setMatchedVoter(null);
-        setLookupError("No registered voter found for that VIN.");
+        setLookupError("No registered voter found for that VIN in the selected ward.");
       }
     } catch {
       setLookupError("Lookup failed. Please try again.");
+    } finally {
+      setSearching(false);
     }
   };
 
   const handleNameSearch = async () => {
+    if (!formData.lga || !formData.ward) {
+      setLookupError("Please select LGA and Ward first.");
+      return;
+    }
     setLookupError(null);
+    setSearching(true);
     try {
-      const results = await searchByName(nameQuery);
-      setNameResults(results);
-      if (results.length === 0) {
-        setLookupError("No registered voters match that name.");
+      const { data, error } = await supabase
+        .from("voter_registry")
+        .select("*")
+        .eq("lga", formData.lga)
+        .eq("ward", formData.ward)
+        .ilike("full_name", `%${nameQuery.trim()}%`)
+        .order("full_name", { ascending: true })
+        .limit(200);
+
+      if (error) throw error;
+
+      setNameResults(data as VoterRecord[]);
+      if (!data || data.length === 0) {
+        setLookupError("No registered voters match that name in this ward.");
       }
     } catch {
       setLookupError("Search failed. Please try again.");
+    } finally {
+      setSearching(false);
     }
   };
 
@@ -440,6 +519,28 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
         finalSchoolLevel = formData.schoolLevel || null;
       }
 
+      let vinToUse = formData.votersCardId || null;
+      if (formData.pvcStatus === "not collected") {
+        if (!vinToUse) {
+          const lgaAbbr = (formData.lga || "UNK").toUpperCase().slice(0, 3);
+          const wardAbbr = (formData.ward || "W00").toUpperCase().slice(0, 3);
+          const puMatch = (formData.polling_unit || "").match(/PU\s*(\d+)/i);
+          const puNum = puMatch ? puMatch[1] : "000";
+          const randomStr = Math.random().toString(36).substring(2, 7).toUpperCase();
+          vinToUse = `NC-${lgaAbbr}-${wardAbbr}-${puNum}-${randomStr}`;
+        }
+        
+        await insertNewVoterToRegistry(
+          `${formData.firstName} ${formData.lastName}`,
+          formData.lga,
+          formData.ward,
+          finalPollingUnitName || formData.polling_unit,
+          vinToUse,
+          formData.gender,
+          formData.dateOfBirth
+        );
+      }
+
       const memberData = {
         full_name: `${formData.firstName} ${formData.lastName}`,
         email: formData.email || null,
@@ -453,7 +554,8 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
         polling_unit_id: resolvedPollingUnitId,
         gender: formData.gender || null,
         date_of_birth: formData.dateOfBirth || null,
-        voters_card_id: formData.votersCardId || null,
+        voters_card_id: vinToUse,
+        pvc_status: formData.pvcStatus || 'collected',
         voters_card_image_url: (!votersCardFile && matchedVoter?.photo_url) || null,
         created_by: user?.id || null,
         recruiter_id: null,
@@ -517,6 +619,7 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
         farmerSeasonalType: "",
         civilServantJurisdiction: "",
         civilServantMinistry: "",
+        pvcStatus: "collected",
       });
       setVotersCardFile(null);
       clearMatch();
@@ -551,469 +654,18 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Voter registry lookup */}
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <IdCard className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-semibold text-foreground">Find Registered Voter</h3>
-              <span className="text-xs text-muted-foreground">(auto-fills the form)</span>
-            </div>
-
-            {matchedVoter ? (
-              <div className="flex items-center gap-3 rounded-lg bg-card border border-border p-3">
-                {matchedVoter.photo_url ? (
-                  <img
-                    src={matchedVoter.photo_url}
-                    alt={matchedVoter.full_name}
-                    className="w-14 h-14 rounded-md object-cover border border-border"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-md bg-muted flex items-center justify-center">
-                    <IdCard className="w-6 h-6 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <BadgeCheck className="w-4 h-4 text-primary shrink-0" />
-                    <p className="text-sm font-semibold text-foreground truncate">
-                      {matchedVoter.full_name}
-                    </p>
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate">
-                    VIN: {matchedVoter.vin}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {matchedVoter.polling_unit_name || "—"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setViewVoter(matchedVoter)}
-                    title="View voter details"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={clearMatch}>
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setLookupMode("vin")}
-                    className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${
-                      lookupMode === "vin"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/70"
-                    }`}
-                  >
-                    Search by VIN
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLookupMode("name")}
-                    className={`flex-1 text-xs font-medium py-1.5 rounded-md transition-colors ${
-                      lookupMode === "name"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground hover:bg-muted/70"
-                    }`}
-                  >
-                    Search by Name
-                  </button>
-                </div>
-
-                {lookupMode === "vin" ? (
-                  <div className="flex gap-2">
-                    <input
-                      className="input-premium flex-1"
-                      placeholder="Enter Voter ID Number (VIN)"
-                      value={vinInput}
-                      onChange={(e) => setVinInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleVinLookup();
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleVinLookup}
-                      disabled={searching || !vinInput.trim()}
-                    >
-                      {searching ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Search className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <input
-                        className="input-premium flex-1"
-                        placeholder="Enter full name (e.g. Musa)"
-                        value={nameQuery}
-                        onChange={(e) => setNameQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleNameSearch();
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        onClick={handleNameSearch}
-                        disabled={searching || nameQuery.trim().length < 2}
-                      >
-                        {searching ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Search className="w-4 h-4" />
-                        )}
-                      </Button>
-                    </div>
-                    {nameResults.length > 0 && (
-                      <div className="max-h-48 overflow-y-auto rounded-lg border border-border divide-y divide-border">
-                        {nameResults.map((voter) => (
-                          <div
-                            key={voter.id}
-                            className="w-full flex items-center gap-3 p-2 hover:bg-muted/50 transition-colors"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => applyVoter(voter)}
-                              className="flex-1 flex items-center gap-3 text-left min-w-0"
-                            >
-                              {voter.photo_url ? (
-                                <img
-                                  src={voter.photo_url}
-                                  alt={voter.full_name}
-                                  className="w-10 h-10 rounded-md object-cover border border-border shrink-0"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center shrink-0">
-                                  <IdCard className="w-4 h-4 text-muted-foreground" />
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium text-foreground truncate">
-                                  {voter.full_name}
-                                </p>
-                                <p className="text-xs text-muted-foreground truncate">
-                                  VIN: {voter.vin}
-                                </p>
-                                {(voter.ward || voter.polling_unit_name) && (
-                                  <p className="text-xs text-muted-foreground truncate">
-                                    {[voter.ward, voter.polling_unit_name]
-                                      .filter(Boolean)
-                                      .join(" • ")}
-                                  </p>
-                                )}
-                              </div>
-                            </button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="shrink-0"
-                              onClick={() => setViewVoter(voter)}
-                              title="View voter details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {lookupError && (
-                  <p className="text-xs text-destructive">{lookupError}</p>
-                )}
-              </>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">First Name</label>
-              <input
-                required
-                className="input-premium w-full"
-                placeholder="e.g. Abdullahi"
-                value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Last Name</label>
-              <input
-                required
-                className="input-premium w-full"
-                placeholder="e.g. Musa"
-                value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Gender</label>
-              <select
-                required
-                className="input-premium w-full"
-                value={formData.gender}
-                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-              >
-                <option value="">Select Gender</option>
-                {GENDERS.map((g) => (
-                  <option key={g.value} value={g.value}>{g.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date of Birth</label>
-              <input
-                type="date"
-                required
-                className="input-premium w-full"
-                value={formData.dateOfBirth}
-                onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Marital Status</label>
-              <select
-                required
-                className="input-premium w-full"
-                value={formData.maritalStatus}
-                onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value })}
-              >
-                <option value="">Select Marital Status</option>
-                <option value="Single">Single</option>
-                <option value="Married">Married</option>
-                <option value="Divorced">Divorced</option>
-                <option value="Widow">Widow</option>
-                <option value="Widower">Widower</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Trade / Occupation</label>
-              <select
-                required
-                className="input-premium w-full"
-                value={formData.occupation}
-                onChange={(e) => {
-                  setFormData({
-                    ...formData,
-                    occupation: e.target.value,
-                    subTrader: "",
-                    otherTrader: "",
-                    studentInstitution: "",
-                    otherInstitution: "",
-                    businessSector: "",
-                    otherBusiness: "",
-                    teacherSchoolLevel: "",
-                    teacherSchoolName: "",
-                    otherTeacherSchoolName: "",
-                    farmerLga: "",
-                    farmerWard: "",
-                    farmerSize: "",
-                    farmerSeasonalType: "",
-                    civilServantJurisdiction: "",
-                    civilServantMinistry: "",
-                  });
-                }}
-              >
-                <option value="">Select Occupation</option>
-                {COMMON_OCCUPATIONS.map((occ) => (
-                  <option key={occ} value={occ}>{occ}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Conditional Sub-Categories fields based on Occupation Selection */}
-          {formData.occupation === "Trader" && (
-            <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
-              <div className="space-y-2 col-span-2">
-                <label className="text-sm font-medium">Trade Sub-Category</label>
-                <select
-                  required
-                  className="input-premium w-full bg-card"
-                  value={formData.subTrader}
-                  onChange={(e) => setFormData({ ...formData, subTrader: e.target.value, otherTrader: "" })}
-                >
-                  <option value="">Select Trade Type</option>
-                  {TRADER_SUB_TRADES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-              {formData.subTrader === "Other Trader" && (
-                <div className="space-y-2 col-span-2 animate-fade-in">
-                  <label className="text-sm font-medium">Specify Other Trade</label>
-                  <input
-                    required
-                    type="text"
-                    className="input-premium w-full bg-card"
-                    placeholder="e.g. Kola nut seller"
-                    value={formData.otherTrader}
-                    onChange={(e) => setFormData({ ...formData, otherTrader: e.target.value })}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {formData.occupation === "Student" && (
-            <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
-              <div className="space-y-2 col-span-2">
-                <label className="text-sm font-medium">Higher Institution</label>
-                <select
-                  required
-                  className="input-premium w-full bg-card"
-                  value={formData.studentInstitution}
-                  onChange={(e) => setFormData({ ...formData, studentInstitution: e.target.value, otherInstitution: "" })}
-                >
-                  <option value="">Select Institution</option>
-                  {STUDENT_INSTITUTIONS.map((inst) => (
-                    <option key={inst} value={inst}>{inst}</option>
-                  ))}
-                </select>
-              </div>
-              {formData.studentInstitution === "Other Higher Institution Outside Katsina" && (
-                <div className="space-y-2 col-span-2 animate-fade-in">
-                  <label className="text-sm font-medium">Specify Institution Name</label>
-                  <input
-                    required
-                    type="text"
-                    className="input-premium w-full bg-card"
-                    placeholder="e.g. Ahmadu Bello University, Zaria"
-                    value={formData.otherInstitution}
-                    onChange={(e) => setFormData({ ...formData, otherInstitution: e.target.value })}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {formData.occupation === "Business Owner" && (
-            <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
-              <div className="space-y-2 col-span-2">
-                <label className="text-sm font-medium">Business Sector</label>
-                <select
-                  required
-                  className="input-premium w-full bg-card"
-                  value={formData.businessSector}
-                  onChange={(e) => setFormData({ ...formData, businessSector: e.target.value, otherBusiness: "" })}
-                >
-                  <option value="">Select Business Sector</option>
-                  {BUSINESS_SECTORS.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-              {formData.businessSector === "Other / Unknown Business" && (
-                <div className="space-y-2 col-span-2 animate-fade-in">
-                  <label className="text-sm font-medium">Specify Other Business</label>
-                  <input
-                    required
-                    type="text"
-                    className="input-premium w-full bg-card"
-                    placeholder="e.g. Solar panel manufacturing"
-                    value={formData.otherBusiness}
-                    onChange={(e) => setFormData({ ...formData, otherBusiness: e.target.value })}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {formData.occupation === "Teacher" && (
-            <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
-              <div className="space-y-2 col-span-2">
-                <label className="text-sm font-medium">School Level</label>
-                <select
-                  required
-                  className="input-premium w-full bg-card"
-                  value={formData.teacherSchoolLevel}
-                  onChange={(e) => setFormData({ ...formData, teacherSchoolLevel: e.target.value, teacherSchoolName: "", otherTeacherSchoolName: "" })}
-                >
-                  <option value="">Select Level</option>
-                  <option value="Primary">Primary</option>
-                  <option value="Secondary">Secondary</option>
-                  <option value="Tertiary">Tertiary</option>
-                </select>
-              </div>
-              {formData.teacherSchoolLevel === "Secondary" && (
-                <div className="space-y-2 col-span-2 animate-fade-in">
-                  <label className="text-sm font-medium">Secondary School Name</label>
-                  <select
-                    required
-                    className="input-premium w-full bg-card"
-                    value={formData.teacherSchoolName}
-                    onChange={(e) => setFormData({ ...formData, teacherSchoolName: e.target.value, otherTeacherSchoolName: "" })}
-                  >
-                    <option value="">Select School</option>
-                    {KATSINA_SECONDARY_SCHOOLS.map((sch) => (
-                      <option key={sch} value={sch}>{sch}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {formData.teacherSchoolLevel && formData.teacherSchoolLevel !== "Secondary" && (
-                <div className="space-y-2 col-span-2 animate-fade-in">
-                  <label className="text-sm font-medium">School Name</label>
-                  <input
-                    required
-                    type="text"
-                    className="input-premium w-full bg-card"
-                    placeholder="e.g. Government Day Primary School"
-                    value={formData.teacherSchoolName}
-                    onChange={(e) => setFormData({ ...formData, teacherSchoolName: e.target.value })}
-                  />
-                </div>
-              )}
-              {formData.teacherSchoolName === "Other Secondary School" && (
-                <div className="space-y-2 col-span-2 animate-fade-in">
-                  <label className="text-sm font-medium">Specify Secondary School Name</label>
-                  <input
-                    required
-                    type="text"
-                    className="input-premium w-full bg-card"
-                    placeholder="Enter secondary school name"
-                    value={formData.otherTeacherSchoolName}
-                    onChange={(e) => setFormData({ ...formData, otherTeacherSchoolName: e.target.value })}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {formData.occupation === "Farmer" && (
-            <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+          {/* 1. Location Selection (LGA, Ward, Polling Unit) at the very top */}
+          <div className="space-y-4 border-b border-border pb-4">
+            <h3 className="text-sm font-semibold text-foreground">1. Select Location</h3>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Farm LGA</label>
+                <label className="text-sm font-medium">LGA</label>
                 <select
                   required
-                  className="input-premium w-full bg-card"
-                  value={formData.farmerLga}
-                  onChange={(e) => setFormData({ ...formData, farmerLga: e.target.value, farmerWard: "" })}
+                  disabled={isChairman || isCouncillor || isPUAgent}
+                  className="input-premium w-full disabled:opacity-70 disabled:bg-muted"
+                  value={formData.lga}
+                  onChange={(e) => setFormData({ ...formData, lga: e.target.value, ward: "", polling_unit: "" })}
                 >
                   <option value="">Select LGA</option>
                   {KATSINA_LGAS.map((lga) => (
@@ -1022,289 +674,792 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Farm Ward</label>
+                <label className="text-sm font-medium">Ward</label>
                 <select
                   required
-                  disabled={!formData.farmerLga}
-                  className="input-premium w-full bg-card disabled:opacity-75"
-                  value={formData.farmerWard}
-                  onChange={(e) => setFormData({ ...formData, farmerWard: e.target.value })}
+                  disabled={!formData.lga || isCouncillor || isPUAgent}
+                  className="input-premium w-full disabled:opacity-70 disabled:bg-muted"
+                  value={formData.ward}
+                  onChange={(e) => setFormData({ ...formData, ward: e.target.value, polling_unit: "" })}
                 >
                   <option value="">Select Ward</option>
-                  {farmWards.map((w) => (
-                    <option key={w} value={w}>{w}</option>
+                  {wards.map((ward) => (
+                    <option key={ward} value={ward}>{ward}</option>
                   ))}
                 </select>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Size in Hectares</label>
-                <input
-                  required
-                  type="number"
-                  min="0.1"
-                  step="0.1"
-                  className="input-premium w-full bg-card"
-                  placeholder="e.g. 2.5"
-                  value={formData.farmerSize}
-                  onChange={(e) => setFormData({ ...formData, farmerSize: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Seasonal Type</label>
-                <select
-                  required
-                  className="input-premium w-full bg-card"
-                  value={formData.farmerSeasonalType}
-                  onChange={(e) => setFormData({ ...formData, farmerSeasonalType: e.target.value })}
-                >
-                  <option value="">Select Season</option>
-                  <option value="Noman Damana (Rain-fed)">Noman Damana (Rain-fed)</option>
-                  <option value="Noman Rani (Irrigation)">Noman Rani (Irrigation)</option>
-                  <option value="Both">Both</option>
-                </select>
-              </div>
             </div>
-          )}
 
-          {formData.occupation === "Civil Servant" && (
-            <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
-              <div className="space-y-2 col-span-2">
-                <label className="text-sm font-medium">Employment Jurisdiction</label>
-                <select
-                  required
-                  className="input-premium w-full bg-card"
-                  value={formData.civilServantJurisdiction}
-                  onChange={(e) => setFormData({ ...formData, civilServantJurisdiction: e.target.value, civilServantMinistry: "" })}
-                >
-                  <option value="">Select Jurisdiction</option>
-                  <option value="State Ministry">State Ministry</option>
-                  <option value="Local Government">Local Government</option>
-                  <option value="Federal">Federal</option>
-                  <option value="Other">Other</option>
-                </select>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Polling Unit</label>
+              <select
+                required
+                className="input-premium w-full disabled:opacity-70 disabled:bg-muted"
+                value={formData.polling_unit}
+                onChange={(e) => setFormData({ ...formData, polling_unit: e.target.value })}
+                disabled={!formData.ward || isPUAgent}
+              >
+                <option value="">Select Polling Unit</option>
+                {getPollingUnitObjects(formData.lga, formData.ward).map((pu) => (
+                  <option key={pu.code} value={pu.name}>
+                    {pu.name} ({pu.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* 2. Voter List or Lookup options if PU selected */}
+          {formData.polling_unit && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <IdCard className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">2. Polling Unit Voters</h3>
+                </div>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                  {puVotersLoading ? "Loading..." : `${puVoters.length} Voters`}
+                </span>
               </div>
-              {formData.civilServantJurisdiction === "State Ministry" && (
-                <div className="space-y-2 col-span-2 animate-fade-in">
-                  <label className="text-sm font-medium">Katsina State Ministry</label>
-                  <select
-                    required
-                    className="input-premium w-full bg-card"
-                    value={formData.civilServantMinistry}
-                    onChange={(e) => setFormData({ ...formData, civilServantMinistry: e.target.value })}
-                  >
-                    <option value="">Select Ministry</option>
-                    {KATSINA_MINISTRIES.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
+
+              {puVotersLoading ? (
+                <div className="flex justify-center items-center py-6">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <input
+                    className="input-premium w-full text-xs"
+                    placeholder="Filter PU voters by name or VIN..."
+                    value={puVoterSearch}
+                    onChange={(e) => setPuVoterSearch(e.target.value)}
+                  />
+
+                  <div className="max-h-40 overflow-y-auto rounded-lg border border-border divide-y divide-border bg-card">
+                    {puVoters
+                      .filter(v => 
+                        !puVoterSearch ||
+                        v.full_name.toLowerCase().includes(puVoterSearch.toLowerCase()) ||
+                        v.vin.toLowerCase().includes(puVoterSearch.toLowerCase())
+                      )
+                      .map((voter) => (
+                        <div
+                          key={voter.id}
+                          className="w-full flex items-center justify-between p-2 hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            {voter.photo_url ? (
+                              <img
+                                src={voter.photo_url}
+                                alt={voter.full_name}
+                                className="w-8 h-8 rounded object-cover border border-border shrink-0"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0">
+                                <IdCard className="w-3.5 h-3.5 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium text-foreground truncate">{voter.full_name}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">VIN: {voter.vin}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              onClick={() => setViewVoter(voter)}
+                              title="View details"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={matchedVoter?.id === voter.id ? "default" : "outline"}
+                              size="xs"
+                              className="text-[10px] h-7 px-2"
+                              onClick={() => {
+                                applyVoter(voter);
+                                setFormData(prev => ({ ...prev, pvcStatus: "collected" }));
+                                setShowManualPvcOption(false);
+                              }}
+                            >
+                              {matchedVoter?.id === voter.id ? "Selected" : "Select"}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    {puVoters.length === 0 && (
+                      <div className="p-3 text-center text-xs text-muted-foreground bg-card animate-fade-in">
+                        No voters found in this Polling Unit registry.
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Phone Number</label>
-              <input
-                required
-                className="input-premium w-full"
-                placeholder="+234..."
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Email (Optional)</label>
-              <input
-                type="email"
-                className="input-premium w-full"
-                placeholder="name@email.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Voters Card ID</label>
-            <input
-              className="input-premium w-full"
-              placeholder="e.g. 1234567890"
-              value={formData.votersCardId}
-              onChange={(e) => setFormData({ ...formData, votersCardId: e.target.value })}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Bank/Wallet Name (Optional)</label>
-              <select
-                className="input-premium w-full"
-                value={formData.bankName}
-                onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-              >
-                <option value="">Select Bank</option>
-                {NIGERIAN_BANKS.map((bank) => (
-                  <option key={bank} value={bank}>{bank}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Account Number (Optional)</label>
-              <input
-                className="input-premium w-full"
-                placeholder="e.g. 0123456789"
-                value={formData.accountNumber}
-                onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2 mt-4">
-            <label className="text-sm font-medium">Social Media Handle (Optional)</label>
-            <input
-              className="input-premium w-full"
-              placeholder="e.g. @username (Twitter/Instagram)"
-              value={formData.socialMediaHandle}
-              onChange={(e) => setFormData({ ...formData, socialMediaHandle: e.target.value })}
-            />
-            <p className="text-xs text-muted-foreground">Used to track potential reach and impressions</p>
-          </div>
-
-          <div className="space-y-2 mt-4">
-            <label className="text-sm font-medium">Voters Card Image</label>
-            <div className="flex items-center gap-3">
-              <label className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-                <Upload className="w-5 h-5 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  {votersCardFile ? votersCardFile.name : "Click to upload image"}
-                </span>
+          {/* 3. Ward Search box for wider search */}
+          {formData.ward && (
+            <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <Search className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">Search Ward Registry</h3>
+                <span className="text-xs text-muted-foreground">(search all voters in ward)</span>
+              </div>
+              <div className="flex gap-2">
                 <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileChange}
+                  className="input-premium flex-1 text-xs"
+                  placeholder="Search by name or VIN..."
+                  value={nameQuery}
+                  onChange={(e) => setNameQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleNameSearch();
+                    }
+                  }}
                 />
-              </label>
-              {votersCardFile && (
                 <Button
                   type="button"
-                  variant="ghost"
                   size="sm"
-                  onClick={() => setVotersCardFile(null)}
+                  onClick={handleNameSearch}
+                  disabled={searching || nameQuery.trim().length < 2}
                 >
-                  <X className="w-4 h-4" />
+                  {searching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
                 </Button>
+              </div>
+              {nameResults.length > 0 && (
+                <div className="max-h-36 overflow-y-auto rounded-lg border border-border divide-y divide-border bg-card">
+                  {nameResults.map((voter) => (
+                    <div
+                      key={voter.id}
+                      className="w-full flex items-center justify-between p-2 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-foreground truncate">{voter.full_name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">VIN: {voter.vin} • PU: {voter.polling_unit_name}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => setViewVoter(voter)}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={matchedVoter?.id === voter.id ? "default" : "outline"}
+                          size="xs"
+                          className="text-[10px] h-7 px-2"
+                          onClick={() => {
+                            applyVoter(voter);
+                            setFormData(prev => ({ ...prev, pvcStatus: "collected" }));
+                            setShowManualPvcOption(false);
+                          }}
+                        >
+                          {matchedVoter?.id === voter.id ? "Selected" : "Select"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>
-          </div>
-
-          {canSelectOrg ? (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Support Group (Optional)</label>
-              <select
-                className="input-premium w-full"
-                value={formData.organizationId}
-                onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
-              >
-                <option value="">No Support Group</option>
-                {organizations.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Organization</label>
-              <input
-                className="input-premium w-full bg-muted"
-                value={userOrg?.name || "Loading..."}
-                disabled
-              />
+              {lookupError && (
+                <p className="text-xs text-destructive">{lookupError}</p>
+              )}
             </div>
           )}
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Role</label>
-            <select
-              className="input-premium w-full"
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-            >
-              <option value="">Select Role</option>
-              {MEMBER_ROLES.map((role) => (
-                <option key={role.value} value={role.value}>
-                  {role.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">LGA</label>
-              <select
-                required
-                disabled={isChairman || isCouncillor || isPUAgent}
-                className="input-premium w-full disabled:opacity-70 disabled:bg-muted"
-                value={formData.lga}
-                onChange={(e) => setFormData({ ...formData, lga: e.target.value, ward: "" })}
+          {/* 4. Manual entry option */}
+          {formData.polling_unit && (
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant={showManualPvcOption ? "secondary" : "outline"}
+                className="w-full text-xs font-semibold"
+                onClick={() => {
+                  setShowManualPvcOption(true);
+                  setMatchedVoter(null);
+                  setFormData(prev => ({
+                    ...prev,
+                    pvcStatus: "not collected",
+                    firstName: "",
+                    lastName: "",
+                    votersCardId: "",
+                  }));
+                }}
               >
-                <option value="">Select LGA</option>
-                {KATSINA_LGAS.map((lga) => (
-                  <option key={lga} value={lga}>{lga}</option>
-                ))}
-              </select>
+                ➕ Person not in list / PVC not collected (Add manually)
+              </Button>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Ward</label>
-              <select
-                required
-                disabled={!formData.lga || isCouncillor || isPUAgent}
-                className="input-premium w-full disabled:opacity-70 disabled:bg-muted"
-                value={formData.ward}
-                onChange={(e) => setFormData({ ...formData, ward: e.target.value, polling_unit: "" })}
-              >
-                <option value="">Select Ward</option>
-                {wards.map((ward) => (
-                  <option key={ward} value={ward}>{ward}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          )}
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Polling Unit (Optional)</label>
-            <select
-              className="input-premium w-full disabled:opacity-70 disabled:bg-muted"
-              value={formData.polling_unit}
-              onChange={(e) => setFormData({ ...formData, polling_unit: e.target.value })}
-              disabled={!formData.ward || isPUAgent}
-            >
-              <option value="">Select Polling Unit</option>
-              {getPollingUnitObjects(formData.lga, formData.ward).map((pu) => (
-                <option key={pu.code} value={pu.name}>
-                  {pu.name} ({pu.code})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* 5. Remaining details form fields */}
+          {(matchedVoter || showManualPvcOption) && (
+            <div className="space-y-4 border-t border-border pt-4 animate-fade-in">
+              <h3 className="text-sm font-semibold text-foreground">
+                {showManualPvcOption ? "2. Fill Details Manually (PVC Not Collected)" : "3. Fill Remaining Details"}
+              </h3>
 
-          <div className="pt-4 flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" className="btn-command" disabled={createMember.isPending || uploading}>
-              {(createMember.isPending || uploading) ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Check className="w-4 h-4 mr-2" />
+              {matchedVoter && (
+                <div className="flex items-center gap-3 rounded-lg bg-primary/5 border border-primary/20 p-3">
+                  <div className="w-10 h-10 rounded bg-muted flex items-center justify-center shrink-0">
+                    <IdCard className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-foreground truncate">{matchedVoter.full_name}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">VIN: {matchedVoter.vin} (Linked)</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 shrink-0"
+                    onClick={() => {
+                      setMatchedVoter(null);
+                      setFormData(prev => ({ ...prev, firstName: "", lastName: "", votersCardId: "" }));
+                    }}
+                  >
+                    Unlink
+                  </Button>
+                </div>
               )}
-              Register Member
-            </Button>
-          </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">First Name</label>
+                  <input
+                    required
+                    className="input-premium w-full"
+                    placeholder="e.g. Abdullahi"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Last Name</label>
+                  <input
+                    required
+                    className="input-premium w-full"
+                    placeholder="e.g. Musa"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Gender</label>
+                  <select
+                    required
+                    className="input-premium w-full"
+                    value={formData.gender}
+                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                  >
+                    <option value="">Select Gender</option>
+                    {GENDERS.map((g) => (
+                      <option key={g.value} value={g.value}>{g.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Date of Birth</label>
+                  <input
+                    type="date"
+                    required
+                    className="input-premium w-full"
+                    value={formData.dateOfBirth}
+                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Marital Status</label>
+                  <select
+                    required
+                    className="input-premium w-full"
+                    value={formData.maritalStatus}
+                    onChange={(e) => setFormData({ ...formData, maritalStatus: e.target.value })}
+                  >
+                    <option value="">Select Marital Status</option>
+                    <option value="Single">Single</option>
+                    <option value="Married">Married</option>
+                    <option value="Divorced">Divorced</option>
+                    <option value="Widow">Widow</option>
+                    <option value="Widower">Widower</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Trade / Occupation</label>
+                  <select
+                    required
+                    className="input-premium w-full"
+                    value={formData.occupation}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        occupation: e.target.value,
+                        subTrader: "",
+                        otherTrader: "",
+                        studentInstitution: "",
+                        otherInstitution: "",
+                        businessSector: "",
+                        otherBusiness: "",
+                        teacherSchoolLevel: "",
+                        teacherSchoolName: "",
+                        otherTeacherSchoolName: "",
+                        farmerLga: "",
+                        farmerWard: "",
+                        farmerSize: "",
+                        farmerSeasonalType: "",
+                        civilServantJurisdiction: "",
+                        civilServantMinistry: "",
+                      });
+                    }}
+                  >
+                    <option value="">Select Occupation</option>
+                    {COMMON_OCCUPATIONS.map((occ) => (
+                      <option key={occ} value={occ}>{occ}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Conditional Sub-Categories fields based on Occupation Selection */}
+              {formData.occupation === "Trader" && (
+                <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+                  <div className="space-y-2 col-span-2">
+                    <label className="text-sm font-medium">Trade Sub-Category</label>
+                    <select
+                      required
+                      className="input-premium w-full bg-card"
+                      value={formData.subTrader}
+                      onChange={(e) => setFormData({ ...formData, subTrader: e.target.value, otherTrader: "" })}
+                    >
+                      <option value="">Select Trade Type</option>
+                      {TRADER_SUB_TRADES.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {formData.subTrader === "Other Trader" && (
+                    <div className="space-y-2 col-span-2 animate-fade-in">
+                      <label className="text-sm font-medium">Specify Other Trade</label>
+                      <input
+                        required
+                        type="text"
+                        className="input-premium w-full bg-card"
+                        placeholder="e.g. Kola nut seller"
+                        value={formData.otherTrader}
+                        onChange={(e) => setFormData({ ...formData, otherTrader: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {formData.occupation === "Student" && (
+                <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+                  <div className="space-y-2 col-span-2">
+                    <label className="text-sm font-medium">Higher Institution</label>
+                    <select
+                      required
+                      className="input-premium w-full bg-card"
+                      value={formData.studentInstitution}
+                      onChange={(e) => setFormData({ ...formData, studentInstitution: e.target.value, otherInstitution: "" })}
+                    >
+                      <option value="">Select Institution</option>
+                      {STUDENT_INSTITUTIONS.map((inst) => (
+                        <option key={inst} value={inst}>{inst}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {formData.studentInstitution === "Other Higher Institution Outside Katsina" && (
+                    <div className="space-y-2 col-span-2 animate-fade-in">
+                      <label className="text-sm font-medium">Specify Institution Name</label>
+                      <input
+                        required
+                        type="text"
+                        className="input-premium w-full bg-card"
+                        placeholder="e.g. Ahmadu Bello University, Zaria"
+                        value={formData.otherInstitution}
+                        onChange={(e) => setFormData({ ...formData, otherInstitution: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {formData.occupation === "Business Owner" && (
+                <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+                  <div className="space-y-2 col-span-2">
+                    <label className="text-sm font-medium">Business Sector</label>
+                    <select
+                      required
+                      className="input-premium w-full bg-card"
+                      value={formData.businessSector}
+                      onChange={(e) => setFormData({ ...formData, businessSector: e.target.value, otherBusiness: "" })}
+                    >
+                      <option value="">Select Business Sector</option>
+                      {BUSINESS_SECTORS.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {formData.businessSector === "Other / Unknown Business" && (
+                    <div className="space-y-2 col-span-2 animate-fade-in">
+                      <label className="text-sm font-medium">Specify Other Business</label>
+                      <input
+                        required
+                        type="text"
+                        className="input-premium w-full bg-card"
+                        placeholder="e.g. Solar panel manufacturing"
+                        value={formData.otherBusiness}
+                        onChange={(e) => setFormData({ ...formData, otherBusiness: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {formData.occupation === "Teacher" && (
+                <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+                  <div className="space-y-2 col-span-2">
+                    <label className="text-sm font-medium">School Level</label>
+                    <select
+                      required
+                      className="input-premium w-full bg-card"
+                      value={formData.teacherSchoolLevel}
+                      onChange={(e) => setFormData({ ...formData, teacherSchoolLevel: e.target.value, teacherSchoolName: "", otherTeacherSchoolName: "" })}
+                    >
+                      <option value="">Select Level</option>
+                      <option value="Primary">Primary</option>
+                      <option value="Secondary">Secondary</option>
+                      <option value="Tertiary">Tertiary</option>
+                    </select>
+                  </div>
+                  {formData.teacherSchoolLevel === "Secondary" && (
+                    <div className="space-y-2 col-span-2 animate-fade-in">
+                      <label className="text-sm font-medium">Secondary School Name</label>
+                      <select
+                        required
+                        className="input-premium w-full bg-card"
+                        value={formData.teacherSchoolName}
+                        onChange={(e) => setFormData({ ...formData, teacherSchoolName: e.target.value, otherTeacherSchoolName: "" })}
+                      >
+                        <option value="">Select School</option>
+                        {KATSINA_SECONDARY_SCHOOLS.map((sch) => (
+                          <option key={sch} value={sch}>{sch}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {formData.teacherSchoolLevel && formData.teacherSchoolLevel !== "Secondary" && (
+                    <div className="space-y-2 col-span-2 animate-fade-in">
+                      <label className="text-sm font-medium">School Name</label>
+                      <input
+                        required
+                        type="text"
+                        className="input-premium w-full bg-card"
+                        placeholder="e.g. Government Day Primary School"
+                        value={formData.teacherSchoolName}
+                        onChange={(e) => setFormData({ ...formData, teacherSchoolName: e.target.value })}
+                      />
+                    </div>
+                  )}
+                  {formData.teacherSchoolName === "Other Secondary School" && (
+                    <div className="space-y-2 col-span-2 animate-fade-in">
+                      <label className="text-sm font-medium">Specify Secondary School Name</label>
+                      <input
+                        required
+                        type="text"
+                        className="input-premium w-full bg-card"
+                        placeholder="Enter secondary school name"
+                        value={formData.otherTeacherSchoolName}
+                        onChange={(e) => setFormData({ ...formData, otherTeacherSchoolName: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {formData.occupation === "Farmer" && (
+                <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Farm LGA</label>
+                    <select
+                      required
+                      className="input-premium w-full bg-card"
+                      value={formData.farmerLga}
+                      onChange={(e) => setFormData({ ...formData, farmerLga: e.target.value, farmerWard: "" })}
+                    >
+                      <option value="">Select LGA</option>
+                      {KATSINA_LGAS.map((lga) => (
+                        <option key={lga} value={lga}>{lga}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Farm Ward</label>
+                    <select
+                      required
+                      disabled={!formData.farmerLga}
+                      className="input-premium w-full bg-card disabled:opacity-75"
+                      value={formData.farmerWard}
+                      onChange={(e) => setFormData({ ...formData, farmerWard: e.target.value })}
+                    >
+                      <option value="">Select Ward</option>
+                      {farmWards.map((w) => (
+                        <option key={w} value={w}>{w}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Size in Hectares</label>
+                    <input
+                      required
+                      type="number"
+                      min="0.1"
+                      step="0.1"
+                      className="input-premium w-full bg-card"
+                      placeholder="e.g. 2.5"
+                      value={formData.farmerSize}
+                      onChange={(e) => setFormData({ ...formData, farmerSize: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Seasonal Type</label>
+                    <select
+                      required
+                      className="input-premium w-full bg-card"
+                      value={formData.farmerSeasonalType}
+                      onChange={(e) => setFormData({ ...formData, farmerSeasonalType: e.target.value })}
+                    >
+                      <option value="">Select Season</option>
+                      <option value="Noman Damana (Rain-fed)">Noman Damana (Rain-fed)</option>
+                      <option value="Noman Rani (Irrigation)">Noman Rani (Irrigation)</option>
+                      <option value="Both">Both</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {formData.occupation === "Civil Servant" && (
+                <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
+                  <div className="space-y-2 col-span-2">
+                    <label className="text-sm font-medium">Employment Jurisdiction</label>
+                    <select
+                      required
+                      className="input-premium w-full bg-card"
+                      value={formData.civilServantJurisdiction}
+                      onChange={(e) => setFormData({ ...formData, civilServantJurisdiction: e.target.value, civilServantMinistry: "" })}
+                    >
+                      <option value="">Select Jurisdiction</option>
+                      <option value="State Ministry">State Ministry</option>
+                      <option value="Local Government">Local Government</option>
+                      <option value="Federal">Federal</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  {formData.civilServantJurisdiction === "State Ministry" && (
+                    <div className="space-y-2 col-span-2 animate-fade-in">
+                      <label className="text-sm font-medium">Katsina State Ministry</label>
+                      <select
+                        required
+                        className="input-premium w-full bg-card"
+                        value={formData.civilServantMinistry}
+                        onChange={(e) => setFormData({ ...formData, civilServantMinistry: e.target.value })}
+                      >
+                        <option value="">Select Ministry</option>
+                        {KATSINA_MINISTRIES.map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Phone Number</label>
+                  <input
+                    required
+                    className="input-premium w-full"
+                    placeholder="+234..."
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Email (Optional)</label>
+                  <input
+                    type="email"
+                    className="input-premium w-full"
+                    placeholder="name@email.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Voters Card ID (VIN)</label>
+                  <input
+                    className="input-premium w-full"
+                    placeholder="e.g. 90F5B142..."
+                    value={formData.votersCardId}
+                    onChange={(e) => setFormData({ ...formData, votersCardId: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">PVC Status</label>
+                  <select
+                    className="input-premium w-full"
+                    value={formData.pvcStatus}
+                    onChange={(e) => setFormData({ ...formData, pvcStatus: e.target.value as any })}
+                  >
+                    <option value="collected">Collected</option>
+                    <option value="not collected">Not Collected</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Bank/Wallet Name (Optional)</label>
+                  <select
+                    className="input-premium w-full"
+                    value={formData.bankName}
+                    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                  >
+                    <option value="">Select Bank</option>
+                    {NIGERIAN_BANKS.map((bank) => (
+                      <option key={bank} value={bank}>{bank}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Account Number (Optional)</label>
+                  <input
+                    className="input-premium w-full"
+                    placeholder="e.g. 0123456789"
+                    value={formData.accountNumber}
+                    onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 mt-4">
+                <label className="text-sm font-medium">Social Media Handle (Optional)</label>
+                <input
+                  className="input-premium w-full"
+                  placeholder="e.g. @username (Twitter/Instagram)"
+                  value={formData.socialMediaHandle}
+                  onChange={(e) => setFormData({ ...formData, socialMediaHandle: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Used to track potential reach and impressions</p>
+              </div>
+
+              <div className="space-y-2 mt-4">
+                <label className="text-sm font-medium">Voters Card Image</label>
+                <div className="flex items-center gap-3">
+                  <label className="flex-1 flex items-center justify-center gap-2 p-3 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <Upload className="w-5 h-5 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {votersCardFile ? votersCardFile.name : "Click to upload image"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+                  </label>
+                  {votersCardFile && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setVotersCardFile(null)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {canSelectOrg ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Support Group (Optional)</label>
+                  <select
+                    className="input-premium w-full"
+                    value={formData.organizationId}
+                    onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
+                  >
+                    <option value="">No Support Group</option>
+                    {organizations.map((org) => (
+                      <option key={org.id} value={org.id}>
+                        {org.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Organization</label>
+                  <input
+                    className="input-premium w-full bg-muted"
+                    value={userOrg?.name || "Loading..."}
+                    disabled
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Role</label>
+                <select
+                  className="input-premium w-full"
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                >
+                  <option value="">Select Role</option>
+                  {MEMBER_ROLES.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="btn-command" disabled={createMember.isPending || uploading}>
+                  {(createMember.isPending || uploading) ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Check className="w-4 h-4 mr-2" />
+                  )}
+                  Register Member
+                </Button>
+              </div>
+            </div>
+          )}
         </form>
       </div>
 

@@ -1,4 +1,6 @@
 import { ALL_WARDS, ALL_POLLING_UNITS } from "../data/aggregated_lga_data";
+import { supabase } from "@/integrations/supabase/loose-client";
+import { localRepository } from "@/services/LocalRepository";
 
 export const CAMPAIGN_NAME = "Dikko Radda Campaign";
 export const CAMPAIGN_STATE = "Katsina State";
@@ -114,4 +116,191 @@ export const getConstituencyForLga = (lgaName?: string | null): LGAConstituencyI
   );
   
   return foundKey ? LGA_CONSTITUENCY_MAP[foundKey] : null;
+};
+
+export const getStandardPuCode = (lgaName: string, puCode: string): string => {
+  if (!puCode) return "";
+  if (puCode.startsWith("20-")) {
+    return puCode;
+  }
+  const match = puCode.match(/W(\d+)-(\d+)/i);
+  if (!match) return puCode;
+  const wardNum = match[1].padStart(2, "0");
+  const puNum = match[2].padStart(3, "0");
+  const norm = lgaName.toLowerCase().replace(/[^a-z]/g, "");
+  const list = [
+    "bakori", "batagarawa", "batsari", "baure", "bindawa", "charanchi", "dandume",
+    "danja", "danmusa", "daura", "dutsi", "dutsinma", "faskari", "funtua",
+    "ingawa", "jibia", "kafur", "kaita", "kankara", "kankia", "katsina",
+    "kurfi", "kusada", "maiadua", "malumfashi", "mani", "mashi", "matazu",
+    "musawa", "rimi", "sabuwa", "safana", "sandamu", "zango"
+  ];
+  const idx = list.indexOf(norm);
+  const lgaCode = idx !== -1 ? (idx + 1).toString().padStart(2, "0") : "21";
+  return `20-${lgaCode}-${wardNum}-${puNum}`;
+};
+
+// Helper to wrap promises in a timeout to prevent hanging states
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  let timeoutId: any;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.warn(`Promise timed out after ${timeoutMs}ms`);
+      resolve(fallback);
+    }, timeoutMs);
+  });
+
+  return Promise.race([
+    promise.then((result) => {
+      clearTimeout(timeoutId);
+      return result;
+    }),
+    timeoutPromise
+  ]);
+}
+
+export const generateSequentialMembershipId = async (
+  lga: string,
+  ward: string,
+  pollingUnitName: string,
+  voterCardId?: string | null
+): Promise<string> => {
+  if (!lga || !ward || !pollingUnitName) {
+    return `DR-${Date.now().toString(36).toUpperCase()}`;
+  }
+
+  // 1. Get LGA abbreviation (e.g. Katsina -> KAT)
+  const lgaAbbr = lga.replace(/[^a-zA-Z]/g, "").substring(0, 3).toUpperCase();
+  
+  // 2. Get Ward & PU code
+  let puCode = "";
+  if (voterCardId && voterCardId.startsWith("20-")) {
+    const parts = voterCardId.split("-");
+    if (parts.length >= 4) {
+      puCode = `W${parts[2]}-${parts[3]}`;
+    } else {
+      puCode = voterCardId;
+    }
+  }
+
+  if (!puCode && pollingUnitName) {
+    const puObj = getPollingUnitObjects(lga, ward).find(pu => pu.name === pollingUnitName);
+    if (puObj?.code) {
+      puCode = puObj.code;
+    }
+  }
+
+  if (!puCode) {
+    const match = pollingUnitName.match(/PU\s*(\d+)/i);
+    const puNum = match ? match[1] : "000";
+    const wardAbbr = ward.replace(/[^a-zA-Z0-9]/g, "").substring(0, 3).toUpperCase();
+    puCode = `${wardAbbr}-${puNum}`;
+  }
+
+  const cleanPuCode = puCode.toUpperCase().replace(/\s+/g, "");
+
+  // 3. Get existing count
+  let remoteCount = 0;
+  try {
+    const countResult = await withTimeout(
+      supabase
+        .from("members")
+        .select("*", { count: "exact", head: true })
+        .eq("lga", lga)
+        .eq("ward", ward)
+        .eq("polling_unit", pollingUnitName),
+      3000,
+      { count: 0, error: null }
+    );
+    const { count, error } = countResult as any;
+    if (!error && count !== null) {
+      remoteCount = count;
+    }
+  } catch (err) {
+    console.error("Error querying remote members count:", err);
+  }
+
+  let localCount = 0;
+  try {
+    const localMembers = await withTimeout(
+      localRepository.getMembersByWard(lga, ward),
+      2000,
+      []
+    );
+    localCount = localMembers.filter(
+      m => m.polling_unit === pollingUnitName
+    ).length;
+  } catch (err) {
+    console.error("Error querying local members count:", err);
+  }
+
+  const nextSeq = Math.max(remoteCount, localCount) + 1;
+  const seqStr = nextSeq.toString().padStart(4, "0");
+
+  return `${lgaAbbr}-${cleanPuCode}-${seqStr}`;
+};
+
+export const insertNewVoterToRegistry = async (
+  fullName: string,
+  lga: string,
+  ward: string,
+  pollingUnitName: string,
+  vin: string,
+  gender: string | null,
+  dateOfBirth: string | null
+) => {
+  const localPuObj = getPollingUnitObjects(lga, ward).find(p => p.name === pollingUnitName);
+  const localCode = localPuObj?.code || "";
+  const standardPuCode = localCode ? getStandardPuCode(lga, localCode) : "";
+
+  let dobYear: number | null = null;
+  if (dateOfBirth) {
+    const d = new Date(dateOfBirth);
+    if (!isNaN(d.getTime())) {
+      dobYear = d.getFullYear();
+    }
+  }
+
+  let mappedGender = null;
+  if (gender) {
+    if (gender.toLowerCase().startsWith("m")) mappedGender = "M";
+    if (gender.toLowerCase().startsWith("f")) mappedGender = "F";
+  }
+
+  const id = localRepository.generateUUID();
+  const newVoter = {
+    id,
+    vin,
+    full_name: fullName.toUpperCase(),
+    dob_year: dobYear,
+    gender: mappedGender,
+    lga,
+    ward,
+    polling_unit_code: standardPuCode || null,
+    polling_unit_name: pollingUnitName,
+    voter_status: "not collected",
+    created_at: new Date().toISOString(),
+  };
+
+  let success = false;
+  try {
+    const insertResult = await withTimeout(
+      supabase.from("voter_registry").insert(newVoter),
+      4000,
+      { error: new Error("Voter registry insert timed out") }
+    );
+    if (!insertResult.error) {
+      success = true;
+    } else {
+      console.warn("Direct voter registry insert failed, queuing in sync queue:", insertResult.error);
+    }
+  } catch (err) {
+    console.warn("Direct voter registry insert exception, queuing:", err);
+  }
+
+  if (!success) {
+    await localRepository.enqueueAction("voter_registry", "INSERT", id, newVoter);
+  }
+
+  return newVoter;
 };

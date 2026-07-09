@@ -1,9 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/loose-client";
+import { supabase as registrySupabase } from "@/integrations/supabase/client";
 import { localRepository } from "@/services/LocalRepository";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
+
+// Helper to wrap promises in a timeout to prevent hanging states
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  let timeoutId: any;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.warn(`Promise timed out after ${timeoutMs}ms`);
+      resolve(fallback);
+    }, timeoutMs);
+  });
+
+  return Promise.race([
+    promise.then((result) => {
+      clearTimeout(timeoutId);
+      return result;
+    }),
+    timeoutPromise
+  ]);
+}
 
 // Types
 export interface Councillor {
@@ -84,50 +104,157 @@ export const useCouncillor = (options?: { enabled?: boolean }) => {
 
 // Helper function to load ward dashboard details from database or IndexedDB
 const fetchFreshWardData = async (councillor: Councillor): Promise<CouncillorWardData> => {
-    // Check local IndexedDB first for polling units
-    let pollingUnits: any[] = [];
-    const cachedPUs = await localRepository.getPollingUnitCells();
-    const wardPUs = cachedPUs.filter(c => c.lga === councillor.lga && c.ward === councillor.ward);
-    if (wardPUs.length > 0) {
-        pollingUnits = wardPUs;
-    } else {
-        const { data, error: puError } = await supabase
+    // 1. Try to fetch fresh ward members from Supabase to keep cache up to date
+    try {
+        console.log("🌐 Fetching latest ward members from Supabase for dashboard...");
+        const networkResult = await withTimeout(
+            supabase
+                .from("members")
+                .select("id, full_name, email, phone, role, organization_id, state, lga, ward, polling_unit, polling_unit_id, gender, date_of_birth, voters_card_id, voters_card_image_url, is_verified, created_at, updated_at")
+                .eq("lga", councillor.lga)
+                .eq("ward", councillor.ward),
+            4000,
+            { data: null, error: new Error("Network query timed out") }
+        );
+
+        const { data: memberRows, error: memberError } = networkResult as any;
+        if (!memberError && memberRows && memberRows.length > 0) {
+            for (const m of memberRows) {
+                await localRepository.saveMember(m as any);
+            }
+        }
+    } catch (e) {
+        console.warn("Failed to fetch fresh ward members for dashboard:", e);
+    }
+
+    // Load from local cache (IndexedDB)
+    let wardMembers = await localRepository.getMembersByWard(councillor.lga, councillor.ward);
+
+    // 2. Fetch master polling units of this ward
+    let rawPollingUnits: any[] = [];
+    try {
+        const { data: puData, error: puError } = await supabase
             .from("polling_units")
             .select("*")
             .eq("lga_name", councillor.lga)
             .eq("ward_name", councillor.ward)
             .order("name");
-        if (puError) throw puError;
-        pollingUnits = data || [];
+        
+        if (!puError && puData) {
+            rawPollingUnits = puData;
+        } else {
+            const cachedPUs = await localRepository.getPollingUnitCells();
+            rawPollingUnits = cachedPUs.filter(c => c.lga === councillor.lga && c.ward === councillor.ward);
+        }
+    } catch (err) {
+        const cachedPUs = await localRepository.getPollingUnitCells();
+        rawPollingUnits = cachedPUs.filter(c => c.lga === councillor.lga && c.ward === councillor.ward);
     }
 
-    // Check local IndexedDB members cache first
-    let totalMembers = 0;
-    let verifiedMembers = 0;
-    const cachedMembers = await localRepository.getMembers();
-    const wardMembers = cachedMembers.filter(m => m.lga === councillor.lga && m.ward === councillor.ward);
-    if (wardMembers.length > 0) {
-        totalMembers = wardMembers.length;
-        verifiedMembers = wardMembers.filter(m => m.is_verified === true).length;
-    } else {
-        const { data: memberStats, error: memberError } = await (supabase
-            .from("members")
-            .select("is_verified")
-            .eq("lga", councillor.lga)
-            .eq("ward", councillor.ward) as any);
-        if (memberError) throw memberError;
-        totalMembers = memberStats?.length || 0;
-        verifiedMembers = memberStats?.filter(m => m.is_verified === true).length || 0;
+    // 3. Fetch registered voter counts from the INEC voter registry view
+    const voterCountMap = new Map<string, number>();
+    try {
+        console.log("🌐 Fetching INEC registered voter counts per PU...");
+        const countsResult = await withTimeout(
+            registrySupabase
+                .from("voter_pu_counts")
+                .select("polling_unit_code, registered_count")
+                .eq("ward", councillor.ward),
+            4000,
+            { data: null, error: new Error("Registry query timed out") }
+        );
+
+        const { data: countsData, error: countsError } = countsResult as any;
+        if (!countsError && countsData) {
+            countsData.forEach((row: any) => {
+                const code = row.polling_unit_code;
+                const segments = String(code).split(/[-/]/).filter(Boolean);
+                const last = segments[segments.length - 1];
+                const seq = parseInt(String(last).replace(/\D/g, ""), 10);
+                if (!Number.isNaN(seq)) {
+                    voterCountMap.set(`${councillor.ward.trim().toUpperCase()}|${seq}`, row.registered_count || 0);
+                }
+            });
+        }
+    } catch (e) {
+        console.error("Error fetching voter_pu_counts in useCouncillors:", e);
     }
+
+    // 4. Count total and verified members per polling unit using the ward members list
+    const memberCountMap = new Map<string, number>();
+    const verifiedCountMap = new Map<string, number>();
+    
+    let totalMembers = wardMembers.length;
+    let verifiedMembers = 0;
+
+    wardMembers.forEach((m) => {
+        if (m.is_verified) verifiedMembers++;
+        
+        // Group by polling unit name (normalized)
+        const puNameKey = (m.polling_unit || "").toLowerCase().trim();
+        if (puNameKey) {
+            memberCountMap.set(puNameKey, (memberCountMap.get(puNameKey) || 0) + 1);
+            if (m.is_verified) {
+                verifiedCountMap.set(puNameKey, (verifiedCountMap.get(puNameKey) || 0) + 1);
+            }
+        }
+    });
+
+    // 5. Map the polling units to standard format expected by CouncillorDashboard UI
+    const pollingUnits = rawPollingUnits.map((pu: any) => {
+        const name = pu.name || pu.polling_unit_name || "";
+        const code = pu.code || pu.pu_code || "—";
+        const key = name.toLowerCase().trim();
+        
+        // Match with the voter registry count
+        let registered = pu.registered_voters || 0;
+        const segments = String(code).split(/[-/]/).filter(Boolean);
+        const last = segments[segments.length - 1];
+        const seq = parseInt(String(last).replace(/\D/g, ""), 10);
+        if (!Number.isNaN(seq)) {
+            const matchKey = `${councillor.ward.trim().toUpperCase()}|${seq}`;
+            if (voterCountMap.has(matchKey)) {
+                registered = voterCountMap.get(matchKey) || 0;
+            }
+        }
+
+        const verified = verifiedCountMap.get(key) || 0;
+        const total = memberCountMap.get(key) || 0;
+
+        let status = pu.status || "forming";
+        if (verified >= registered && registered > 0) {
+            status = "complete";
+        } else if (verified > 0) {
+            status = "active";
+        }
+
+        return {
+            id: pu.id,
+            name,
+            code,
+            registered_voters: registered,
+            verified_members: verified,
+            total_members: total,
+            status,
+        };
+    });
+
     const pendingVerification = totalMembers - verifiedMembers;
 
-    // Get activities in ward
-    const { count: activityCount, error: activityError } = await supabase
-        .from("support_group_activities")
-        .select("*", { count: "exact", head: true })
-        .eq("lga", councillor.lga)
-        .eq("ward", councillor.ward);
-    if (activityError) throw activityError;
+    // Get activities count
+    let activityCount = 0;
+    try {
+        const { count, error: activityError } = await supabase
+            .from("support_group_activities")
+            .select("*", { count: "exact", head: true })
+            .eq("lga", councillor.lga)
+            .eq("ward", councillor.ward);
+        if (!activityError) {
+            activityCount = count || 0;
+        }
+    } catch (e) {
+        console.error("Error fetching activity count:", e);
+    }
 
     return {
         ward: councillor.ward,
@@ -136,7 +263,7 @@ const fetchFreshWardData = async (councillor: Councillor): Promise<CouncillorWar
         totalMembers,
         verifiedMembers,
         pendingVerification,
-        totalActivities: activityCount || 0,
+        totalActivities: activityCount,
         pollingUnits,
     };
 };
@@ -150,23 +277,37 @@ export const useCouncillorWardData = () => {
         queryFn: async () => {
             if (!councillor) throw new Error("Councillor not loaded");
 
-            const cacheKey = `ward_data_${councillor.lga}_${councillor.ward}`;
+            const cacheKey = `ward_data_v3_${councillor.lga}_${councillor.ward}`;
 
             // 1. Check local cache first
             if (typeof window !== "undefined") {
                 const cached = localStorage.getItem(cacheKey);
                 if (cached) {
-                    console.log("📦 Loaded ward dashboard data from local cache.");
-                    // Background refresh
-                    (async () => {
-                        try {
-                            const freshData = await fetchFreshWardData(councillor);
-                            localStorage.setItem(cacheKey, JSON.stringify(freshData));
-                        } catch (e) {
-                            console.error("Error refreshing ward data in background:", e);
+                    try {
+                        const parsed = JSON.parse(cached) as CouncillorWardData;
+                        const hasValidPUs = parsed.pollingUnits && 
+                            parsed.pollingUnits.length > 0 && 
+                            parsed.pollingUnits.every(pu => pu.name && pu.code && pu.code !== "—");
+
+                        if (hasValidPUs) {
+                            console.log("📦 Loaded ward dashboard data from local cache.");
+                            // Background refresh
+                            (async () => {
+                                try {
+                                    const freshData = await fetchFreshWardData(councillor);
+                                    localStorage.setItem(cacheKey, JSON.stringify(freshData));
+                                } catch (e) {
+                                    console.error("Error refreshing ward data in background:", e);
+                                }
+                            })();
+                            return parsed;
+                        } else {
+                            console.warn("⚠️ Cached ward data is invalid or lacks names/codes. Bypassing cache to force refetch.");
+                            localStorage.removeItem(cacheKey);
                         }
-                    })();
-                    return JSON.parse(cached) as CouncillorWardData;
+                    } catch (e) {
+                        localStorage.removeItem(cacheKey);
+                    }
                 }
             }
 

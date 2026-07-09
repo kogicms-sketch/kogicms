@@ -92,6 +92,11 @@ class LocalRepository {
     return members.filter(m => m.deleted !== 1);
   }
 
+  public async getMembersByWard(lga: string, ward: string): Promise<LocalMember[]> {
+    const members = await offlineDb.members.where('ward').equals(ward).toArray();
+    return members.filter(m => m.deleted !== 1 && m.lga === lga);
+  }
+
   public async saveMember(member: Omit<LocalMember, 'created_at' | 'updated_at' | 'deleted'>): Promise<LocalMember> {
     const timestamp = new Date().toISOString();
     const existing = await this.getMemberById(member.id);

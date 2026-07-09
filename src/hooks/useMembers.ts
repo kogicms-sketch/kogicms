@@ -5,6 +5,26 @@ import { Tables, TablesInsert } from "@/integrations/supabase/loose-types";
 import { toast } from "sonner";
 import { localRepository } from "@/services/LocalRepository";
 import { syncManager } from "@/services/SyncManager";
+import { generateSequentialMembershipId } from "@/lib/campaign-data";
+
+// Helper to wrap promises in a timeout to prevent hanging states
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  let timeoutId: any;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.warn(`Promise timed out after ${timeoutMs}ms`);
+      resolve(fallback);
+    }, timeoutMs);
+  });
+
+  return Promise.race([
+    promise.then((result) => {
+      clearTimeout(timeoutId);
+      return result;
+    }),
+    timeoutPromise
+  ]);
+}
 
 export type Member = Tables<"members"> & { 
   is_verified?: boolean; 
@@ -50,7 +70,54 @@ export const useMembers = (
     queryKey: ["members", scope, organizationId, pollingUnitId, pollingUnitName, allowedLgas, allowedWard],
     enabled: scope !== "polling_unit" || !!pollingUnitId || !!pollingUnitName,
     queryFn: async () => {
-      // 1. Check local cache first
+      // 1. Try to fetch from Supabase first to sync local cache
+      try {
+        console.log(`🌐 Fetching latest members from Supabase...`);
+        let query = supabase
+          .from("members")
+          .select(`
+            *,
+            organizations:organization_id (name)
+          `)
+          .order("created_at", { ascending: false });
+        
+        if (scope === "polling_unit") {
+          if (pollingUnitId && pollingUnitName) {
+            query = query.or(`polling_unit_id.eq.${pollingUnitId},polling_unit.eq.${pollingUnitName}`);
+          } else if (pollingUnitId) {
+            query = query.eq("polling_unit_id", pollingUnitId);
+          } else if (pollingUnitName) {
+            query = query.eq("polling_unit", pollingUnitName);
+          }
+        } else if (scope === "organization" && organizationId) {
+          query = query.or(`organization_id.eq.${organizationId},support_group_id.eq.${organizationId}`);
+        }
+
+        if (allowedWard) {
+          query = query.eq("ward", allowedWard);
+        }
+
+        if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
+          query = query.in("lga", allowedLgas);
+        }
+
+        const networkResult = await withTimeout(
+          query,
+          4000,
+          { data: null, error: new Error("Network query timed out") }
+        );
+
+        const { data, error } = networkResult as any;
+        if (!error && data && data.length > 0) {
+          for (const member of data) {
+            await localRepository.saveMember(member);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch fresh members from server, using cached:", err);
+      }
+
+      // 2. Load from local cache (IndexedDB)
       let list = await localRepository.getMembers();
       
       // Apply filters locally
@@ -74,53 +141,7 @@ export const useMembers = (
         list = list.filter(m => m.lga && allowedLgas.includes(m.lga));
       }
 
-      // If cached members exist, return them immediately
-      if (list.length > 0) {
-        console.log(`📦 Loaded ${list.length} members from IndexedDB local cache.`);
-        return list as MemberWithOrganization[];
-      }
-
-      // 2. Fallback to Supabase
-      console.log(`🌐 IndexedDB cache empty. Fetching members from Supabase...`);
-      let query = supabase
-        .from("members")
-        .select(`
-          *,
-          organizations:organization_id (name)
-        `)
-        .order("created_at", { ascending: false });
-      
-      if (scope === "polling_unit") {
-        if (pollingUnitId && pollingUnitName) {
-          query = query.or(`polling_unit_id.eq.${pollingUnitId},polling_unit.eq.${pollingUnitName}`);
-        } else if (pollingUnitId) {
-          query = query.eq("polling_unit_id", pollingUnitId);
-        } else if (pollingUnitName) {
-          query = query.eq("polling_unit", pollingUnitName);
-        }
-      } else if (scope === "organization" && organizationId) {
-        query = query.or(`organization_id.eq.${organizationId},support_group_id.eq.${organizationId}`);
-      }
-
-      if (allowedWard) {
-        query = query.eq("ward", allowedWard);
-      }
-
-      if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
-        query = query.in("lga", allowedLgas);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      // 3. Populate local cache immediately
-      if (data && data.length > 0) {
-        for (const member of data) {
-          await localRepository.saveMember(member);
-        }
-      }
-
-      return (data || []) as MemberWithOrganization[];
+      return list as MemberWithOrganization[];
     },
   });
 };
@@ -164,7 +185,12 @@ export const useCreateMember = () => {
   return useMutation({
     mutationFn: async (member: MemberInsert) => {
       const id = member.id || localRepository.generateUUID();
-      const membershipId = member.membership_id || `DR-${Date.now().toString(36).toUpperCase()}`;
+      const membershipId = member.membership_id || await generateSequentialMembershipId(
+        member.lga || "",
+        member.ward || "",
+        member.polling_unit || "",
+        member.voters_card_id
+      );
       
       const newMember = {
         ...member,

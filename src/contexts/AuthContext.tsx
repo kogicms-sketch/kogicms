@@ -56,15 +56,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const hasLoadedRef = useRef(false);
   const currentUserIdRef = useRef<string | null>(null);
 
+  // Helper to wrap promises in a timeout to prevent hanging states
+  function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+    let timeoutId: any;
+    const timeoutPromise = new Promise<T>((resolve) => {
+      timeoutId = setTimeout(() => {
+        console.warn(`Promise timed out after ${timeoutMs}ms`);
+        resolve(fallback);
+      }, timeoutMs);
+    });
+
+    return Promise.race([
+      promise.then((result) => {
+        clearTimeout(timeoutId);
+        return result;
+      }),
+      timeoutPromise
+    ]);
+  }
+
   const fetchUserRole = async (userId: string) => {
     try {
       console.log("Fetching role for user:", userId);
       if (isMockRef.current) return "super_admin";
 
-      const { data, error } = await supabase.rpc('get_user_role', {
+      const rolePromise = supabase.rpc('get_user_role', {
         _user_id: userId
       });
 
+      const roleResult = await withTimeout(
+        rolePromise,
+        30000,
+        { data: null, error: new Error("Role fetch timed out") }
+      );
+
+      const { data, error } = roleResult as any;
       console.log("Role fetch RPC result:", { data, error });
 
       if (error) {
@@ -82,11 +108,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       if (isMockRef.current) return null;
 
-      const { data, error } = await supabase
+      const orgPromise = supabase
         .from("organization_admins")
         .select("organization_id")
         .eq("user_id", userId)
         .maybeSingle();
+
+      const orgResult = await withTimeout(
+        orgPromise,
+        30000,
+        { data: null, error: null }
+      );
+
+      const { data, error } = orgResult as any;
 
       if (error) {
         console.error("Error fetching user organization:", error);
@@ -101,28 +135,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserData = async (userId: string) => {
     const userRole = await fetchUserRole(userId);
-    setRole(userRole);
-    if (userRole) {
-      localStorage.setItem("auth_role", userRole);
+    
+    // Fall back to cached role if the network check timed out or failed
+    const activeRole = userRole || (localStorage.getItem("auth_role") as AppRole);
+    
+    if (activeRole) {
+      setRole(activeRole);
+      localStorage.setItem("auth_role", activeRole);
     } else {
+      setRole(null);
       localStorage.removeItem("auth_role");
     }
 
-    if (userRole === "org_admin") {
+    if (activeRole === "org_admin") {
       const orgId = await fetchUserOrganization(userId);
-      setOrganizationId(orgId);
-      if (orgId) {
-        localStorage.setItem("auth_organization_id", orgId);
+      const activeOrgId = orgId || localStorage.getItem("auth_organization_id");
+      if (activeOrgId) {
+        setOrganizationId(activeOrgId);
+        localStorage.setItem("auth_organization_id", activeOrgId);
       } else {
+        setOrganizationId(null);
         localStorage.removeItem("auth_organization_id");
       }
 
       if (!isMockRef.current) {
         const currentDevice = navigator.userAgent;
         try {
-          const { data: checkResult, error: checkError } = await (supabase.rpc as any)('check_and_update_device', {
+          const checkResultPromise = (supabase.rpc as any)('check_and_update_device', {
             p_device_info: currentDevice
           });
+          const checkResultData = await withTimeout(
+            checkResultPromise,
+            3000,
+            { data: null, error: null }
+          ) as any;
+
+          const { data: checkResult, error: checkError } = checkResultData;
 
           if (checkError) {
             console.error("Device check failed:", checkError);
@@ -142,14 +190,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               return;
             }
           } else {
-            const { data } = await supabase
+            // Load profiles in a non-blocking background promise
+            supabase
               .from("profiles")
               .select("account_status")
               .eq("id", userId)
-              .maybeSingle() as any;
-            const status = data?.account_status || 'active';
-            setAccountStatus(status);
-            localStorage.setItem("auth_account_status", status);
+              .maybeSingle()
+              .then(({ data, error }: any) => {
+                if (!error && data) {
+                  const status = data.account_status || 'active';
+                  setAccountStatus(status);
+                  localStorage.setItem("auth_account_status", status);
+                }
+              })
+              .catch((err) => console.error("Non-blocking profile check exception:", err));
           }
         } catch (err) {
           console.error("Security check exception:", err);
@@ -160,14 +214,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.removeItem("auth_organization_id");
       
       if (!isMockRef.current) {
-        const { data } = await supabase
+        // Load profiles in a non-blocking background promise
+        supabase
           .from("profiles")
           .select("account_status")
           .eq("id", userId)
-          .maybeSingle() as any;
-        const status = data?.account_status || 'active';
-        setAccountStatus(status);
-        localStorage.setItem("auth_account_status", status);
+          .maybeSingle()
+          .then(({ data, error }: any) => {
+            if (!error && data) {
+              const status = data.account_status || 'active';
+              setAccountStatus(status);
+              localStorage.setItem("auth_account_status", status);
+            }
+          })
+          .catch((err) => console.error("Non-blocking profile check exception:", err));
       }
     }
   };

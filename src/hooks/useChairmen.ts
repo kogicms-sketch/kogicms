@@ -50,6 +50,27 @@ export const useChairman = () => {
     return useQuery({
         queryKey: ["chairman-profile"],
         queryFn: async () => {
+            // 1. Check local storage cache first
+            if (typeof window !== "undefined") {
+                const cached = localStorage.getItem("chairman_profile");
+                if (cached) {
+                    console.log("📦 Loaded chairman profile from local storage cache.");
+                    // Background refresh
+                    supabase.auth.getUser().then(({ data: { user } }) => {
+                        if (user) {
+                            db.from("lga_chairmen").select("*").eq("user_id", user.id).single()
+                                .then(({ data, error }: any) => {
+                                    if (data && !error) {
+                                        localStorage.setItem("chairman_profile", JSON.stringify(data));
+                                    }
+                                });
+                        }
+                    });
+                    return JSON.parse(cached) as LGAChairman;
+                }
+            }
+
+            // 2. Fallback to Supabase
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Not authenticated");
 
@@ -60,12 +81,98 @@ export const useChairman = () => {
                 .single();
 
             if (error) throw error;
+            if (typeof window !== "undefined") {
+                localStorage.setItem("chairman_profile", JSON.stringify(data));
+            }
             return data as unknown as LGAChairman;
         },
         enabled: role === "lga_chairman", // Only run for lga_chairman role
         staleTime: 1000 * 60 * 5, // 5 minutes
         gcTime: 1000 * 60 * 30, // 30 minutes
     });
+};
+
+const fetchFreshChairmanDashboardStats = async (chairman: LGAChairman): Promise<ChairmanDashboardStats> => {
+    // Get total wards and polling units from the main polling_units table
+    const { data: pollingUnits, error: puError } = await supabase
+        .from("polling_units")
+        .select("ward_name, name, lga_name")
+        .eq("lga_name", chairman.lga);
+
+    if (puError) throw puError;
+
+    const uniqueWards = new Set<string>(
+        ((pollingUnits as any[] | undefined)?.map((pu) => String(pu.ward_name || "")).filter(Boolean)) || []
+    );
+    const totalWards = uniqueWards.size;
+    const totalPollingUnits = pollingUnits?.length || 0;
+
+    // Get total members and verification stats in LGA using the optimized RPC
+    const { data: lgaSummary, error: lgaError } = await (supabase as any).rpc("get_jurisdiction_lga_summary", {
+        target_lgas: [chairman.lga]
+    });
+
+    if (lgaError) throw lgaError;
+    const lgaStats = lgaSummary?.[0] || {};
+    const totalRegisteredVoters = Number(lgaStats.inec_registered_voters || 0);
+    const totalMembers = lgaStats.app_members_total || 0;
+    const verifiedMembers = lgaStats.app_members_verified || 0;
+    const pendingVerification = lgaStats.app_members_pending || 0;
+
+    // Get members per ward for performance overview
+    const { data: memberStats, error: memberStatsError } = await supabase
+        .from("members")
+        .select("ward")
+        .eq("lga", chairman.lga);
+
+    if (memberStatsError) throw memberStatsError;
+
+    const memberCountByWard = (memberStats || []).reduce((acc: Record<string, number>, member) => {
+        if (member.ward) {
+            acc[member.ward] = (acc[member.ward] || 0) + 1;
+        }
+        return acc;
+    }, {});
+
+    // Get total councillors
+    const { count: councillorCount, error: councillorError } = await db
+        .from("councillors")
+        .select("*", { count: "exact", head: true })
+        .eq("lga", chairman.lga);
+
+    if (councillorError) throw councillorError;
+
+    // Get total support groups in LGA
+    const { count: sgCount, error: sgError } = await supabase
+        .from("organizations")
+        .select("*", { count: "exact", head: true })
+        .eq("category", "support_group")
+        .eq("lga", chairman.lga);
+
+    if (sgError) throw sgError;
+
+    // Calculate ward performance
+    const wardStats = Array.from(uniqueWards).map((ward) => {
+        const wardPUs = (pollingUnits as any[] | undefined)?.filter((pu) => pu.ward_name === ward) || [];
+        return {
+            ward,
+            pollingUnits: wardPUs.length,
+            members: memberCountByWard[ward] || 0,
+            performance: 0, // Could be calculated based on a target if available
+        };
+    });
+
+    return {
+        totalWards,
+        totalPollingUnits,
+        totalRegisteredVoters,
+        totalMembers,
+        verifiedMembers,
+        pendingVerification,
+        totalCouncillors: councillorCount || 0,
+        totalSupportGroups: sgCount || 0,
+        wardPerformance: wardStats,
+    } as ChairmanDashboardStats;
 };
 
 // Get dashboard statistics for chairman's LGA
@@ -77,86 +184,31 @@ export const useChairmanDashboardStats = () => {
         queryFn: async () => {
             if (!chairman) throw new Error("Chairman not loaded");
 
-            // Get total wards and polling units from the main polling_units table
-            const { data: pollingUnits, error: puError } = await supabase
-                .from("polling_units")
-                .select("ward_name, name, lga_name")
-                .eq("lga_name", chairman.lga);
+            const cacheKey = `chairman_dashboard_stats_${chairman.lga}`;
 
-            if (puError) throw puError;
-
-            const uniqueWards = new Set<string>(
-                ((pollingUnits as any[] | undefined)?.map((pu) => String(pu.ward_name || "")).filter(Boolean)) || []
-            );
-            const totalWards = uniqueWards.size;
-            const totalPollingUnits = pollingUnits?.length || 0;
-
-            // Get total members and verification stats in LGA using the optimized RPC
-            const { data: lgaSummary, error: lgaError } = await (supabase as any).rpc("get_jurisdiction_lga_summary", {
-                target_lgas: [chairman.lga]
-            });
-
-            if (lgaError) throw lgaError;
-            const lgaStats = lgaSummary?.[0] || {};
-            const totalRegisteredVoters = Number(lgaStats.inec_registered_voters || 0);
-            const totalMembers = lgaStats.app_members_total || 0;
-            const verifiedMembers = lgaStats.app_members_verified || 0;
-            const pendingVerification = lgaStats.app_members_pending || 0;
-
-            // Get members per ward for performance overview
-            const { data: memberStats, error: memberStatsError } = await supabase
-                .from("members")
-                .select("ward")
-                .eq("lga", chairman.lga);
-
-            if (memberStatsError) throw memberStatsError;
-
-            const memberCountByWard = (memberStats || []).reduce((acc: Record<string, number>, member) => {
-                if (member.ward) {
-                    acc[member.ward] = (acc[member.ward] || 0) + 1;
+            // 1. Check local cache first
+            if (typeof window !== "undefined") {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    console.log("📦 Loaded chairman dashboard stats from local cache.");
+                    // Background refresh
+                    (async () => {
+                        try {
+                            const freshData = await fetchFreshChairmanDashboardStats(chairman);
+                            localStorage.setItem(cacheKey, JSON.stringify(freshData));
+                        } catch (e) {
+                            console.error("Error refreshing chairman dashboard stats in background:", e);
+                        }
+                    })();
+                    return JSON.parse(cached) as ChairmanDashboardStats;
                 }
-                return acc;
-            }, {});
+            }
 
-            // Get total councillors
-            const { count: councillorCount, error: councillorError } = await db
-                .from("councillors")
-                .select("*", { count: "exact", head: true })
-                .eq("lga", chairman.lga);
-
-            if (councillorError) throw councillorError;
-
-            // Get total support groups in LGA
-            const { count: sgCount, error: sgError } = await supabase
-                .from("organizations")
-                .select("*", { count: "exact", head: true })
-                .eq("category", "support_group")
-                .eq("lga", chairman.lga);
-
-            if (sgError) throw sgError;
-
-            // Calculate ward performance
-            const wardStats = Array.from(uniqueWards).map((ward) => {
-                const wardPUs = (pollingUnits as any[] | undefined)?.filter((pu) => pu.ward_name === ward) || [];
-                return {
-                    ward,
-                    pollingUnits: wardPUs.length,
-                    members: memberCountByWard[ward] || 0,
-                    performance: 0, // Could be calculated based on a target if available
-                };
-            });
-
-            return {
-                totalWards,
-                totalPollingUnits,
-                totalRegisteredVoters,
-                totalMembers,
-                verifiedMembers,
-                pendingVerification,
-                totalCouncillors: councillorCount || 0,
-                totalSupportGroups: sgCount || 0,
-                wardPerformance: wardStats,
-            } as ChairmanDashboardStats;
+            const freshData = await fetchFreshChairmanDashboardStats(chairman);
+            if (typeof window !== "undefined") {
+                localStorage.setItem(cacheKey, JSON.stringify(freshData));
+            }
+            return freshData;
         },
         enabled: !!chairman,
         staleTime: 1000 * 60 * 5, // 5 minutes
