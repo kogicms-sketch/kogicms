@@ -22,10 +22,16 @@ import {
     TrendingUp,
     History,
     Search,
-    RotateCcw
+    RotateCcw,
+    Lock,
+    Mail,
+    Eye,
+    EyeOff,
+    Copy
 } from "lucide-react";
 import { ALL_POLLING_UNITS } from "@/data/aggregated_lga_data";
 import { getChairmanByLGA } from "@/data/lga_chairmen";
+import { toast } from "sonner";
 import { 
     CELL_STATUS_LABELS, 
     useCreatePollingUnitCell, 
@@ -36,7 +42,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useParty } from "@/contexts/PartyContext";
 import AssignAgentModal from "@/components/modals/AssignAgentModal";
 import { useState } from "react";
-import { toast } from "sonner";
 import VoterDemographicsChart from "@/components/charts/VoterDemographicsChart";
 import {
     Dialog,
@@ -136,6 +141,13 @@ const PollingUnitDetail = () => {
     const { role: userRole } = useAuth();
     const isApc = partyId === "apc";
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+
+    const handleCopyPassword = (password: string) => {
+        if (!password) return;
+        navigator.clipboard.writeText(password);
+        toast.success("Password copied to clipboard");
+    };
     const [selectedStatus, setSelectedStatus] = useState<string>("forming");
     const [isUpdating, setIsUpdating] = useState(false);
 
@@ -418,7 +430,7 @@ const PollingUnitDetail = () => {
             // Fetch polling unit agent from polling_unit_agents table using real ID
             const { data: agentData, error: agentError } = await (supabase as any)
                 .from("polling_unit_agents")
-                .select("id, user_id, agent_name, phone")
+                .select("id, user_id, agent_name, phone, email, password")
                 .eq("polling_unit_id", realId)
                 .maybeSingle();
 
@@ -430,6 +442,8 @@ const PollingUnitDetail = () => {
                 id: agentData.id,
                 name: agentData.agent_name || 'Unknown',
                 phone: agentData.phone || '',
+                email: agentData.email || '',
+                password: agentData.password || '',
                 user_id: agentData.user_id
             } : null;
 
@@ -714,23 +728,65 @@ const PollingUnitDetail = () => {
                                 </CardHeader>
                                 <CardContent>
                                     {(leadership?.puAgent || unit.canvasser_name) ? (
-                                        <div className="flex items-start gap-4">
-                                            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                                                <User className="w-6 h-6 text-primary" />
-                                            </div>
-                                            <div>
-                                                <h4 className="font-semibold text-lg">
-                                                    {isApc 
-                                                        ? (leadership?.puAgent?.name || unit.canvasser_name)
-                                                        : `${unit.name || "Polling Unit"} Agent`}
-                                                </h4>
-                                                <div className="flex items-center gap-2 text-muted-foreground mt-1">
-                                                    <Phone className="w-4 h-4" />
-                                                    {isApc 
-                                                        ? (leadership?.puAgent?.phone || unit.canvasser_phone || "No phone number")
-                                                        : "Active in cell"}
+                                        <div className="space-y-4">
+                                            <div className="flex items-start gap-4">
+                                                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                                    <User className="w-6 h-6 text-primary" />
                                                 </div>
-                                                <Badge variant="outline" className="mt-2">Active</Badge>
+                                                <div className="flex-1 space-y-1.5 min-w-0">
+                                                    <h4 className="font-semibold text-lg truncate">
+                                                        {leadership?.puAgent?.name || unit.canvasser_name || `${unit.name || "Polling Unit"} Agent`}
+                                                    </h4>
+                                                    <div className="flex flex-col gap-1.5 text-sm text-muted-foreground mt-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <Phone className="w-4 h-4 text-slate-400" />
+                                                            <span>{leadership?.puAgent?.phone || unit.canvasser_phone || "No phone number"}</span>
+                                                        </div>
+                                                        {leadership?.puAgent?.email && (
+                                                            <div className="flex items-center gap-2">
+                                                                <Mail className="w-4 h-4 text-slate-400" />
+                                                                <span className="truncate">{leadership.puAgent.email}</span>
+                                                            </div>
+                                                        )}
+                                                        {leadership?.puAgent?.password && (
+                                                            <div className="flex items-center gap-2 bg-slate-50 p-1.5 px-2.5 rounded-lg border border-slate-100 w-fit mt-1">
+                                                                <Lock className="w-4 h-4 text-slate-400" />
+                                                                <span className="font-mono text-xs font-semibold text-slate-700">
+                                                                    {showPassword ? leadership.puAgent.password : "••••••••"}
+                                                                </span>
+                                                                <Button
+                                                                    size="icon"
+                                                                    variant="ghost"
+                                                                    className="h-5 w-5 ml-2 text-slate-400 hover:text-slate-600"
+                                                                    onClick={() => setShowPassword(!showPassword)}
+                                                                >
+                                                                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                                                </Button>
+                                                                <Button
+                                                                    size="icon"
+                                                                    variant="ghost"
+                                                                    className="h-5 w-5 text-slate-400 hover:text-slate-600"
+                                                                    onClick={() => handleCopyPassword(leadership.puAgent.password)}
+                                                                >
+                                                                    <Copy className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
+                                                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Active</Badge>
+                                                        {councillor && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="h-7 text-xs ml-auto cursor-pointer font-semibold"
+                                                                onClick={() => setIsAssignModalOpen(true)}
+                                                            >
+                                                                Change Agent
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     ) : (
@@ -1029,18 +1085,63 @@ const PollingUnitDetail = () => {
                                 </CardHeader>
                                 <CardContent>
                                     {leadership?.puAgent ? (
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 font-bold">
-                                                {isApc ? leadership.puAgent.name.charAt(0) : "A"}
+                                        <div className="space-y-3">
+                                            <div className="flex items-start gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 font-bold flex-shrink-0">
+                                                    {(leadership.puAgent.name || "Agent").charAt(0)}
+                                                </div>
+                                                <div className="flex-1 space-y-1 min-w-0">
+                                                    <p className="font-semibold text-slate-800 truncate">
+                                                        {leadership.puAgent.name}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                                        <Phone className="w-3.5 h-3.5 text-slate-400" />
+                                                        {leadership.puAgent.phone || "No phone number"}
+                                                    </p>
+                                                    {leadership.puAgent.email && (
+                                                        <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                                                            <Mail className="w-3.5 h-3.5 text-slate-400" />
+                                                            {leadership.puAgent.email}
+                                                        </p>
+                                                    )}
+                                                    {leadership.puAgent.password && (
+                                                        <div className="flex items-center gap-1.5 bg-white p-1 px-2 rounded border border-slate-100 w-fit mt-1">
+                                                            <Lock className="w-3 h-3 text-slate-400" />
+                                                            <span className="font-mono text-xs text-slate-700">
+                                                                {showPassword ? leadership.puAgent.password : "••••••••"}
+                                                            </span>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-4 w-4 ml-1 text-slate-400 hover:text-slate-600"
+                                                                onClick={() => setShowPassword(!showPassword)}
+                                                            >
+                                                                {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                                            </Button>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-4 w-4 text-slate-400 hover:text-slate-600"
+                                                                onClick={() => handleCopyPassword(leadership.puAgent.password)}
+                                                            >
+                                                                <Copy className="h-3 w-3" />
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="font-medium">
-                                                    {isApc ? leadership.puAgent.name : `${unit.name || "Polling Unit"} Agent`}
-                                                </p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {isApc ? leadership.puAgent.phone : "Active in unit"}
-                                                </p>
-                                            </div>
+                                            {councillor && (
+                                                <div className="pt-2 border-t border-slate-200/60 flex justify-end">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="h-7 text-xs cursor-pointer font-semibold"
+                                                        onClick={() => setIsAssignModalOpen(true)}
+                                                    >
+                                                        Change Agent
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="text-center py-2">
@@ -1247,7 +1348,7 @@ const PollingUnitDetail = () => {
                         }}
                         councillorId={councillor.id}
                         pollingUnit={{
-                            id: id || "",
+                            id: unit.polling_unit_id || id || "",
                             name: unit.polling_unit_name,
                             ward: unit.ward,
                             lga: unit.lga,

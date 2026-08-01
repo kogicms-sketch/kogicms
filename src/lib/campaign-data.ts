@@ -198,6 +198,35 @@ export const generateSequentialMembershipId = async (
   }
 
   const cleanPuCode = puCode.toUpperCase().replace(/\s+/g, "");
+  const prefix = `${lgaAbbr}-${cleanPuCode}-`;
+
+  let maxSeq = 0;
+
+  // Query existing membership_ids starting with this prefix to find highest sequence number
+  try {
+    const idListResult = await withTimeout(
+      supabase
+        .from("members")
+        .select("membership_id")
+        .ilike("membership_id", `${prefix}%`),
+      5000,
+      { data: null, error: null }
+    );
+    const { data: idList } = idListResult as any;
+    if (idList && Array.isArray(idList)) {
+      for (const item of idList) {
+        if (item.membership_id) {
+          const parts = item.membership_id.split("-");
+          const lastNum = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(lastNum) && lastNum > maxSeq) {
+            maxSeq = lastNum;
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error querying remote membership_ids by prefix:", err);
+  }
 
   // 3. Get existing count
   let remoteCount = 0;
@@ -209,7 +238,7 @@ export const generateSequentialMembershipId = async (
         .eq("lga", lga)
         .eq("ward", ward)
         .eq("polling_unit", pollingUnitName),
-      3000,
+      4000,
       { count: 0, error: null }
     );
     const { count, error } = countResult as any;
@@ -227,17 +256,26 @@ export const generateSequentialMembershipId = async (
       2000,
       []
     );
-    localCount = localMembers.filter(
-      m => m.polling_unit === pollingUnitName
-    ).length;
+    for (const m of localMembers) {
+      if (m.polling_unit === pollingUnitName) {
+        localCount++;
+      }
+      if (m.membership_id && m.membership_id.startsWith(prefix)) {
+        const parts = m.membership_id.split("-");
+        const lastNum = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(lastNum) && lastNum > maxSeq) {
+          maxSeq = lastNum;
+        }
+      }
+    }
   } catch (err) {
     console.error("Error querying local members count:", err);
   }
 
-  const nextSeq = Math.max(remoteCount, localCount) + 1;
+  const nextSeq = Math.max(remoteCount, localCount, maxSeq) + 1;
   const seqStr = nextSeq.toString().padStart(4, "0");
 
-  return `${lgaAbbr}-${cleanPuCode}-${seqStr}`;
+  return `${prefix}${seqStr}`;
 };
 
 export const insertNewVoterToRegistry = async (

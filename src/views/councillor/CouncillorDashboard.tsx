@@ -1,11 +1,13 @@
 "use client";
+import React, { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCouncillor, useCouncillorWardData } from "@/hooks/useCouncillors";
 import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
 import {
     MapPin, Building2, Users, Activity, ShieldCheck, Clock,
-    Shield, Star, Vote, TrendingUp, ChevronRight, Navigation
+    Shield, Star, Vote, TrendingUp, ChevronRight, Navigation,
+    UserPlus, Eye, EyeOff, Copy
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { APCFlag } from "@/components/branding/APCFlag";
@@ -18,6 +20,8 @@ import {
 } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/loose-client";
+import AssignAgentModal from "@/components/modals/AssignAgentModal";
+import { toast } from "sonner";
 
 const RecentAgentActivity = ({ lga, ward }: { lga: string; ward: string }) => {
     const { data: locations = [], isLoading } = useQuery({
@@ -91,7 +95,24 @@ const RecentAgentActivity = ({ lga, ward }: { lga: string; ward: string }) => {
 
 const CouncillorDashboard = () => {
     const { data: councillor, isLoading: councillorLoading } = useCouncillor();
-    const { data: wardData, isLoading: wardLoading } = useCouncillorWardData();
+    const { data: wardData, isLoading: wardLoading, refetch: refetchWardData } = useCouncillorWardData();
+
+    const [selectedPU, setSelectedPU] = useState<any | null>(null);
+    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+    const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+
+    const togglePassword = (puId: string) => {
+        setShowPasswords(prev => ({
+            ...prev,
+            [puId]: !prev[puId]
+        }));
+    };
+
+    const handleCopyPassword = (password: string) => {
+        if (!password) return;
+        navigator.clipboard.writeText(password);
+        toast.success("Password copied to clipboard");
+    };
 
     if (councillorLoading || (councillor && wardLoading)) {
         return (
@@ -407,6 +428,7 @@ const CouncillorDashboard = () => {
                                                     <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider">Verified</TableHead>
                                                     <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider hidden sm:table-cell">Status</TableHead>
                                                     <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider">Coverage</TableHead>
+                                                    <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider">Polling Unit Agent</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -467,6 +489,70 @@ const CouncillorDashboard = () => {
                                                                     </span>
                                                                 </div>
                                                             </TableCell>
+                                                            <TableCell className="py-3">
+                                                                {pu.agent ? (
+                                                                    <div className="flex flex-col gap-1 min-w-[200px] bg-slate-50/50 p-2 rounded-lg border border-slate-100">
+                                                                        <div className="flex justify-between items-center">
+                                                                            <span className="font-semibold text-xs text-slate-800">{pu.agent.name}</span>
+                                                                            <span className="text-[9px] font-mono text-slate-500">{pu.agent.phone}</span>
+                                                                        </div>
+                                                                        <span className="text-[10px] text-muted-foreground">{pu.agent.email}</span>
+                                                                        <div className="flex items-center gap-1.5 mt-0.5 pt-1 border-t border-slate-100">
+                                                                            <span className="text-[10px] font-medium text-slate-500">Pass:</span>
+                                                                            <span className="font-mono text-xs text-slate-700 font-semibold select-all">
+                                                                                {showPasswords[pu.id] ? pu.agent.password || "—" : "••••••••"}
+                                                                            </span>
+                                                                            <div className="flex gap-1 ml-auto">
+                                                                                <Button
+                                                                                    size="icon"
+                                                                                    variant="ghost"
+                                                                                    className="h-5 w-5 text-slate-400 hover:text-slate-600"
+                                                                                    onClick={() => togglePassword(pu.id)}
+                                                                                    title={showPasswords[pu.id] ? "Hide password" : "Show password"}
+                                                                                >
+                                                                                    {showPasswords[pu.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                                                                                </Button>
+                                                                                <Button
+                                                                                    size="icon"
+                                                                                    variant="ghost"
+                                                                                    className="h-5 w-5 text-slate-400 hover:text-slate-600"
+                                                                                    onClick={() => handleCopyPassword(pu.agent.password)}
+                                                                                    disabled={!pu.agent.password}
+                                                                                    title="Copy password"
+                                                                                >
+                                                                                    <Copy className="h-3 w-3" />
+                                                                                </Button>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="outline"
+                                                                                    className="h-5 text-[9px] px-1 font-semibold text-slate-600 hover:text-indigo-600 cursor-pointer"
+                                                                                    onClick={() => {
+                                                                                        setSelectedPU(pu);
+                                                                                        setIsAssignModalOpen(true);
+                                                                                    }}
+                                                                                >
+                                                                                    Change
+                                                                                </Button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="outline"
+                                                                            className="h-7 text-xs font-semibold text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200 cursor-pointer"
+                                                                            onClick={() => {
+                                                                                setSelectedPU(pu);
+                                                                                setIsAssignModalOpen(true);
+                                                                            }}
+                                                                        >
+                                                                            <UserPlus className="h-3.5 w-3.5 mr-1" />
+                                                                            Assign Agent
+                                                                        </Button>
+                                                                    </div>
+                                                                )}
+                                                            </TableCell>
                                                         </motion.tr>
                                                     );
                                                 })}
@@ -493,6 +579,26 @@ const CouncillorDashboard = () => {
                         />
                     </div>
                 </div>
+
+                {councillor && selectedPU && (
+                    <AssignAgentModal
+                        isOpen={isAssignModalOpen}
+                        onClose={() => {
+                            setIsAssignModalOpen(false);
+                            setSelectedPU(null);
+                        }}
+                        onSuccess={() => {
+                            refetchWardData();
+                        }}
+                        councillorId={councillor.id}
+                        pollingUnit={{
+                            id: selectedPU.id || "",
+                            name: selectedPU.name,
+                            ward: wardData?.ward || councillor.ward,
+                            lga: wardData?.lga || councillor.lga,
+                        }}
+                    />
+                )}
 
             </div>
         </DashboardLayout>

@@ -318,7 +318,7 @@ const PollingUnitCells = () => {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <CardTitle className="text-base">{cell.polling_unit_name}</CardTitle>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex flex-wrap items-center gap-2 mt-1.5">
                             <Badge variant="outline" className="text-xs font-normal">
                               {cell.lga}
                             </Badge>
@@ -326,6 +326,11 @@ const PollingUnitCells = () => {
                               <MapPin className="w-3 h-3" />
                               {cell.ward}
                             </CardDescription>
+                            {cell.pu_code && (
+                              <Badge variant="secondary" className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700">
+                                {cell.pu_code}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         <Badge className={statusConfig?.bgColor}>

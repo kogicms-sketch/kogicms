@@ -151,6 +151,21 @@ const fetchFreshWardData = async (councillor: Councillor): Promise<CouncillorWar
         rawPollingUnits = cachedPUs.filter(c => c.lga === councillor.lga && c.ward === councillor.ward);
     }
 
+    // Fetch polling unit agents in this ward
+    let agents: any[] = [];
+    try {
+        const { data: agentData, error: agentError } = await supabase
+            .from("polling_unit_agents")
+            .select("id, user_id, agent_name, phone, email, password, polling_unit_id")
+            .eq("lga", councillor.lga)
+            .eq("ward", councillor.ward);
+        if (!agentError && agentData) {
+            agents = agentData;
+        }
+    } catch (err) {
+        console.error("Error fetching ward agents:", err);
+    }
+
     // 3. Fetch registered voter counts from the INEC voter registry view
     const voterCountMap = new Map<string, number>();
     try {
@@ -228,6 +243,8 @@ const fetchFreshWardData = async (councillor: Councillor): Promise<CouncillorWar
             status = "active";
         }
 
+        const agent = agents.find(a => a.polling_unit_id === pu.id);
+
         return {
             id: pu.id,
             name,
@@ -236,6 +253,13 @@ const fetchFreshWardData = async (councillor: Councillor): Promise<CouncillorWar
             verified_members: verified,
             total_members: total,
             status,
+            agent: agent ? {
+                id: agent.id,
+                name: agent.agent_name,
+                email: agent.email,
+                phone: agent.phone,
+                password: agent.password,
+            } : null,
         };
     });
 

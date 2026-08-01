@@ -59,11 +59,33 @@ class SyncManager {
     }
   }
 
+  private withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+    let timeoutId: any;
+    const timeoutPromise = new Promise<T>((resolve) => {
+      timeoutId = setTimeout(() => {
+        console.warn(`Sync request timed out after ${timeoutMs}ms`);
+        resolve(fallback);
+      }, timeoutMs);
+    });
+
+    return Promise.race([
+      promise.then((result) => {
+        clearTimeout(timeoutId);
+        return result;
+      }),
+      timeoutPromise
+    ]);
+  }
+
   public async sync(): Promise<void> {
     if (this.syncing) return;
 
     try {
-      const status = await Network.getStatus();
+      const status = await this.withTimeout(
+        Network.getStatus(),
+        2000,
+        { connected: true } as any
+      );
       if (!status.connected) {
         this.emitStatus('Offline');
         return;
@@ -113,10 +135,14 @@ class SyncManager {
     try {
       if (item.action === 'DELETE') {
         console.log(`🗑️ Syncing DELETE for ID ${item.record_id} on ${item.table_name}`);
-        const { error } = await supabase
-          .from(item.table_name)
-          .delete()
-          .eq('id', item.record_id);
+        const { error } = await this.withTimeout(
+          supabase
+            .from(item.table_name)
+            .delete()
+            .eq('id', item.record_id),
+          10000,
+          { error: new Error('Delete timed out') } as any
+        );
 
         if (error) {
           console.error(`❌ Delete failed for record ${item.record_id}:`, error);
@@ -126,11 +152,15 @@ class SyncManager {
       }
 
       console.log(`🔍 Fetching server record for conflict resolution: ${item.table_name} / ID ${item.record_id}`);
-      const { data: serverRecord, error: fetchError } = await supabase
-        .from(item.table_name)
-        .select('*')
-        .eq('id', item.record_id)
-        .maybeSingle();
+      const { data: serverRecord, error: fetchError } = await this.withTimeout(
+        supabase
+          .from(item.table_name)
+          .select('*')
+          .eq('id', item.record_id)
+          .maybeSingle(),
+        10000,
+        { data: null, error: new Error('Fetch server record timed out') } as any
+      );
 
       if (fetchError) {
         console.error(`❌ Failed to fetch server record for LWW check:`, fetchError);
@@ -171,12 +201,34 @@ class SyncManager {
       delete dbRecord.polling_unit_agent_name;
       delete dbRecord.polling_unit_agent_phone;
 
-      const { error: upsertError } = await supabase
-        .from(item.table_name)
-        .upsert(dbRecord);
+      let syncError;
+      if (item.action === 'UPDATE') {
+        const { data, error } = await this.withTimeout(
+          supabase
+            .from(item.table_name)
+            .update(dbRecord)
+            .eq('id', item.record_id)
+            .select(),
+          10000,
+          { data: null, error: new Error('Update timed out') } as any
+        );
+        syncError = error;
+        if (!error && (!data || data.length === 0)) {
+          console.warn(`⚠️ RLS blocked UPDATE or record not found for ID ${item.record_id} on ${item.table_name}. Dequeuing.`);
+        }
+      } else {
+        const { error } = await this.withTimeout(
+          supabase
+            .from(item.table_name)
+            .upsert(dbRecord),
+          10000,
+          { error: new Error('Upsert timed out') } as any
+        );
+        syncError = error;
+      }
 
-      if (upsertError) {
-        console.error(`❌ Upsert to Supabase failed for ${item.record_id}:`, upsertError);
+      if (syncError) {
+        console.error(`❌ Sync to Supabase failed for ${item.record_id} (${item.action}):`, syncError);
         return false;
       }
 

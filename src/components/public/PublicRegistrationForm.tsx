@@ -16,8 +16,10 @@ const CAMPAIGN_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.
 
 const publicSupabase = createClient(CAMPAIGN_SUPABASE_URL, CAMPAIGN_SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    persistSession: false,
-    autoRefreshToken: false,
+    persistSession: true,
+    storageKey: "sb-public-register-auth-token",
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    autoRefreshToken: true,
     detectSessionInUrl: false,
   },
 });
@@ -388,6 +390,93 @@ export default function PublicRegistrationForm() {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
 
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [agentEmail, setAgentEmail] = useState("");
+  const [agentPassword, setAgentPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [agentProfile, setAgentProfile] = useState<any>(null);
+
+  // Check active session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await publicSupabase.auth.getSession();
+      if (session?.user) {
+        // Verify agent
+        const { data: agentData } = await publicSupabase
+          .from("polling_unit_agents")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+
+        if (agentData) {
+          setAgentProfile(agentData);
+          setIsAuthenticated(true);
+          // Pre-populate form with agent's PU details
+          setForm(f => ({
+            ...f,
+            lga: agentData.lga,
+            ward: agentData.ward,
+            pollingUnit: agentData.polling_unit_name,
+            pollingUnitId: agentData.polling_unit_id
+          }));
+        } else {
+          await publicSupabase.auth.signOut();
+        }
+      }
+    };
+    checkSession();
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError("");
+    setIsLoggingIn(true);
+    try {
+      const { data, error } = await publicSupabase.auth.signInWithPassword({
+        email: agentEmail,
+        password: agentPassword,
+      });
+
+      if (error) {
+        setLoginError(error.message || "Invalid email or password");
+        setIsLoggingIn(false);
+        return;
+      }
+
+      // Verify agent
+      const { data: agentData, error: agentError } = await publicSupabase
+        .from("polling_unit_agents")
+        .select("*")
+        .eq("user_id", data.user.id)
+        .maybeSingle();
+
+      if (agentError || !agentData) {
+        await publicSupabase.auth.signOut();
+        setLoginError("Access denied. Only registered Polling Unit Agents can login.");
+        setIsLoggingIn(false);
+        return;
+      }
+
+      setAgentProfile(agentData);
+      setIsAuthenticated(true);
+      
+      // Pre-populate form
+      setForm(f => ({
+        ...f,
+        lga: agentData.lga,
+        ward: agentData.ward,
+        pollingUnit: agentData.polling_unit_name,
+        pollingUnitId: agentData.polling_unit_id
+      }));
+
+    } catch (err: any) {
+      setLoginError(err.message || "An unexpected error occurred");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
   const [puVoters, setPuVoters] = useState<any[]>([]);
   const [puVotersLoading, setPuVotersLoading] = useState(false);
   const [puVoterSearch, setPuVoterSearch] = useState("");
@@ -408,16 +497,41 @@ export default function PublicRegistrationForm() {
       
       setPuVotersLoading(true);
       try {
-        const puObj = getPollingUnitObjects(form.lga, form.ward).find(
-          pu => pu.name === form.pollingUnit
-        );
+        let puCode = null;
         
-        if (!puObj?.code) {
+        // 1. Try to resolve code directly from Supabase DB using pollingUnitId
+        if (form.pollingUnitId && !form.pollingUnitId.startsWith('virtual-')) {
+          try {
+            const { data: puData } = await publicSupabase
+              .from("polling_units")
+              .select("code")
+              .eq("id", form.pollingUnitId)
+              .maybeSingle();
+              
+            if (puData?.code) {
+              puCode = puData.code;
+            }
+          } catch (dbErr) {
+            console.error("Error fetching PU code from database:", dbErr);
+          }
+        }
+        
+        // 2. Fall back to local name lookup
+        if (!puCode) {
+          const puObj = getPollingUnitObjects(form.lga, form.ward).find(
+            pu => pu.name === form.pollingUnit
+          );
+          if (puObj?.code) {
+            puCode = puObj.code;
+          }
+        }
+        
+        if (!puCode) {
           setPuVoters([]);
           return;
         }
 
-        const standardCode = getStandardPuCode(form.lga, puObj.code);
+        const standardCode = getStandardPuCode(form.lga, puCode);
         
         const { data, error } = await publicSupabase
           .from("voter_registry")
@@ -435,7 +549,7 @@ export default function PublicRegistrationForm() {
     };
     
     fetchPuVoters();
-  }, [form.lga, form.ward, form.pollingUnit]);
+  }, [form.lga, form.ward, form.pollingUnit, form.pollingUnitId]);
 
   // Helper to split full name from voter registry
   function splitVoterName(fullName: string) {
@@ -517,18 +631,22 @@ export default function PublicRegistrationForm() {
   useEffect(() => {
     if (form.lga) {
       setWards(getWardsForLga(form.lga));
-      setForm(f => ({ ...f, ward: "", pollingUnit: "", pollingUnitId: "" }));
+      if (!isAuthenticated) {
+        setForm(f => ({ ...f, ward: "", pollingUnit: "", pollingUnitId: "" }));
+      }
     }
-  }, [form.lga]);
+  }, [form.lga, isAuthenticated]);
 
   // Cascade: ward → polling units
   useEffect(() => {
     if (form.lga && form.ward) {
       const pus = getPollingUnitObjects(form.lga, form.ward);
       setPollingUnits(pus);
-      setForm(f => ({ ...f, pollingUnit: "", pollingUnitId: "" }));
+      if (!isAuthenticated) {
+        setForm(f => ({ ...f, pollingUnit: "", pollingUnitId: "" }));
+      }
     }
-  }, [form.ward]);
+  }, [form.ward, form.lga, isAuthenticated]);
 
   // Cascade: Farmer farm LGA → farm wards
   useEffect(() => {
@@ -723,13 +841,15 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
       }
 
       setSubmitStatus("3. Saving member record to database...");
+      let finalMembershipId = membershipId;
+
       // Wrap the member insert in an 8-second timeout to guarantee button resets on slow network
-      const insertResult = await withTimeout(
+      let insertResult = await withTimeout(
         (publicSupabase as any)
           .from("members")
           .insert({
             full_name: fullName,
-            membership_id: membershipId,
+            membership_id: finalMembershipId,
             phone: form.phone || null,
             email: form.email || null,
             social_media_handle: form.socialMediaHandle || null,
@@ -750,13 +870,53 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
             account_number: form.accountNumber || null,
             status: "pending",
             is_verified: false,
-            created_by: null,
+            created_by: agentProfile?.user_id || null,
           }),
         8000,
         { data: null, error: new Error("Network request timed out. Please try again.") }
       );
 
-      const { error } = insertResult as any;
+      let { error } = insertResult as any;
+
+      // Fallback retry if a duplicate membership_id error occurs due to network race condition
+      if (error && (error.message?.includes("members_membership_id_key") || error.code === "23505")) {
+        console.warn("Duplicate membership_id detected. Retrying with unique sequence suffix...");
+        const randomSuffix = Math.floor(100 + Math.random() * 900).toString();
+        finalMembershipId = `${membershipId}-${randomSuffix}`;
+
+        const retryResult = await withTimeout(
+          (publicSupabase as any)
+            .from("members")
+            .insert({
+              full_name: fullName,
+              membership_id: finalMembershipId,
+              phone: form.phone || null,
+              email: form.email || null,
+              social_media_handle: form.socialMediaHandle || null,
+              gender: form.gender || null,
+              date_of_birth: form.dateOfBirth || null,
+              voters_card_id: vinToUse,
+              pvc_status: form.pvcStatus || 'collected',
+              state: "Katsina",
+              lga: form.lga || null,
+              ward: form.ward || null,
+              polling_unit: finalPollingUnitName,
+              polling_unit_id: resolvedPollingUnitId,
+              marital_status: form.maritalStatus || null,
+              occupation: finalOccupation,
+              school_name: finalSchoolName,
+              school_level: finalSchoolLevel,
+              bank_name: form.bankName || null,
+              account_number: form.accountNumber || null,
+              status: "pending",
+              is_verified: false,
+              created_by: agentProfile?.user_id || null,
+            }),
+          8000,
+          { data: null, error: new Error("Network request timed out. Please try again.") }
+        );
+        error = (retryResult as any).error;
+      }
 
       if (error) throw error;
 
@@ -768,14 +928,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
           form.lga,
           form.ward,
           fullName,
-          membershipId,
+          finalMembershipId,
         );
       } catch (notifyErr) {
         console.error("Non-blocking notification trigger error:", notifyErr);
       }
 
       setSubmitStatus("5. Completed! Redirecting to success card...");
-      router.push(`/register/success?id=${membershipId}&name=${encodeURIComponent(fullName)}&pu=${encodeURIComponent(form.pollingUnit)}`);
+      router.push(`/register/success?id=${finalMembershipId}&name=${encodeURIComponent(fullName)}&pu=${encodeURIComponent(form.pollingUnit)}`);
     } catch (err: any) {
       setSubmitStatus("");
       setErrors({ declaration: err?.message || "Submission failed. Please try again." });
@@ -827,40 +987,130 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
       {/* Card */}
       <div style={{ width: "100%", maxWidth: 560, background: "#fff", borderRadius: 16, boxShadow: "0 8px 40px rgba(0,0,0,0.10)", padding: "32px 28px", boxSizing: "border-box" }}>
 
-        <StepIndicator current={step} />
+        {!isAuthenticated ? (
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 900, color: "#1a5c2a", textAlign: "center", marginBottom: 8 }}>
+              Polling Unit Agent Login
+            </h2>
+            <p style={{ fontSize: 13, color: "#6b7280", textAlign: "center", margin: "0 0 12px" }}>
+              Please sign in with your agent credentials to access the registration portal.
+            </p>
+            
+            {loginError && (
+              <div style={{ padding: "10px 14px", background: "#fef2f2", border: "1.5px solid #fecaca", borderRadius: 8, color: "#ef4444", fontSize: 13, fontWeight: 600 }}>
+                {loginError}
+              </div>
+            )}
 
-        {/* ── STEP 0: Location & Polling Unit ── */}
-        {step === 0 && (
-          <div>
-            <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111", marginBottom: 20 }}>Location &amp; Polling Unit</h2>
-            <Field label="Local Government Area (LGA)" required error={errors.lga}>
-              <select style={selectStyle} value={form.lga} onChange={set("lga")}>
-                <option value="">-- Select LGA --</option>
-                {KATSINA_LGAS.map(l => <option key={l} value={l}>{l}</option>)}
-              </select>
-            </Field>
-            <Field label="Ward" required error={errors.ward}>
-              <select style={selectStyle} value={form.ward} onChange={set("ward")} disabled={!form.lga}>
-                <option value="">{form.lga ? "-- Select Ward --" : "Select LGA first"}</option>
-                {wards.map(w => <option key={w} value={w}>{w}</option>)}
-              </select>
-            </Field>
-            <Field label="Polling Unit" required error={errors.pollingUnit}>
-              <select
-                style={selectStyle}
-                value={form.pollingUnit}
-                onChange={e => {
-                  const pu = pollingUnits.find(p => p.name === e.target.value);
-                  setForm(f => ({ ...f, pollingUnit: e.target.value, pollingUnitId: (pu as any)?.id || "" }));
-                  setMatchedVoter(null);
-                  setShowManualPvcOption(false);
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>Email Address</label>
+              <input
+                type="email"
+                required
+                placeholder="agent@example.com"
+                value={agentEmail}
+                onChange={e => setAgentEmail(e.target.value)}
+                style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #d1d5db", borderRadius: 8, fontSize: 14, boxSizing: "border-box" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: "#374151" }}>Password</label>
+              <input
+                type="password"
+                required
+                placeholder="••••••••"
+                value={agentPassword}
+                onChange={e => setAgentPassword(e.target.value)}
+                style={{ width: "100%", padding: "10px 14px", border: "1.5px solid #d1d5db", borderRadius: 8, fontSize: 14, boxSizing: "border-box" }}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoggingIn}
+              style={{
+                width: "100%",
+                padding: "12px",
+                background: "linear-gradient(135deg, #1a5c2a 0%, #154c22 100%)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: isLoggingIn ? "not-allowed" : "pointer",
+                boxShadow: "0 4px 12px rgba(26,92,42,0.2)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginTop: 8
+              }}
+            >
+              {isLoggingIn ? "Signing In..." : "Log In & Continue"}
+            </button>
+          </form>
+        ) : (
+          <>
+            {/* Show Agent details with Logout button */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, padding: "10px 14px", background: "#f0faf2", border: "1px solid #c2eec7", borderRadius: 8 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ fontSize: 13, color: "#1a5c2a", fontWeight: 700 }}>
+                  Agent: {agentProfile?.agent_name}
+                </span>
+                <span style={{ fontSize: 11, color: "#4b5563" }}>
+                  Cell: {agentProfile?.polling_unit_name}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  await publicSupabase.auth.signOut();
+                  setIsAuthenticated(false);
+                  setForm(INITIAL_FORM);
+                  setAgentProfile(null);
                 }}
-                disabled={!form.ward}
+                style={{ background: "none", border: "none", color: "#ef4444", fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}
               >
-                <option value="">{form.ward ? "-- Select Polling Unit --" : "Select Ward first"}</option>
-                {pollingUnits.map(pu => <option key={pu.name} value={pu.name}>{pu.name}</option>)}
-              </select>
-            </Field>
+                Logout
+              </button>
+            </div>
+
+            <StepIndicator current={step} />
+
+            {/* ── STEP 0: Location & Polling Unit ── */}
+            {step === 0 && (
+              <div>
+                <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111", marginBottom: 20 }}>Location &amp; Polling Unit</h2>
+                <Field label="Local Government Area (LGA)" required error={errors.lga}>
+                  <select style={selectStyle} value={form.lga} onChange={set("lga")} disabled={isAuthenticated}>
+                    <option value="">-- Select LGA --</option>
+                    {KATSINA_LGAS.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </Field>
+                <Field label="Ward" required error={errors.ward}>
+                  <select style={selectStyle} value={form.ward} onChange={set("ward")} disabled={isAuthenticated || !form.lga}>
+                    <option value="">{form.lga ? "-- Select Ward --" : "Select LGA first"}</option>
+                    {form.ward && <option value={form.ward}>{form.ward}</option>}
+                    {wards.map(w => <option key={w} value={w}>{w}</option>)}
+                  </select>
+                </Field>
+                <Field label="Polling Unit" required error={errors.pollingUnit}>
+                  <select
+                    style={selectStyle}
+                    value={form.pollingUnit}
+                    onChange={e => {
+                      const pu = pollingUnits.find(p => p.name === e.target.value);
+                      setForm(f => ({ ...f, pollingUnit: e.target.value, pollingUnitId: (pu as any)?.id || "" }));
+                      setMatchedVoter(null);
+                      setShowManualPvcOption(false);
+                    }}
+                    disabled={isAuthenticated || !form.ward}
+                  >
+                    <option value="">{form.ward ? "-- Select Polling Unit --" : "Select Ward first"}</option>
+                    {form.pollingUnit && <option value={form.pollingUnit}>{form.pollingUnit}</option>}
+                    {pollingUnits.map(pu => <option key={pu.name} value={pu.name}>{pu.name}</option>)}
+                  </select>
+                </Field>
 
             {/* Polling Unit Voters */}
             {form.pollingUnit && (
@@ -1466,6 +1716,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
         <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 16 }}>
           Step {step + 1} of {STEPS.length} · Your data is encrypted and secure
         </p>
+        </>
+        )}
       </div>
 
       {/* Footer */}

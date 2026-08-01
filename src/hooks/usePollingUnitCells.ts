@@ -112,6 +112,36 @@ export const usePollingUnitCells = (filters?: {
 
       if (cached.length > 0) {
         console.log(`📦 Loaded ${cached.length} polling unit cells from IndexedDB local cache.`);
+        
+        // Enrich cached cells with pu_code from polling_units table
+        try {
+          let puQuery = supabase
+            .from("polling_units")
+            .select("name, code");
+            
+          if (targetLga) {
+            puQuery = puQuery.eq("lga_name", targetLga);
+          }
+          if (targetWard) {
+            puQuery = puQuery.eq("ward_name", targetWard);
+          }
+          
+          const { data: puData } = await puQuery;
+            
+          if (puData && puData.length > 0) {
+            const codeMap = new Map();
+            puData.forEach(pu => {
+              codeMap.set(pu.name.toLowerCase().trim(), pu.code);
+            });
+            cached = cached.map(c => ({
+              ...c,
+              pu_code: c.pu_code || codeMap.get(c.polling_unit_name?.toLowerCase().trim()) || null
+            }));
+          }
+        } catch (e) {
+          console.warn("Failed to enrich cached cells with pu_code:", e);
+        }
+
         return cached;
       }
 
@@ -244,6 +274,7 @@ export const usePollingUnitCells = (filters?: {
           // Return the DB version with full data + actual member count + agent info
           return {
             ...existingCell,
+            pu_code: pollingUnit.code,
             registered_voters: realCount ?? existingCell.registered_voters ?? 0,
             app_members_count: appMembersCount,
             polling_unit_agent_name: agent?.name || null,

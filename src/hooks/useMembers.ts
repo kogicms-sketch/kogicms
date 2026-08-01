@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { localRepository } from "@/services/LocalRepository";
 import { syncManager } from "@/services/SyncManager";
 import { generateSequentialMembershipId } from "@/lib/campaign-data";
+import { offlineDb } from "@/services/offlineDb";
 
 // Helper to wrap promises in a timeout to prevent hanging states
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
@@ -108,9 +109,36 @@ export const useMembers = (
         );
 
         const { data, error } = networkResult as any;
-        if (!error && data && data.length > 0) {
-          for (const member of data) {
-            await localRepository.saveMember(member);
+        if (!error && data) {
+          // Sync local cache: delete cached records for this scope before saving fresh ones
+          let cachedList = await localRepository.getMembers();
+          if (scope === "polling_unit") {
+            if (pollingUnitId && pollingUnitName) {
+              cachedList = cachedList.filter(m => m.polling_unit_id === pollingUnitId || m.polling_unit === pollingUnitName);
+            } else if (pollingUnitId) {
+              cachedList = cachedList.filter(m => m.polling_unit_id === pollingUnitId);
+            } else if (pollingUnitName) {
+              cachedList = cachedList.filter(m => m.polling_unit === pollingUnitName);
+            }
+          } else if (scope === "organization" && organizationId) {
+            cachedList = cachedList.filter(m => m.organization_id === organizationId || m.support_group_id === organizationId);
+          } else if (scope === "all") {
+            if (allowedWard) {
+              cachedList = cachedList.filter(m => m.ward === allowedWard);
+            }
+            if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
+              cachedList = cachedList.filter(m => m.lga && allowedLgas.includes(m.lga));
+            }
+          }
+          
+          for (const m of cachedList) {
+            await offlineDb.members.delete(m.id);
+          }
+
+          if (data.length > 0) {
+            for (const member of data) {
+              await localRepository.saveMember(member);
+            }
           }
         }
       } catch (err) {
@@ -351,34 +379,62 @@ export const useVerifyMember = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (payload: string | { id: string; memberData?: Partial<Member> }) => {
+      const id = typeof payload === "string" ? payload : payload.id;
+      const passedMember = typeof payload === "object" ? payload.memberData : undefined;
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // 1. Get existing member from local IndexedDB
-      const existing = await localRepository.getMemberById(id);
-      
+      // 1. Get existing member from local IndexedDB or passed data
+      const existing = (await localRepository.getMemberById(id)) || passedMember || {};
+
+      const now = new Date().toISOString();
       const updatedMember = {
-        ...(existing || {}),
+        ...existing,
         id,
         is_verified: true,
-        verified_at: new Date().toISOString(),
+        verified_at: now,
         verified_by_agent_id: user.id,
-        updated_at: new Date().toISOString()
+        updated_at: now
       };
 
-      // 2. Instantly update local IndexedDB (Optimistic UI update)
+      // 2. Try direct update to Supabase first if online
+      let onlineSuccess = false;
+      try {
+        const { error } = await withTimeout(
+          supabase
+            .from("members")
+            .update({
+              is_verified: true,
+              verified_at: now,
+              verified_by_agent_id: user.id,
+              updated_at: now
+            })
+            .eq("id", id),
+          8000,
+          { error: new Error("Supabase update timed out") } as any
+        );
+
+        if (!error) {
+          onlineSuccess = true;
+        }
+      } catch (err) {
+        console.warn("Direct Supabase update failed, will rely on sync queue:", err);
+      }
+
+      // 3. Save to local IndexedDB (Optimistic UI update)
       await localRepository.saveMember(updatedMember as any);
 
-      // 3. Queue mutation
-      await localRepository.enqueueAction("members", "UPDATE", id, {
-        is_verified: true,
-        verified_at: updatedMember.verified_at,
-        verified_by_agent_id: user.id
-      });
-
-      // 4. Trigger background sync
-      syncManager.sync();
+      // 4. If direct update didn't succeed (offline or timeout), queue for background sync
+      if (!onlineSuccess) {
+        await localRepository.enqueueAction("members", "UPDATE", id, {
+          is_verified: true,
+          verified_at: now,
+          verified_by_agent_id: user.id
+        });
+        syncManager.sync();
+      }
 
       return id;
     },
@@ -387,7 +443,7 @@ export const useVerifyMember = () => {
       queryClient.invalidateQueries({ queryKey: ["member", id] });
       queryClient.invalidateQueries({ queryKey: ["demographics"] });
       queryClient.invalidateQueries({ queryKey: ["super-admin"] });
-      toast.success("Member verified successfully! (Saved locally)");
+      toast.success("Member physically verified successfully!");
     },
     onError: (error: any) => {
       console.error("Error verifying member:", error);
