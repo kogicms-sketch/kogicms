@@ -84,11 +84,6 @@ export const PollingUnitMap = ({
   onUnitSelect
 }: PollingUnitMapProps) => {
   const [selectedUnit, setSelectedUnit] = useState<PollingUnitCell | null>(null);
-  const [mapKey, setMapKey] = useState<string>("pu-map-init");
-
-  useEffect(() => {
-    setMapKey(`pu-map-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`);
-  }, [lgaFilter, wardFilter, units.length]);
 
   // Katsina State approximate center
   const katsinaCenter: [number, number] = [12.9908, 7.5965];
@@ -191,19 +186,10 @@ export const PollingUnitMap = ({
           </CardHeader>
           <CardContent className="p-0">
             <div 
-              ref={(el) => {
-                if (el) {
-                  const mapDiv = el.querySelector('.leaflet-container') || el;
-                  if (mapDiv) {
-                    delete (mapDiv as any)._leaflet_id;
-                  }
-                }
-              }}
               style={{ height }} 
               className="rounded-lg overflow-hidden relative"
             >
               <MapContainer
-                key={mapKey}
                 center={katsinaCenter}
                 zoom={10}
                 style={{ height: "100%", width: "100%" }}
