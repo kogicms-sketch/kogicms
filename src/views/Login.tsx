@@ -63,6 +63,8 @@ const Login = () => {
         navigate("/federal/dashboard", { replace: true });
       } else if (role === 'house_assembly_member') {
         navigate("/assembly/dashboard", { replace: true });
+      } else if (role === 'student') {
+        navigate("/student/dashboard", { replace: true });
       } else {
         navigate("/dashboard", { replace: true });
       }

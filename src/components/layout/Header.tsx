@@ -82,6 +82,8 @@ const Header = ({ title, subtitle }: HeaderProps) => {
         return "LGA Chairman";
       case "councillor":
         return "Councillor";
+      case "student":
+        return "Student Monitor";
       case "member":
         return "Member";
       default:

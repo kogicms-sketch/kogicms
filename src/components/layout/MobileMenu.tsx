@@ -54,6 +54,8 @@ const MobileMenu = ({ onClose }: MobileMenuProps) => {
         return "LGA Chairman";
       case "councillor":
         return "Councillor";
+      case "student":
+        return "Student Monitor";
       case "member":
         return "Member";
       default:

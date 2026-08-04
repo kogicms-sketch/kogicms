@@ -29,6 +29,9 @@ const MobileBottomNav = () => {
     if (path === "/councillor/dashboard" && pathname === "/councillor/dashboard") {
       return true;
     }
+    if (path === "/student/dashboard" && pathname === "/student/dashboard") {
+      return true;
+    }
     return pathname.startsWith(path) && path !== "/dashboard";
   };
 

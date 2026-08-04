@@ -42,6 +42,7 @@ import AssemblyDashboard from "./views/assembly/AssemblyDashboard";
 import Settings from "./views/Settings";
 import PollingUnitReports from "./views/PollingUnitReports";
 import Welfare from "./views/Welfare";
+import StudentDashboard from "./views/student/StudentDashboard";
 
 const queryClient = new QueryClient();
 
@@ -281,6 +282,15 @@ const App = () => {
                 element={
                   <ProtectedRoute allowedRoles={["councillor"]}>
                     <CouncillorDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Student Routes */}
+              <Route
+                path="/student/dashboard"
+                element={
+                  <ProtectedRoute allowedRoles={["student", "super_admin"]}>
+                    <StudentDashboard />
                   </ProtectedRoute>
                 }
               />

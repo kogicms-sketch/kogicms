@@ -36,10 +36,21 @@ export interface NavItem {
     | "senatorial_leader"
     | "federal_rep"
     | "house_assembly_member"
+    | "student"
   )[];
 }
 
 export const navItems: NavItem[] = [
+  // Student Dashboard
+  {
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    path: "/student/dashboard",
+    group: "Main Menu",
+    inBottomNav: true,
+    roles: ["student"],
+  },
+
   // Dashboard navigation for specific roles
   {
     label: "Dashboard",
@@ -126,6 +137,7 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
+      "student",
     ],
   },
   {
@@ -143,6 +155,7 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
+      "student",
     ],
   },
   {
@@ -159,6 +172,7 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
+      "student",
     ],
   },
   {
@@ -173,6 +187,7 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
+      "student",
     ],
   },
   {
@@ -188,6 +203,7 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
+      "student",
     ],
   },
   {
@@ -204,6 +220,7 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
+      "student",
     ],
   },
   {
@@ -229,6 +246,7 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
+      "student",
     ],
   },
   {
@@ -243,6 +261,7 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
+      "student",
     ],
   },
   {
