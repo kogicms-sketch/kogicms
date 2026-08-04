@@ -212,6 +212,15 @@ const Members = () => {
 
   // Filter members based on search, selected occupation and sub-occupation
   const filteredMembers = members.filter((member) => {
+    const isStudentUser = role === "student";
+    if (isStudentUser) {
+      const occ = (member.occupation || "").toLowerCase();
+      const emp = (member.employment_status || "").toLowerCase();
+      const sch = (member.school_name || "").toLowerCase();
+      const isStudent = occ === "student" || emp.includes("student") || sch.includes("umyu") || sch.includes("fudma") || sch.includes("college") || sch.includes("university") || sch.includes("polytechnic") || sch.includes("fce") || sch.includes("ikcoe") || sch.includes("ksitm") || sch.includes("al-qalam");
+      if (!isStudent) return false;
+    }
+
     const matchesSearch = 
       member.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (member.organizations?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||

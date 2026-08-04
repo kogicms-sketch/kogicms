@@ -14,11 +14,10 @@ import {
   MapPin,
   ArrowUpRight,
   ShieldCheck,
-  Zap,
-  Gift,
   RefreshCcw,
-  Sparkles,
-  PieChart as PieChartIcon
+  Gift,
+  PieChart as PieChartIcon,
+  BookOpen
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -41,73 +40,122 @@ export default function StudentDashboard() {
   const [searchLga, setSearchLga] = useState("");
   const [schoolSearch, setSchoolSearch] = useState("");
 
-  // 1. Fetch Real Live Member Metrics from Supabase Cloud
+  // Helper filter function to strictly identify student records ONLY
+  const isStudentMember = (m: any) => {
+    const occ = (m.occupation || "").toLowerCase();
+    const emp = (m.employment_status || "").toLowerCase();
+    const sch = (m.school_name || "").toLowerCase();
+    const level = (m.school_level || "").toLowerCase();
+
+    // Must be student occupation or employment status
+    if (occ === "student" || emp.includes("student")) {
+      return true;
+    }
+
+    // Exclude non-student trade shops / farms / civil servants
+    if (
+      occ === "farmer" ||
+      occ === "civil servant" ||
+      occ === "trader" ||
+      occ === "housewife" ||
+      occ === "artisan"
+    ) {
+      // unless school_name is an explicit tertiary university/college
+      if (sch.includes("umyu") || sch.includes("fudma") || sch.includes("al-qalam")) {
+        return true;
+      }
+      return false;
+    }
+
+    // Check academic school level or academic institution keywords
+    const hasAcademicLevel = ["tertiary", "secondary", "nd 1", "nd 2", "hnd 1", "hnd 2", "100 level", "200 level", "300 level", "400 level"].includes(level);
+    const academicKeywords = [
+      "university", "college", "polytechnic", "poly", "institute", "academy",
+      "umyu", "fudma", "ikcoe", "fce", "ksitm", "al-qalam", "huk poly",
+      "government science", "government college"
+    ];
+    const hasAcademicName = academicKeywords.some((kw) => sch.includes(kw));
+
+    const nonSchoolTrades = [
+      "tailoring", "poultry", "livestock", "farm", "shop", "vendor", "mai kantin",
+      "mai abinci", "mai dabbobi", "mai kayan", "keke napep", "atambfa", "fabrication",
+      "workshop", "cosmetics", "perfume", "charcoal", "gitan nika", "barbing", "salon"
+    ];
+    const isTrade = nonSchoolTrades.some((kw) => sch.includes(kw));
+
+    if (isTrade) return false;
+
+    return hasAcademicLevel || hasAcademicName;
+  };
+
+  // 1. Fetch Real Student Metrics from Cloud Database (Strictly Filtered for Students)
   const {
     data: cloudMetrics,
     isLoading: loadingMetrics,
     refetch: refetchMetrics,
     isRefetching: refetchingMetrics
   } = useQuery({
-    queryKey: ["student-dashboard-cloud-metrics"],
+    queryKey: ["student-strict-cloud-metrics"],
     queryFn: async () => {
       const { data: members, error: memberErr } = await supabase
         .from("members")
-        .select("id, full_name, gender, is_verified, school_name, lga, ward, occupation");
+        .select("id, full_name, gender, is_verified, school_name, school_level, lga, ward, occupation, employment_status");
 
       if (memberErr) throw memberErr;
 
+      // Filter strictly for STUDENT members
       const allMembers = members || [];
-      const totalMembers = allMembers.length;
-      const verifiedMembers = allMembers.filter((m) => m.is_verified).length;
-      const malesCount = allMembers.filter((m) => (m.gender || "").toLowerCase() === "male").length;
-      const femalesCount = allMembers.filter((m) => (m.gender || "").toLowerCase() === "female").length;
+      const studentMembers = allMembers.filter(isStudentMember);
 
-      // Query organizations from cloud
-      const { count: totalOrgs, error: orgErr } = await supabase
+      const totalStudents = studentMembers.length;
+      const verifiedStudents = studentMembers.filter((m) => m.is_verified).length;
+      const malesCount = studentMembers.filter((m) => (m.gender || "").toLowerCase() === "male").length;
+      const femalesCount = studentMembers.filter((m) => (m.gender || "").toLowerCase() === "female").length;
+
+      // Query student support groups
+      const { count: totalOrgs } = await supabase
         .from("organizations")
         .select("*", { count: "exact", head: true });
 
-      // Query member incentives from cloud
+      // Query student welfare / incentives
       const { count: totalIncentives } = await supabase
         .from("member_incentives")
         .select("*", { count: "exact", head: true });
 
-      // Query activities from cloud
-      const { count: totalActivities } = await supabase
-        .from("activities")
-        .select("*", { count: "exact", head: true });
-
       return {
-        totalMembers,
-        verifiedMembers,
+        totalStudents,
+        verifiedStudents,
         malesCount,
         femalesCount,
         totalOrgs: totalOrgs || 0,
         totalIncentives: totalIncentives || 0,
-        totalActivities: totalActivities || 0,
+        allStudentMembers: studentMembers,
       };
     },
-    refetchInterval: 30000, // auto refresh every 30 seconds
+    refetchInterval: 30000,
   });
 
-  // 2. Fetch Top 10 Schools/Institutions with Male & Female Breakdown Live from Cloud
+  // 2. Fetch Top 10 Schools/Institutions with Male & Female Student Breakdown
   const { data: topSchools = [], isLoading: loadingSchools } = useQuery({
-    queryKey: ["student-top-schools-cloud-db"],
+    queryKey: ["student-top-schools-strict-cloud"],
     queryFn: async () => {
       const { data: members, error } = await supabase
         .from("members")
-        .select("school_name, gender, is_verified")
+        .select("school_name, school_level, gender, is_verified, occupation, employment_status")
         .not("school_name", "is", null)
         .neq("school_name", "");
 
       if (error) throw error;
+
+      // Filter strictly for actual students
+      const studentMembers = (members || []).filter(isStudentMember);
 
       const schoolMap: Record<
         string,
         { school_name: string; total: number; males: number; females: number; verified: number }
       > = {};
 
-      (members || []).forEach((m) => {
+      studentMembers.forEach((m) => {
         const rawName = (m.school_name || "").trim();
         if (!rawName) return;
 
@@ -152,9 +200,9 @@ export default function StudentDashboard() {
     return list.slice(0, 10);
   }, [topSchools, schoolSearch]);
 
-  // 3. Fetch Organizations / Campus Groups Live from Cloud
+  // 3. Fetch Organizations / Student Campus Groups Live from Cloud
   const { data: organizationsList = [], isLoading: loadingOrgs } = useQuery({
-    queryKey: ["student-dashboard-orgs-cloud"],
+    queryKey: ["student-organizations-cloud"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("organizations")
@@ -169,7 +217,7 @@ export default function StudentDashboard() {
 
   // 4. Fetch Activities / Events Live from Cloud
   const { data: activitiesList = [], isLoading: loadingActivities } = useQuery({
-    queryKey: ["student-dashboard-activities-cloud"],
+    queryKey: ["student-activities-cloud"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("activities")
@@ -182,22 +230,24 @@ export default function StudentDashboard() {
     },
   });
 
-  // 5. Fetch LGA Breakdown Live from Cloud Members Table
+  // 5. Fetch LGA Student Mobilization Breakdown (Strict Student Filter)
   const { data: lgaBreakdown = [], isLoading: loadingLga } = useQuery({
-    queryKey: ["student-lga-breakdown-cloud"],
+    queryKey: ["student-lga-breakdown-strict"],
     queryFn: async () => {
       const { data: members, error } = await supabase
         .from("members")
-        .select("lga, gender, is_verified");
+        .select("lga, gender, is_verified, occupation, employment_status, school_name, school_level");
 
       if (error) throw error;
+
+      const studentMembers = (members || []).filter(isStudentMember);
 
       const lgaMap: Record<
         string,
         { lga: string; total: number; verified: number; males: number; females: number }
       > = {};
 
-      (members || []).forEach((m) => {
+      studentMembers.forEach((m) => {
         const lgaName = (m.lga || "Katsina").trim();
         if (!lgaMap[lgaName]) {
           lgaMap[lgaName] = { lga: lgaName, total: 0, verified: 0, males: 0, females: 0 };
@@ -222,8 +272,8 @@ export default function StudentDashboard() {
   }, [lgaBreakdown, searchLga]);
 
   // Derived percentages
-  const total = cloudMetrics?.totalMembers || 0;
-  const verified = cloudMetrics?.verifiedMembers || 0;
+  const total = cloudMetrics?.totalStudents || 0;
+  const verified = cloudMetrics?.verifiedStudents || 0;
   const males = cloudMetrics?.malesCount || 0;
   const females = cloudMetrics?.femalesCount || 0;
 
@@ -234,7 +284,7 @@ export default function StudentDashboard() {
   return (
     <DashboardLayout
       title="Student Campaign & Youth Affairs Dashboard"
-      subtitle="Real-time live database analytics tracking student registrations, institutions, gender breakdown, and campus mobilization in Katsina State"
+      subtitle="Exclusive real-time student monitoring portal tracking student registrations, top 10 tertiary institutions, gender distribution, and campus mobilization in Katsina State"
     >
       <div className="space-y-6 pb-12">
         {/* Banner Card */}
@@ -250,17 +300,17 @@ export default function StudentDashboard() {
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge className="bg-emerald-500/30 text-emerald-100 border border-emerald-400/40 px-3 py-1 font-semibold text-xs flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block" />
-                  Live Cloud Database Connected
+                  Exclusive Student Data Portal
                 </Badge>
                 <Badge variant="outline" className="text-emerald-200 border-emerald-400/30 text-xs">
-                  Katsina State Campaign Network
+                  Katsina Tertiary & Secondary Students Network
                 </Badge>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white leading-tight">
-                Dikko Radda Student & Youth Affairs Dashboard
+                Dikko Radda Student Affairs & Campus Monitor
               </h1>
               <p className="text-emerald-100/90 text-sm leading-relaxed">
-                Live analytics directly synced with cloud database records for student mobilization, top tertiary institutions, gender demographics, and campus support group networks.
+                Strictly filtered real-time database analytics monitoring ONLY registered student members across Katsina State institutions, campus chapters, and student voter mobilization.
               </p>
             </div>
 
@@ -271,32 +321,32 @@ export default function StudentDashboard() {
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md gap-2 w-full sm:w-auto text-xs"
               >
                 <RefreshCcw className={`w-4 h-4 ${refetchingMetrics ? "animate-spin" : ""}`} />
-                {refetchingMetrics ? "Syncing..." : "Sync Live Data"}
+                {refetchingMetrics ? "Syncing..." : "Sync Student Data"}
               </Button>
               <Link href="/members">
                 <Button variant="outline" className="border-emerald-400/40 bg-emerald-950/40 text-white hover:bg-emerald-800/60 gap-2 w-full sm:w-auto text-xs">
-                  <Users className="w-4 h-4" />
-                  View All Members
+                  <GraduationCap className="w-4 h-4" />
+                  View Registered Students
                 </Button>
               </Link>
             </div>
           </div>
         </motion.div>
 
-        {/* Top 4 Stat Cards */}
+        {/* Top 4 Stat Cards (100% Student Filtered) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="border border-border/60 shadow-sm hover:shadow-md transition-all relative overflow-hidden">
             <div className="h-1 bg-emerald-500 absolute top-0 left-0 right-0" />
             <CardContent className="p-5 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Total Student / Youth Members
+                  Total Student Members
                 </p>
                 <h3 className="text-2xl md:text-3xl font-extrabold mt-1 text-foreground">
                   {loadingMetrics ? "..." : total.toLocaleString()}
                 </h3>
                 <p className="text-[11px] text-emerald-600 font-medium flex items-center gap-1 mt-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Real-time cloud count
+                  <GraduationCap className="w-3.5 h-3.5" /> Verified Student Records
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
@@ -310,7 +360,7 @@ export default function StudentDashboard() {
             <CardContent className="p-5 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Verified Members (PVC)
+                  Verified Student Voters (PVC)
                 </p>
                 <h3 className="text-2xl md:text-3xl font-extrabold mt-1 text-foreground">
                   {loadingMetrics ? "..." : verified.toLocaleString()}
@@ -336,7 +386,7 @@ export default function StudentDashboard() {
                   {loadingMetrics ? "..." : (cloudMetrics?.totalOrgs || 0).toLocaleString()}
                 </h3>
                 <p className="text-[11px] text-purple-600 font-medium flex items-center gap-1 mt-1">
-                  <Building2 className="w-3.5 h-3.5" /> Registered Organizations
+                  <Building2 className="w-3.5 h-3.5" /> Registered Student Coalitions
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600">
@@ -350,13 +400,13 @@ export default function StudentDashboard() {
             <CardContent className="p-5 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Incentives & Welfare
+                  Student Welfare & Bursaries
                 </p>
                 <h3 className="text-2xl md:text-3xl font-extrabold mt-1 text-foreground">
                   {loadingMetrics ? "..." : (cloudMetrics?.totalIncentives || 0).toLocaleString()}
                 </h3>
                 <p className="text-[11px] text-amber-600 font-medium flex items-center gap-1 mt-1">
-                  <Gift className="w-3.5 h-3.5" /> Cloud welfare records
+                  <Gift className="w-3.5 h-3.5" /> Student Support Beneficiaries
                 </p>
               </div>
               <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600">
@@ -366,24 +416,24 @@ export default function StudentDashboard() {
           </Card>
         </div>
 
-        {/* Gender Breakdown Card: Males vs Females */}
+        {/* Gender Breakdown Card: Male Students vs Female Students */}
         <Card className="border border-border/60 shadow-sm">
           <CardHeader className="p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <PieChartIcon className="w-5 h-5 text-emerald-600" />
-                Gender Demographics Distribution (Males vs Females)
+                Student Gender Demographics (Male Students vs Female Students)
               </CardTitle>
               <CardDescription className="text-xs">
-                Real-time male and female student membership counts across Katsina State
+                Real-time breakdown of registered male and female students across Katsina institutions
               </CardDescription>
             </div>
             <div className="flex items-center gap-3">
               <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 border-blue-300">
-                👨 Male: {males.toLocaleString()} ({malePercent}%)
+                👨 Male Students: {males.toLocaleString()} ({malePercent}%)
               </Badge>
               <Badge className="bg-pink-100 text-pink-800 dark:bg-pink-900/50 dark:text-pink-200 border-pink-300">
-                👩 Female: {females.toLocaleString()} ({femalePercent}%)
+                👩 Female Students: {females.toLocaleString()} ({femalePercent}%)
               </Badge>
             </div>
           </CardHeader>
@@ -394,7 +444,7 @@ export default function StudentDashboard() {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-sm text-blue-900 dark:text-blue-200 flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full bg-blue-600 inline-block" />
-                    Male Students / Youth
+                    Male Students
                   </span>
                   <span className="font-extrabold text-base text-blue-900 dark:text-blue-200">
                     {males.toLocaleString()} <span className="text-xs text-muted-foreground font-medium">({malePercent}%)</span>
@@ -408,7 +458,7 @@ export default function StudentDashboard() {
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-sm text-pink-900 dark:text-pink-200 flex items-center gap-2">
                     <span className="w-3 h-3 rounded-full bg-pink-600 inline-block" />
-                    Female Students / Youth
+                    Female Students
                   </span>
                   <span className="font-extrabold text-base text-pink-900 dark:text-pink-200">
                     {females.toLocaleString()} <span className="text-xs text-muted-foreground font-medium">({femalePercent}%)</span>
@@ -421,8 +471,8 @@ export default function StudentDashboard() {
             {/* Gender visual ratio bar */}
             <div className="space-y-1.5">
               <div className="flex justify-between text-xs font-semibold text-muted-foreground">
-                <span>Male Ratio ({malePercent}%)</span>
-                <span>Female Ratio ({femalePercent}%)</span>
+                <span>Male Student Ratio ({malePercent}%)</span>
+                <span>Female Student Ratio ({femalePercent}%)</span>
               </div>
               <div className="w-full h-4 rounded-full overflow-hidden flex bg-muted">
                 <div style={{ width: `${malePercent}%` }} className="bg-blue-600 transition-all duration-500" />
@@ -432,16 +482,16 @@ export default function StudentDashboard() {
           </CardContent>
         </Card>
 
-        {/* TOP 10 SCHOOLS & INSTITUTIONS TABLE WITH MALES & FEMALES */}
+        {/* TOP 10 SCHOOLS & TERTIARY INSTITUTIONS TABLE WITH MALES & FEMALES */}
         <Card className="border border-border/60 shadow-sm">
           <CardHeader className="p-5 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <CardTitle className="text-base font-bold flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-emerald-600" />
-                Top 10 Schools & Institutions with Most Students
+                <BookOpen className="w-5 h-5 text-emerald-600" />
+                Top 10 Tertiary & Secondary Schools with Most Students
               </CardTitle>
               <CardDescription className="text-xs">
-                Real cloud database breakdown of schools ranking by total registered student members, male count & female count
+                Real cloud database ranking of educational institutions by total registered student members, male count & female count
               </CardDescription>
             </div>
 
@@ -461,7 +511,7 @@ export default function StudentDashboard() {
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="font-bold text-xs w-12 text-center">Rank</TableHead>
-                  <TableHead className="font-bold text-xs">School / Tertiary Institution Name</TableHead>
+                  <TableHead className="font-bold text-xs">Educational Institution Name</TableHead>
                   <TableHead className="font-bold text-xs text-right">Total Students</TableHead>
                   <TableHead className="font-bold text-xs text-center">👨 Male Students</TableHead>
                   <TableHead className="font-bold text-xs text-center">👩 Female Students</TableHead>
@@ -472,7 +522,7 @@ export default function StudentDashboard() {
                 {loadingSchools ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-xs text-muted-foreground">
-                      Loading top 10 schools from cloud database...
+                      Loading top 10 educational institutions from cloud database...
                     </TableCell>
                   </TableRow>
                 ) : filteredTop10Schools.length > 0 ? (
@@ -521,7 +571,7 @@ export default function StudentDashboard() {
                 ) : (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center py-8 text-xs text-muted-foreground">
-                      No schools found matching search criteria.
+                      No student educational institutions found.
                     </TableCell>
                   </TableRow>
                 )}
@@ -538,10 +588,10 @@ export default function StudentDashboard() {
               <div>
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   <Building2 className="w-5 h-5 text-emerald-600" />
-                  Campus Support Groups & Organizations (Cloud Database)
+                  Campus Support Groups & Student Organizations
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Official support group records stored in cloud database
+                  Registered student organizations and campus chapters
                 </CardDescription>
               </div>
               <Link href="/support-groups">
@@ -585,7 +635,7 @@ export default function StudentDashboard() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={3} className="text-center py-6 text-xs text-muted-foreground">
-                        No organizations recorded yet.
+                        No student organizations recorded yet.
                       </TableCell>
                     </TableRow>
                   )}
@@ -599,21 +649,21 @@ export default function StudentDashboard() {
             <CardHeader className="p-5 border-b">
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-emerald-600" />
-                Latest Field Activities (Cloud)
+                Latest Student Activities
               </CardTitle>
               <CardDescription className="text-xs">
-                Recent campaign activities logged in the database
+                Campus outreach and student events
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 flex-1 space-y-3">
               {loadingActivities ? (
                 <div className="text-center py-6 text-xs text-muted-foreground">
-                  Loading field activities...
+                  Loading campus activities...
                 </div>
               ) : activitiesList.length > 0 ? (
                 activitiesList.map((act: any) => (
                   <div key={act.id} className="p-3 rounded-xl border bg-muted/20 space-y-1">
-                    <h4 className="font-bold text-xs text-foreground">{act.title || "Campaign Event"}</h4>
+                    <h4 className="font-bold text-xs text-foreground">{act.title || "Campus Event"}</h4>
                     <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                       <MapPin className="w-3 h-3 text-emerald-600 inline" /> {act.lga || "Katsina"} · {act.ward || "Statewide"}
                     </p>
@@ -621,7 +671,7 @@ export default function StudentDashboard() {
                 ))
               ) : (
                 <div className="text-center py-6 text-xs text-muted-foreground">
-                  No field activities recorded yet.
+                  No campus activities recorded yet.
                 </div>
               )}
 
@@ -634,16 +684,16 @@ export default function StudentDashboard() {
           </Card>
         </div>
 
-        {/* Real Cloud LGA Mobilization Breakdown */}
+        {/* Real Cloud LGA Student Mobilization Breakdown */}
         <Card className="border border-border/60 shadow-sm">
           <CardHeader className="p-5 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <CardTitle className="text-base font-bold flex items-center gap-2">
                 <MapPin className="w-5 h-5 text-emerald-600" />
-                Real Cloud LGA Student & Youth Breakdown
+                LGA Student Member Breakdown
               </CardTitle>
               <CardDescription className="text-xs">
-                Real student member records grouped by Local Government Area from Supabase database
+                Real student member count per Local Government Area in Katsina State
               </CardDescription>
             </div>
 
@@ -664,17 +714,17 @@ export default function StudentDashboard() {
                 <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow className="bg-muted/50">
                     <TableHead className="font-bold text-xs">Local Government Area (LGA)</TableHead>
-                    <TableHead className="font-bold text-xs text-right">Total Registered</TableHead>
-                    <TableHead className="font-bold text-xs text-right">Verified PVC</TableHead>
-                    <TableHead className="font-bold text-xs text-center">👨 Males</TableHead>
-                    <TableHead className="font-bold text-xs text-center">👩 Females</TableHead>
+                    <TableHead className="font-bold text-xs text-right">Total Students</TableHead>
+                    <TableHead className="font-bold text-xs text-right">Verified Student PVC</TableHead>
+                    <TableHead className="font-bold text-xs text-center">👨 Male Students</TableHead>
+                    <TableHead className="font-bold text-xs text-center">👩 Female Students</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loadingLga ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-6 text-xs text-muted-foreground">
-                        Loading LGA breakdown from cloud...
+                        Loading student LGA breakdown...
                       </TableCell>
                     </TableRow>
                   ) : filteredLgaBreakdown.length > 0 ? (
@@ -700,7 +750,7 @@ export default function StudentDashboard() {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-6 text-xs text-muted-foreground">
-                        No LGA records found.
+                        No student records found for LGAs.
                       </TableCell>
                     </TableRow>
                   )}
