@@ -9,6 +9,7 @@ import { useCouncillor } from "@/hooks/useCouncillors";
 import { useChairman } from "@/hooks/useChairmen";
 import { Calendar, Users, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AgentPerformanceReport } from "@/components/dashboard/AgentPerformanceReport";
 
 const ReportsMap = dynamic(() => import("@/components/maps/ReportsMap"), {
   ssr: false,
@@ -191,6 +192,12 @@ export const PollingUnitReports = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Agent Performance Leaderboard Report & Export */}
+        <AgentPerformanceReport
+          lga={councillor?.lga || chairman?.lga || "Katsina"}
+          ward={councillor?.ward || "Wakilin Kudu I"}
+        />
       </div>
     </DashboardLayout>
   );

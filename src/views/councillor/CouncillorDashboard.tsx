@@ -4,6 +4,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCouncillor, useCouncillorWardData } from "@/hooks/useCouncillors";
 import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
+import { AgentPerformanceReport } from "@/components/dashboard/AgentPerformanceReport";
 import {
     MapPin, Building2, Users, Activity, ShieldCheck, Clock,
     Shield, Star, Vote, TrendingUp, ChevronRight, Navigation,
@@ -382,6 +383,12 @@ const CouncillorDashboard = () => {
                     lga={councillor.lga}
                     ward={councillor.ward}
                     totalRegisteredVoters={totalRegisteredVoters}
+                />
+
+                {/* ── AGENT PERFORMANCE LEADERBOARD REPORT & PODIUM ── */}
+                <AgentPerformanceReport
+                    lga={wardData?.lga || councillor.lga}
+                    ward={wardData?.ward || councillor.ward}
                 />
 
                 {/* ── POLLING UNITS & FIELD ACTIVITY GRID ── */}
