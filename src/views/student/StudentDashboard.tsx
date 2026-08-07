@@ -62,28 +62,74 @@ export default function StudentDashboard() {
     const level = (m.school_level || "").toLowerCase().trim();
     const type = (m.member_type || "").toLowerCase().trim();
 
-    // 1. Explicitly student by occupation, employment status, or member_type
+    // EXCLUDE NON-STUDENT TRADES & ENTERPRISES
+    const tradeKeywords = [
+      "tailoring", "embroidery", "poultry", "livestock", "farm", "shop", "vendor",
+      "mai kantin", "mai abinci", "mai dabbobi", "mai kayan", "keke", "tricycle",
+      "atambfa", "fabrication", "workshop", "cosmetics", "perfume", "charcoal",
+      "barbing", "salon", "carpentry", "furniture", "catering", "provisions",
+      "textile", "merchant", "dealer", "showroom", "enterprise", "fleet",
+      "lga:", "ward:", "civil servant", "ministry", "irrigation", "rain-fed",
+      "trader", "artisan", "housewife", "butcher", "mechanic", "vulcanizer",
+      "welder", "plumber", "electrician", "driver", "conductor"
+    ];
+
+    const isTradeName = tradeKeywords.some((kw) => sch.includes(kw) || occ.includes(kw));
+
+    if (isTradeName) {
+      const hasStrictAcademicKeyword = [
+        "university", "college", "polytechnic", "poly", "institute", "academy",
+        "umyu", "fudma", "ikcoe", "fce", "ksitm", "al-qalam", "huk poly",
+        "government science", "government college"
+      ].some((kw) => sch.includes(kw));
+
+      if (!hasStrictAcademicKeyword) {
+        return false;
+      }
+    }
+
+    if (
+      occ === "farmer" ||
+      occ === "trader" ||
+      occ === "civil servant" ||
+      occ === "artisan" ||
+      occ === "housewife"
+    ) {
+      const hasStrictAcademicKeyword = [
+        "university", "college", "polytechnic", "poly", "institute", "academy",
+        "umyu", "fudma", "ikcoe", "fce", "ksitm", "al-qalam", "huk poly"
+      ].some((kw) => sch.includes(kw));
+
+      if (!hasStrictAcademicKeyword) {
+        return false;
+      }
+    }
+
+    // Explicitly student occupation / employment status / member_type
     if (occ.includes("student") || emp.includes("student") || type.includes("student")) {
       return true;
     }
 
-    // 2. Or if school_name or school_level is specified
-    if (sch !== "" || level !== "") {
-      return true;
-    }
+    // Academic school level (100 level, ND, HND, Tertiary, Secondary)
+    const isAcademicLevel = ["tertiary", "secondary", "nd 1", "nd 2", "hnd 1", "hnd 2", "100 level", "200 level", "300 level", "400 level", "500 level", "level"].some(kw => level.includes(kw));
 
-    // 3. General records without explicit occupation
-    if (!occ && !emp) {
+    // Academic school name keywords
+    const isAcademicSchool = [
+      "university", "college", "polytechnic", "poly", "institute", "academy",
+      "umyu", "fudma", "ikcoe", "fce", "ksitm", "al-qalam", "huk poly",
+      "government science", "government college", "school"
+    ].some(kw => sch.includes(kw));
+
+    if (isAcademicLevel || isAcademicSchool) {
       return true;
     }
 
     return false;
   };
 
-  // Filtered Student Members list (falls back to allAppMembers if empty)
+  // Filtered Student Members list
   const studentMembers = useMemo(() => {
-    const filtered = allAppMembers.filter(isStudentMember);
-    return filtered.length > 0 ? filtered : allAppMembers;
+    return allAppMembers.filter(isStudentMember);
   }, [allAppMembers]);
 
   // Query student support groups count
@@ -124,16 +170,32 @@ export default function StudentDashboard() {
   const loadingSchools = loadingMembers;
   const loadingLga = loadingMembers;
 
-  // Top Schools with Breakdown
+  // Top Schools with Breakdown (Educational Institutions ONLY)
   const topSchools = useMemo(() => {
     const schoolMap: Record<
       string,
       { school_name: string; total: number; males: number; females: number; verified: number }
     > = {};
 
+    const tradeKeywords = [
+      "tailoring", "embroidery", "poultry", "livestock", "farm", "shop", "vendor",
+      "mai kantin", "mai abinci", "mai dabbobi", "mai kayan", "keke", "tricycle",
+      "atambfa", "fabrication", "workshop", "cosmetics", "perfume", "charcoal",
+      "barbing", "salon", "carpentry", "furniture", "catering", "provisions",
+      "textile", "merchant", "dealer", "showroom", "enterprise", "fleet",
+      "lga:", "ward:", "civil servant", "ministry", "irrigation", "rain-fed",
+      "trader", "artisan", "housewife", "butcher", "mechanic"
+    ];
+
     studentMembers.forEach((m) => {
       const rawName = (m.school_name || "").trim();
       if (!rawName) return;
+
+      const lowerName = rawName.toLowerCase();
+      // Reject any non-educational trade name stored in school_name
+      if (tradeKeywords.some((kw) => lowerName.includes(kw))) {
+        return;
+      }
 
       if (!schoolMap[rawName]) {
         schoolMap[rawName] = {

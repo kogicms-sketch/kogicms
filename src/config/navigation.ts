@@ -137,7 +137,6 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
-      "student",
     ],
   },
   {
@@ -155,7 +154,6 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
-      "student",
     ],
   },
   {
@@ -172,7 +170,6 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
-      "student",
     ],
   },
   {
@@ -187,7 +184,6 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
-      "student",
     ],
   },
   {
@@ -203,7 +199,6 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
-      "student",
     ],
   },
   {
@@ -220,7 +215,6 @@ export const navItems: NavItem[] = [
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
-      "student",
     ],
   },
   {
