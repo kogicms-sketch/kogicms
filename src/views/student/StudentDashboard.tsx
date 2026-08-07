@@ -234,11 +234,6 @@ export default function StudentDashboard() {
   }, [lgaBreakdown, searchLga]);
 
   // Derived percentages
-  const total = cloudMetrics?.totalStudents || 0;
-  const verified = cloudMetrics?.verifiedStudents || 0;
-  const males = cloudMetrics?.malesCount || 0;
-  const females = cloudMetrics?.femalesCount || 0;
-
   const verifiedPercent = total > 0 ? Math.round((verified / total) * 100) : 0;
   const malePercent = total > 0 ? Math.round((males / total) * 100) : 0;
   const femalePercent = total > 0 ? Math.round((females / total) * 100) : 0;
