@@ -115,6 +115,8 @@ export default function StudentDashboard() {
   };
 
   const loadingMetrics = loadingMembers;
+  const loadingSchools = loadingMembers;
+  const loadingLga = loadingMembers;
 
   // Top Schools with Breakdown
   const topSchools = useMemo(() => {
