@@ -431,46 +431,8 @@ const Login = () => {
               </Button>
             </form>
 
-            {/* Quick Access Demo Portals */}
-            <div className="mt-6 space-y-3">
-              <div className="relative flex items-center justify-center">
-                <div className="border-t border-border w-full" />
-                <span className="bg-background px-3 text-[11px] text-muted-foreground uppercase font-bold tracking-wider relative">
-                  Quick Portal Access
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    if (signInAsMock) signInAsMock("student");
-                    toast.success("Logged in as Student Monitor!");
-                    router.push("/student/dashboard");
-                  }}
-                  className="w-full border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-bold text-xs gap-1.5 py-5"
-                >
-                  🎓 Student Login
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    if (signInAsMock) signInAsMock("super_admin");
-                    toast.success("Logged in as Super Admin!");
-                    router.push("/dashboard");
-                  }}
-                  className="w-full border-blue-500/40 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-bold text-xs gap-1.5 py-5"
-                >
-                  🛡️ Admin Login
-                </Button>
-              </div>
-            </div>
-
             {/* Footer */}
-            <div className="mt-6 pt-4 border-t border-border space-y-4">
+            <div className="mt-8 pt-6 border-t border-border space-y-4">
               <p className="text-sm text-center text-muted-foreground">
                 Don't have an account?{" "}
                 <span className="text-primary font-medium">Contact your administrator</span>

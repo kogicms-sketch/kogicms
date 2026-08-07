@@ -17,7 +17,8 @@ import {
   RefreshCcw,
   Gift,
   PieChart as PieChartIcon,
-  BookOpen
+  BookOpen,
+  UserPlus
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -34,163 +35,123 @@ import {
 } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/loose-client";
+import { useMembers } from "@/hooks/useMembers";
+import { AddMemberModal } from "@/components/members/AddMemberModal";
 import Link from "next/link";
 
 export default function StudentDashboard() {
   const [searchLga, setSearchLga] = useState("");
   const [schoolSearch, setSchoolSearch] = useState("");
   const [schoolCategory, setSchoolCategory] = useState<"all" | "university" | "polytechnic" | "college">("all");
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  // Helper filter function to strictly identify student records ONLY
+  // Fetch all members from both Supabase and local IndexedDB cache
+  const {
+    data: allAppMembers = [],
+    isLoading: loadingMembers,
+    refetch: refetchMembers,
+    isRefetching: refetchingMembers
+  } = useMembers("all");
+
+  // Helper filter function to identify student records ONLY
   const isStudentMember = (m: any) => {
-    const occ = (m.occupation || "").toLowerCase();
-    const emp = (m.employment_status || "").toLowerCase();
-    const sch = (m.school_name || "").toLowerCase();
-    const level = (m.school_level || "").toLowerCase();
+    if (!m) return false;
+    const occ = (m.occupation || "").toLowerCase().trim();
+    const emp = (m.employment_status || "").toLowerCase().trim();
+    const sch = (m.school_name || "").toLowerCase().trim();
+    const level = (m.school_level || "").toLowerCase().trim();
+    const type = (m.member_type || "").toLowerCase().trim();
 
-    // Must be student occupation or employment status
-    if (occ === "student" || emp.includes("student")) {
+    // 1. Explicitly student by occupation, employment status, or member_type
+    if (occ === "student" || emp.includes("student") || type === "student") {
       return true;
     }
 
-    // Exclude non-student trade shops / farms / civil servants
-    if (
-      occ === "farmer" ||
-      occ === "civil servant" ||
-      occ === "trader" ||
-      occ === "housewife" ||
-      occ === "artisan"
-    ) {
-      // unless school_name is an explicit tertiary university/college
-      if (sch.includes("umyu") || sch.includes("fudma") || sch.includes("al-qalam")) {
-        return true;
-      }
-      return false;
+    // 2. Or if school_name or school_level is specified
+    if (sch !== "" || level !== "") {
+      return true;
     }
 
-    // Check academic school level or academic institution keywords
-    const hasAcademicLevel = ["tertiary", "secondary", "nd 1", "nd 2", "hnd 1", "hnd 2", "100 level", "200 level", "300 level", "400 level"].includes(level);
-    const academicKeywords = [
-      "university", "college", "polytechnic", "poly", "institute", "academy",
-      "umyu", "fudma", "ikcoe", "fce", "ksitm", "al-qalam", "huk poly",
-      "government science", "government college"
-    ];
-    const hasAcademicName = academicKeywords.some((kw) => sch.includes(kw));
-
-    const nonSchoolTrades = [
-      "tailoring", "poultry", "livestock", "farm", "shop", "vendor", "mai kantin",
-      "mai abinci", "mai dabbobi", "mai kayan", "keke napep", "atambfa", "fabrication",
-      "workshop", "cosmetics", "perfume", "charcoal", "gitan nika", "barbing", "salon"
-    ];
-    const isTrade = nonSchoolTrades.some((kw) => sch.includes(kw));
-
-    if (isTrade) return false;
-
-    return hasAcademicLevel || hasAcademicName;
+    return false;
   };
 
-  // 1. Fetch Real Student Metrics from Cloud Database (Strictly Filtered for Students)
-  const {
-    data: cloudMetrics,
-    isLoading: loadingMetrics,
-    refetch: refetchMetrics,
-    isRefetching: refetchingMetrics
-  } = useQuery({
-    queryKey: ["student-strict-cloud-metrics"],
+  // Filtered Student Members list
+  const studentMembers = useMemo(() => {
+    return allAppMembers.filter(isStudentMember);
+  }, [allAppMembers]);
+
+  // Query student support groups count
+  const { data: totalOrgsCount = 0 } = useQuery({
+    queryKey: ["student-total-orgs-count"],
     queryFn: async () => {
-      const { data: members, error: memberErr } = await supabase
-        .from("members")
-        .select("id, full_name, gender, is_verified, school_name, school_level, lga, ward, occupation, employment_status");
-
-      if (memberErr) throw memberErr;
-
-      // Filter strictly for STUDENT members
-      const allMembers = members || [];
-      const studentMembers = allMembers.filter(isStudentMember);
-
-      const totalStudents = studentMembers.length;
-      const verifiedStudents = studentMembers.filter((m) => m.is_verified).length;
-      const malesCount = studentMembers.filter((m) => (m.gender || "").toLowerCase() === "male").length;
-      const femalesCount = studentMembers.filter((m) => (m.gender || "").toLowerCase() === "female").length;
-
-      // Query student support groups
-      const { count: totalOrgs } = await supabase
-        .from("organizations")
-        .select("*", { count: "exact", head: true });
-
-      // Query student welfare / incentives
-      const { count: totalIncentives } = await supabase
-        .from("member_incentives")
-        .select("*", { count: "exact", head: true });
-
-      return {
-        totalStudents,
-        verifiedStudents,
-        malesCount,
-        femalesCount,
-        totalOrgs: totalOrgs || 0,
-        totalIncentives: totalIncentives || 0,
-        allStudentMembers: studentMembers,
-      };
-    },
-    refetchInterval: 30000,
+      const { count } = await supabase.from("organizations").select("*", { count: "exact", head: true });
+      return count || 0;
+    }
   });
 
-  // 2. Fetch Top 10 Schools/Institutions with Male & Female Student Breakdown
-  const { data: topSchools = [], isLoading: loadingSchools } = useQuery({
-    queryKey: ["student-top-schools-strict-cloud"],
+  // Query student welfare count
+  const { data: totalIncentivesCount = 0 } = useQuery({
+    queryKey: ["student-total-incentives-count"],
     queryFn: async () => {
-      const { data: members, error } = await supabase
-        .from("members")
-        .select("school_name, school_level, gender, is_verified, occupation, employment_status")
-        .not("school_name", "is", null)
-        .neq("school_name", "");
-
-      if (error) throw error;
-
-      // Filter strictly for actual students
-      const studentMembers = (members || []).filter(isStudentMember);
-
-      const schoolMap: Record<
-        string,
-        { school_name: string; total: number; males: number; females: number; verified: number }
-      > = {};
-
-      studentMembers.forEach((m) => {
-        const rawName = (m.school_name || "").trim();
-        if (!rawName) return;
-
-        if (!schoolMap[rawName]) {
-          schoolMap[rawName] = {
-            school_name: rawName,
-            total: 0,
-            males: 0,
-            females: 0,
-            verified: 0,
-          };
-        }
-
-        schoolMap[rawName].total += 1;
-        const g = (m.gender || "").toLowerCase();
-        if (g === "male") {
-          schoolMap[rawName].males += 1;
-        } else if (g === "female") {
-          schoolMap[rawName].females += 1;
-        }
-
-        if (m.is_verified) {
-          schoolMap[rawName].verified += 1;
-        }
-      });
-
-      // Sort by total student count descending (ONLY include schools with at least 1 registered student)
-      const sorted = Object.values(schoolMap)
-        .filter((item) => item.total > 0)
-        .sort((a, b) => b.total - a.total);
-      return sorted;
-    },
-    refetchInterval: 30000,
+      const { count } = await supabase.from("member_incentives").select("*", { count: "exact", head: true });
+      return count || 0;
+    }
   });
+
+  // Derived metrics
+  const total = studentMembers.length;
+  const verified = studentMembers.filter((m) => m.is_verified || m.voters_card_id || m.pvc_status === "collected").length;
+  const males = studentMembers.filter((m) => (m.gender || "").toLowerCase() === "male").length;
+  const females = studentMembers.filter((m) => (m.gender || "").toLowerCase() === "female").length;
+
+  const cloudMetrics = {
+    totalStudents: total,
+    verifiedStudents: verified,
+    malesCount: males,
+    femalesCount: females,
+    totalOrgs: totalOrgsCount,
+    totalIncentives: totalIncentivesCount,
+    allStudentMembers: studentMembers,
+  };
+
+  // Top Schools with Breakdown
+  const topSchools = useMemo(() => {
+    const schoolMap: Record<
+      string,
+      { school_name: string; total: number; males: number; females: number; verified: number }
+    > = {};
+
+    studentMembers.forEach((m) => {
+      const rawName = (m.school_name || "").trim();
+      if (!rawName) return;
+
+      if (!schoolMap[rawName]) {
+        schoolMap[rawName] = {
+          school_name: rawName,
+          total: 0,
+          males: 0,
+          females: 0,
+          verified: 0,
+        };
+      }
+
+      schoolMap[rawName].total += 1;
+      const g = (m.gender || "").toLowerCase();
+      if (g === "male") {
+        schoolMap[rawName].males += 1;
+      } else if (g === "female") {
+        schoolMap[rawName].females += 1;
+      }
+
+      if (m.is_verified || m.voters_card_id || m.pvc_status === "collected") {
+        schoolMap[rawName].verified += 1;
+      }
+    });
+
+    return Object.values(schoolMap)
+      .filter((item) => item.total > 0)
+      .sort((a, b) => b.total - a.total);
+  }, [studentMembers]);
 
   // Filtered Top 10 Schools by Search Query and Category Tabs
   const filteredTop10Schools = useMemo(() => {
@@ -212,7 +173,7 @@ export default function StudentDashboard() {
     return list.slice(0, 10);
   }, [topSchools, schoolSearch, schoolCategory]);
 
-  // 3. Fetch Organizations / Student Campus Groups Live from Cloud
+  // Fetch Organizations / Student Campus Groups Live from Cloud
   const { data: organizationsList = [], isLoading: loadingOrgs } = useQuery({
     queryKey: ["student-organizations-cloud"],
     queryFn: async () => {
@@ -227,7 +188,7 @@ export default function StudentDashboard() {
     },
   });
 
-  // 4. Fetch Activities / Events Live from Cloud
+  // Fetch Activities / Events Live from Cloud
   const { data: activitiesList = [], isLoading: loadingActivities } = useQuery({
     queryKey: ["student-activities-cloud"],
     queryFn: async () => {
@@ -242,38 +203,27 @@ export default function StudentDashboard() {
     },
   });
 
-  // 5. Fetch LGA Student Mobilization Breakdown (Strict Student Filter)
-  const { data: lgaBreakdown = [], isLoading: loadingLga } = useQuery({
-    queryKey: ["student-lga-breakdown-strict"],
-    queryFn: async () => {
-      const { data: members, error } = await supabase
-        .from("members")
-        .select("lga, gender, is_verified, occupation, employment_status, school_name, school_level");
+  // LGA Student Mobilization Breakdown
+  const lgaBreakdown = useMemo(() => {
+    const lgaMap: Record<
+      string,
+      { lga: string; total: number; verified: number; males: number; females: number }
+    > = {};
 
-      if (error) throw error;
+    studentMembers.forEach((m) => {
+      const lgaName = (m.lga || "Katsina").trim();
+      if (!lgaMap[lgaName]) {
+        lgaMap[lgaName] = { lga: lgaName, total: 0, verified: 0, males: 0, females: 0 };
+      }
+      lgaMap[lgaName].total += 1;
+      if (m.is_verified || m.voters_card_id || m.pvc_status === "collected") lgaMap[lgaName].verified += 1;
+      const g = (m.gender || "").toLowerCase();
+      if (g === "male") lgaMap[lgaName].males += 1;
+      if (g === "female") lgaMap[lgaName].females += 1;
+    });
 
-      const studentMembers = (members || []).filter(isStudentMember);
-
-      const lgaMap: Record<
-        string,
-        { lga: string; total: number; verified: number; males: number; females: number }
-      > = {};
-
-      studentMembers.forEach((m) => {
-        const lgaName = (m.lga || "Katsina").trim();
-        if (!lgaMap[lgaName]) {
-          lgaMap[lgaName] = { lga: lgaName, total: 0, verified: 0, males: 0, females: 0 };
-        }
-        lgaMap[lgaName].total += 1;
-        if (m.is_verified) lgaMap[lgaName].verified += 1;
-        const g = (m.gender || "").toLowerCase();
-        if (g === "male") lgaMap[lgaName].males += 1;
-        if (g === "female") lgaMap[lgaName].females += 1;
-      });
-
-      return Object.values(lgaMap).sort((a, b) => b.total - a.total);
-    },
-  });
+    return Object.values(lgaMap).sort((a, b) => b.total - a.total);
+  }, [studentMembers]);
 
   // Filtered LGA list
   const filteredLgaBreakdown = useMemo(() => {
@@ -328,12 +278,19 @@ export default function StudentDashboard() {
 
             <div className="flex flex-col sm:flex-row gap-3">
               <Button
-                onClick={() => refetchMetrics()}
-                disabled={refetchingMetrics}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md gap-2 w-full sm:w-auto text-xs"
+                onClick={() => setIsAddModalOpen(true)}
+                className="bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-extrabold shadow-md gap-2 w-full sm:w-auto text-xs"
               >
-                <RefreshCcw className={`w-4 h-4 ${refetchingMetrics ? "animate-spin" : ""}`} />
-                {refetchingMetrics ? "Syncing..." : "Sync Student Data"}
+                <UserPlus className="w-4 h-4" />
+                Add Student Member
+              </Button>
+              <Button
+                onClick={() => refetchMembers()}
+                disabled={refetchingMembers}
+                className="bg-emerald-700 hover:bg-emerald-600 text-white font-bold shadow-md gap-2 w-full sm:w-auto text-xs"
+              >
+                <RefreshCcw className={`w-4 h-4 ${refetchingMembers ? "animate-spin" : ""}`} />
+                {refetchingMembers ? "Syncing..." : "Sync Student Data"}
               </Button>
               <Link href="/members">
                 <Button variant="outline" className="border-emerald-400/40 bg-emerald-950/40 text-white hover:bg-emerald-800/60 gap-2 w-full sm:w-auto text-xs">
@@ -810,6 +767,12 @@ export default function StudentDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <AddMemberModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        isStudentOnly={true}
+      />
     </DashboardLayout>
   );
 }

@@ -27,6 +27,7 @@ import { NIGERIAN_BANKS as FULL_NIGERIAN_BANKS } from "@/data/nigerian_banks";
 interface AddMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isStudentOnly?: boolean;
 }
 
 const MEMBER_ROLES = [
@@ -149,7 +150,7 @@ const KATSINA_SECONDARY_SCHOOLS = [
 ];
 
 
-export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
+export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModalProps) => {
   const router = useRouter();
   const navigate = (path, options) => { if (path === -1) router.back(); else router.push(path); };
   const { role, organizationId, user } = useAuth();
@@ -157,6 +158,7 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
   const { data: councillor } = useCouncillor();
   const { data: chairman } = useChairman();
   const { data: puAgent } = usePUAgent();
+  const isStudentContext = isStudentOnly || role === "student";
   const isSuperAdmin = role === "super_admin";
   const isChairman = role === "lga_chairman";
   const isCouncillor = role === "councillor";
@@ -180,7 +182,7 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
     bankName: "",
     accountNumber: "",
     maritalStatus: "",
-    occupation: "",
+    occupation: isStudentContext ? "Student" : "",
     schoolName: "",
     schoolLevel: "",
     // Conditional demographics fields
@@ -1297,15 +1299,31 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">PVC Status</label>
-                  <select
-                    className="input-premium w-full"
-                    value={formData.pvcStatus}
-                    onChange={(e) => setFormData({ ...formData, pvcStatus: e.target.value as any })}
-                  >
-                    <option value="collected">Collected</option>
-                    <option value="not collected">Not Collected</option>
-                  </select>
+                  <label className="text-sm font-medium">PVC Collection Status</label>
+                  <div className="flex items-center gap-4 pt-2">
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 rounded-lg text-emerald-800 dark:text-emerald-300">
+                      <input
+                        type="radio"
+                        name="pvcStatusModal"
+                        value="collected"
+                        checked={formData.pvcStatus === "collected"}
+                        onChange={() => setFormData(prev => ({ ...prev, pvcStatus: "collected" }))}
+                        className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span>Collected (Has PVC)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer border border-amber-500/30 bg-amber-500/10 px-3 py-2 rounded-lg text-amber-800 dark:text-amber-300">
+                      <input
+                        type="radio"
+                        name="pvcStatusModal"
+                        value="not collected"
+                        checked={formData.pvcStatus === "not collected"}
+                        onChange={() => setFormData(prev => ({ ...prev, pvcStatus: "not collected" }))}
+                        className="w-4 h-4 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                      />
+                      <span>Not Collected / Pending</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 

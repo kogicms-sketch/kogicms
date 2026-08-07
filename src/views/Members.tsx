@@ -507,7 +507,7 @@ const Members = () => {
                 <Plus className="w-4 h-4" />
                 <span>Add Member</span>
               </Button>
-              <AddMemberModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+              <AddMemberModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} isStudentOnly={role === "student"} />
             </div>
           </div>
           {/* Occupation/Trade Filters Redesign */}
