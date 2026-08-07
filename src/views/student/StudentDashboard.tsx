@@ -114,6 +114,8 @@ export default function StudentDashboard() {
     allStudentMembers: studentMembers,
   };
 
+  const loadingMetrics = loadingMembers;
+
   // Top Schools with Breakdown
   const topSchools = useMemo(() => {
     const schoolMap: Record<
