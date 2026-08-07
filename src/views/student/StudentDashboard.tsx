@@ -39,6 +39,7 @@ import Link from "next/link";
 export default function StudentDashboard() {
   const [searchLga, setSearchLga] = useState("");
   const [schoolSearch, setSchoolSearch] = useState("");
+  const [schoolCategory, setSchoolCategory] = useState<"all" | "university" | "polytechnic" | "college">("all");
 
   // Helper filter function to strictly identify student records ONLY
   const isStudentMember = (m: any) => {
@@ -182,23 +183,34 @@ export default function StudentDashboard() {
         }
       });
 
-      // Sort by total student count descending
-      const sorted = Object.values(schoolMap).sort((a, b) => b.total - a.total);
+      // Sort by total student count descending (ONLY include schools with at least 1 registered student)
+      const sorted = Object.values(schoolMap)
+        .filter((item) => item.total > 0)
+        .sort((a, b) => b.total - a.total);
       return sorted;
     },
     refetchInterval: 30000,
   });
 
-  // Filtered Top 10 Schools
+  // Filtered Top 10 Schools by Search Query and Category Tabs
   const filteredTop10Schools = useMemo(() => {
     let list = topSchools;
+    if (schoolCategory !== "all") {
+      list = list.filter((s) => {
+        const name = s.school_name.toLowerCase();
+        if (schoolCategory === "university") return name.includes("university") || name.includes("umyu") || name.includes("fudma") || name.includes("al-qalam") || name.includes("abu") || name.includes("buk");
+        if (schoolCategory === "polytechnic") return name.includes("polytechnic") || name.includes("poly") || name.includes("huk") || name.includes("ksitm") || name.includes("yabatech");
+        if (schoolCategory === "college") return name.includes("college") || name.includes("ikcoe") || name.includes("fce") || name.includes("nursing");
+        return true;
+      });
+    }
     if (schoolSearch.trim()) {
       list = list.filter((s) =>
         s.school_name.toLowerCase().includes(schoolSearch.toLowerCase())
       );
     }
     return list.slice(0, 10);
-  }, [topSchools, schoolSearch]);
+  }, [topSchools, schoolSearch, schoolCategory]);
 
   // 3. Fetch Organizations / Student Campus Groups Live from Cloud
   const { data: organizationsList = [], isLoading: loadingOrgs } = useQuery({
@@ -484,25 +496,63 @@ export default function StudentDashboard() {
 
         {/* TOP 10 SCHOOLS & TERTIARY INSTITUTIONS TABLE WITH MALES & FEMALES */}
         <Card className="border border-border/60 shadow-sm">
-          <CardHeader className="p-5 border-b flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-emerald-600" />
-                Top 10 Tertiary & Secondary Schools with Most Students
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Real cloud database ranking of educational institutions by total registered student members, male count & female count
-              </CardDescription>
+          <CardHeader className="p-5 border-b flex flex-col gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-emerald-600" />
+                  Educational Institutions Leaderboard
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Real cloud database ranking of educational institutions by total registered student members, male count & female count
+                </CardDescription>
+              </div>
+
+              <div className="relative w-full md:w-72">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search school name (e.g. ABU, UMYU, FUDMA)..."
+                  value={schoolSearch}
+                  onChange={(e) => setSchoolSearch(e.target.value)}
+                  className="pl-9 text-xs"
+                />
+              </div>
             </div>
 
-            <div className="relative w-full md:w-72">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search school name..."
-                value={schoolSearch}
-                onChange={(e) => setSchoolSearch(e.target.value)}
-                className="pl-9 text-xs"
-              />
+            {/* School Category Tabs */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-1 border-t border-border/40">
+              <Button
+                size="sm"
+                variant={schoolCategory === "all" ? "default" : "outline"}
+                onClick={() => setSchoolCategory("all")}
+                className={`text-xs h-7 px-3 rounded-full font-bold ${schoolCategory === "all" ? "bg-emerald-700 hover:bg-emerald-800 text-white" : ""}`}
+              >
+                All Institutions
+              </Button>
+              <Button
+                size="sm"
+                variant={schoolCategory === "university" ? "default" : "outline"}
+                onClick={() => setSchoolCategory("university")}
+                className={`text-xs h-7 px-3 rounded-full font-bold ${schoolCategory === "university" ? "bg-emerald-700 hover:bg-emerald-800 text-white" : ""}`}
+              >
+                🏛️ Universities
+              </Button>
+              <Button
+                size="sm"
+                variant={schoolCategory === "polytechnic" ? "default" : "outline"}
+                onClick={() => setSchoolCategory("polytechnic")}
+                className={`text-xs h-7 px-3 rounded-full font-bold ${schoolCategory === "polytechnic" ? "bg-emerald-700 hover:bg-emerald-800 text-white" : ""}`}
+              >
+                ⚙️ Polytechnics
+              </Button>
+              <Button
+                size="sm"
+                variant={schoolCategory === "college" ? "default" : "outline"}
+                onClick={() => setSchoolCategory("college")}
+                className={`text-xs h-7 px-3 rounded-full font-bold ${schoolCategory === "college" ? "bg-emerald-700 hover:bg-emerald-800 text-white" : ""}`}
+              >
+                🎓 Colleges of Education
+              </Button>
             </div>
           </CardHeader>
 

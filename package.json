@@ -49,6 +49,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
     "dexie": "^4.4.4",
+    "docx": "^9.7.1",
     "embla-carousel-react": "^8.6.0",
     "emoji-picker-react": "^4.16.1",
     "eslint-config-next": "^16.2.9",

@@ -20,6 +20,9 @@ import { useChairman } from "@/hooks/useChairmen";
 import { usePUAgent } from "@/hooks/usePUAgent";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { toast } from "sonner";
+import { SchoolSelect } from "@/components/common/SchoolSelect";
+import { STUDENT_INSTITUTIONS } from "@/data/student_institutions";
+import { NIGERIAN_BANKS as FULL_NIGERIAN_BANKS } from "@/data/nigerian_banks";
 
 interface AddMemberModalProps {
   isOpen: boolean;
@@ -40,11 +43,7 @@ const GENDERS = [
   { value: "female", label: "Female" },
 ];
 
-const NIGERIAN_BANKS = [
-  "Access Bank", "Zenith Bank", "Guaranty Trust Bank (GTB)", "United Bank for Africa (UBA)",
-  "First Bank", "FCMB", "Union Bank", "Fidelity Bank", "Sterling Bank", "Stanbic IBTC", 
-  "Wema Bank", "Polaris Bank", "Opay", "Palmpay", "Moniepoint", "Kuda Bank"
-];
+const NIGERIAN_BANKS = FULL_NIGERIAN_BANKS;
 
 const COMMON_OCCUPATIONS = [
   "Student",
@@ -85,29 +84,7 @@ const TRADER_SUB_TRADES = [
   "Other Trader"
 ];
 
-const STUDENT_INSTITUTIONS = [
-  "Umaru Musa Yar'adua University (UMYU), Katsina",
-  "Federal University Dutsin-Ma (FUDMA)",
-  "Al-Qalam University, Katsina",
-  "Federal University of Transportation, Daura",
-  "Hassan Usman Katsina Polytechnic (HUK Poly), Katsina",
-  "Federal Polytechnic, Daura",
-  "Isa Kaita College of Education (IKCOE), Dutsin-Ma",
-  "Katsina State College of Health Sciences (COHESKAT), Katsina Campus",
-  "Katsina State College of Health Sciences, Daura Campus",
-  "Kasimu Kofarsauri College of Education, Katsina",
-  "College of Nursing and Midwifery, Katsina",
-  "Cherish College of Nursing and Midwifery, Batsari",
-  "National Open University of Nigeria (NOUN), Katsina Centre",
-  "Federal College of Education (FCE), Katsina",
-  "Yusuf Bala Usman College of Legal and General Studies, Daura",
-  "Katsina State Institute of Technology and Management (KSITM)",
-  "Al-Asala College of Health Sciences, Katsina",
-  "School of Basic and Remedial Studies (SBRS), Funtua",
-  "Malumfashi College of Nursing and Midwifery",
-  "Institute of Almighty Management and Technology, Katsina",
-  "Other Higher Institution Outside Katsina"
-];
+// STUDENT_INSTITUTIONS imported from @/data/student_institutions
 
 const BUSINESS_SECTORS = [
   "Commercial Transport Fleet (Mota/Buses)",
@@ -1073,18 +1050,12 @@ export const AddMemberModal = ({ isOpen, onClose }: AddMemberModalProps) => {
               {formData.occupation === "Student" && (
                 <div className="grid grid-cols-2 gap-4 p-3 border border-dashed border-primary/30 rounded-lg bg-primary/5 animate-fade-in">
                   <div className="space-y-2 col-span-2">
-                    <label className="text-sm font-medium">Higher Institution</label>
-                    <select
-                      required
-                      className="input-premium w-full bg-card"
+                    <label className="text-sm font-medium">Higher Institution (Search & Select)</label>
+                    <SchoolSelect
                       value={formData.studentInstitution}
-                      onChange={(e) => setFormData({ ...formData, studentInstitution: e.target.value, otherInstitution: "" })}
-                    >
-                      <option value="">Select Institution</option>
-                      {STUDENT_INSTITUTIONS.map((inst) => (
-                        <option key={inst} value={inst}>{inst}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => setFormData({ ...formData, studentInstitution: val, otherInstitution: "" })}
+                      placeholder="Search or select school (e.g. ABU, BUK, FUDMA, UNILAG)..."
+                    />
                   </div>
                   {formData.studentInstitution === "Other Higher Institution Outside Katsina" && (
                     <div className="space-y-2 col-span-2 animate-fade-in">

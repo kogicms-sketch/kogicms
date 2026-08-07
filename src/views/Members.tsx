@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from 'next/navigation';
 import DashboardLayout from "@/components/layout/DashboardLayout";
+import { STUDENT_INSTITUTIONS } from "@/data/student_institutions";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -104,29 +105,7 @@ const TRADER_SUB_TRADES = [
   "Other Trader"
 ];
 
-const STUDENT_INSTITUTIONS = [
-  "Umaru Musa Yar'adua University (UMYU), Katsina",
-  "Federal University Dutsin-Ma (FUDMA)",
-  "Al-Qalam University, Katsina",
-  "Federal University of Transportation, Daura",
-  "Hassan Usman Katsina Polytechnic (HUK Poly), Katsina",
-  "Federal Polytechnic, Daura",
-  "Isa Kaita College of Education (IKCOE), Dutsin-Ma",
-  "Katsina State College of Health Sciences (COHESKAT), Katsina Campus",
-  "Katsina State College of Health Sciences, Daura Campus",
-  "Kasimu Kofarsauri College of Education, Katsina",
-  "College of Nursing and Midwifery, Katsina",
-  "Cherish College of Nursing and Midwifery, Batsari",
-  "National Open University of Nigeria (NOUN), Katsina Centre",
-  "Federal College of Education (FCE), Katsina",
-  "Yusuf Bala Usman College of Legal and General Studies, Daura",
-  "Katsina State Institute of Technology and Management (KSITM)",
-  "Al-Asala College of Health Sciences, Katsina",
-  "School of Basic and Remedial Studies (SBRS), Funtua",
-  "Malumfashi College of Nursing and Midwifery",
-  "Institute of Almighty Management and Technology, Katsina",
-  "Other Higher Institution Outside Katsina"
-];
+// STUDENT_INSTITUTIONS imported from @/data/student_institutions
 
 const BUSINESS_SECTORS = [
   "Commercial Transport Fleet (Mota/Buses)",

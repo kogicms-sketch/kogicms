@@ -10,6 +10,9 @@ import {
   insertNewVoterToRegistry,
 } from "@/lib/campaign-data";
 import { createClient } from "@supabase/supabase-js";
+import { SchoolSelect } from "@/components/common/SchoolSelect";
+import { STUDENT_INSTITUTIONS } from "@/data/student_institutions";
+import { NIGERIAN_BANKS } from "@/data/nigerian_banks";
 
 const CAMPAIGN_SUPABASE_URL = "https://qkjscvmrqkxbzflowrox.supabase.co";
 const CAMPAIGN_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFranNjdm1ycWt4YnpmbG93cm94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NjQzNDYsImV4cCI6MjA4NjE0MDM0Nn0.gJXP249ofTNu29NsIvskRtb7b5ZaZlPI5lRb9KwQV34";
@@ -105,10 +108,7 @@ const OCCUPATIONS = [
   "Business Owner","Artisan","Housewife","Retired","Unemployed","Other",
 ];
 
-const BANKS = [
-  "Access Bank","Zenith Bank","GTBank","UBA","First Bank","FCMB",
-  "Union Bank","Fidelity Bank","Opay","Palmpay","Moniepoint","Kuda Bank","Other",
-];
+const BANKS = NIGERIAN_BANKS;
 
 const TRADER_SUB_TRADES = [
   "Grain / Produce Merchant (Mai Hatsi)",
@@ -135,29 +135,7 @@ const TRADER_SUB_TRADES = [
   "Other Trader"
 ];
 
-const STUDENT_INSTITUTIONS = [
-  "Umaru Musa Yar'adua University (UMYU), Katsina",
-  "Federal University Dutsin-Ma (FUDMA)",
-  "Al-Qalam University, Katsina",
-  "Federal University of Transportation, Daura",
-  "Hassan Usman Katsina Polytechnic (HUK Poly), Katsina",
-  "Federal Polytechnic, Daura",
-  "Isa Kaita College of Education (IKCOE), Dutsin-Ma",
-  "Katsina State College of Health Sciences (COHESKAT), Katsina Campus",
-  "Katsina State College of Health Sciences, Daura Campus",
-  "Kasimu Kofarsauri College of Education, Katsina",
-  "College of Nursing and Midwifery, Katsina",
-  "Cherish College of Nursing and Midwifery, Batsari",
-  "National Open University of Nigeria (NOUN), Katsina Centre",
-  "Federal College of Education (FCE), Katsina",
-  "Yusuf Bala Usman College of Legal and General Studies, Daura",
-  "Katsina State Institute of Technology and Management (KSITM)",
-  "Al-Asala College of Health Sciences, Katsina",
-  "School of Basic and Remedial Studies (SBRS), Funtua",
-  "Malumfashi College of Nursing and Midwifery",
-  "Institute of Almighty Management and Technology, Katsina",
-  "Other Higher Institution Outside Katsina"
-];
+// STUDENT_INSTITUTIONS imported from @/data/student_institutions
 
 const BUSINESS_SECTORS = [
   "Commercial Transport Fleet (Mota/Buses)",
@@ -1471,11 +1449,13 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                 {/* STUDENT FIELDS */}
                 {form.occupation === "Student" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <Field label="Higher Institution" required error={errors.studentInstitution}>
-                      <select style={selectStyle} value={form.studentInstitution} onChange={e => setForm(f => ({ ...f, studentInstitution: e.target.value, otherInstitution: "" }))}>
-                        <option value="">Select Institution</option>
-                        {STUDENT_INSTITUTIONS.map(inst => <option key={inst} value={inst}>{inst}</option>)}
-                      </select>
+                    <Field label="Higher Institution (Search & Select)" required error={errors.studentInstitution}>
+                      <SchoolSelect
+                        value={form.studentInstitution}
+                        onChange={val => setForm(f => ({ ...f, studentInstitution: val, otherInstitution: "" }))}
+                        error={!!errors.studentInstitution}
+                        placeholder="Search or select school (e.g. ABU, BUK, FUDMA, UNILAG)..."
+                      />
                     </Field>
                     {form.studentInstitution === "Other Higher Institution Outside Katsina" && (
                       <Field label="Specify Institution Name" required error={errors.otherInstitution}>

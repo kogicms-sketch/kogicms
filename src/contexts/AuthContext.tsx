@@ -11,6 +11,7 @@ interface AuthContextType {
   organizationId: string | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInAsMock: (targetRole?: AppRole) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   accountStatus: string | null;
@@ -335,6 +336,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: error as Error | null };
   };
 
+  const signInAsMock = async (targetRole: AppRole = "student") => {
+    isMockRef.current = true;
+    const mockUser: any = {
+      id: "mock-student-id-001",
+      email: `${targetRole}@katsina.gov.ng`,
+      user_metadata: { full_name: "Katsina Student Monitor" },
+    };
+    setUser(mockUser);
+    setSession({ user: mockUser } as any);
+    setRole(targetRole);
+    setAccountStatus("active");
+    localStorage.setItem("auth_role", targetRole || "student");
+    localStorage.setItem("auth_account_status", "active");
+    return { error: null };
+  };
+
   const signOut = async () => {
     isMockRef.current = false;
     currentUserIdRef.current = null;
@@ -350,7 +367,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, role, organizationId, loading, signIn, signUp, signOut, accountStatus }}>
+    <AuthContext.Provider value={{ user, session, role, organizationId, loading, signIn, signInAsMock, signUp, signOut, accountStatus }}>
       {children}
     </AuthContext.Provider>
   );
