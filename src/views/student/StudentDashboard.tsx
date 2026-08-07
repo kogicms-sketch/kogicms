@@ -51,7 +51,7 @@ export default function StudentDashboard() {
     isLoading: loadingMembers,
     refetch: refetchMembers,
     isRefetching: refetchingMembers
-  } = useMembers("all");
+  } = useMembers(undefined, undefined, undefined, "all");
 
   // Helper filter function to identify student records ONLY
   const isStudentMember = (m: any) => {
@@ -63,7 +63,7 @@ export default function StudentDashboard() {
     const type = (m.member_type || "").toLowerCase().trim();
 
     // 1. Explicitly student by occupation, employment status, or member_type
-    if (occ === "student" || emp.includes("student") || type === "student") {
+    if (occ.includes("student") || emp.includes("student") || type.includes("student")) {
       return true;
     }
 
@@ -72,12 +72,18 @@ export default function StudentDashboard() {
       return true;
     }
 
+    // 3. General records without explicit occupation
+    if (!occ && !emp) {
+      return true;
+    }
+
     return false;
   };
 
-  // Filtered Student Members list
+  // Filtered Student Members list (falls back to allAppMembers if empty)
   const studentMembers = useMemo(() => {
-    return allAppMembers.filter(isStudentMember);
+    const filtered = allAppMembers.filter(isStudentMember);
+    return filtered.length > 0 ? filtered : allAppMembers;
   }, [allAppMembers]);
 
   // Query student support groups count
