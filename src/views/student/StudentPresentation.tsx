@@ -103,11 +103,11 @@ export default function StudentPresentation() {
   const slides = [
     {
       id: 1,
-      tag: "OVERVIEW PRESENTATION",
-      title: "Dikko CMS — Student Campaign & Youth Affairs Dashboard",
-      subtitle: "Executive Presentation on Campus Mobilization, Student Welfare & Voter Registration Tracking in Katsina State",
-      notesEnglish: "Good day, delegates and student leaders. Today I present the Dikko CMS Student Dashboard — a dedicated digital portal created for His Excellency Malam Dikko Umaru Radda (PhD, CON) to monitor, empower, and support Katsina State students across all higher institutions.",
-      notesHausa: "Barka da zuwa dukkan dalibai da shugabanni. Wannan shine Student Dashboard din Dikko CMS wanda aka tsara musamman don Malam Dikko Umaru Radda (PhD, CON) don kula da al'amuran daliban Jihar Katsina a dukkan jami'o'i da kwalejoji.",
+      tag: "CORE VISION & MISSION",
+      title: "Uniting All Katsina State Students on ONE Platform",
+      subtitle: "Executive Mobilization & Welfare Portal Supporting His Excellency Malam Dikko Umaru Radda (PhD, CON)",
+      notesEnglish: "Good day, distinguished delegates, leaders, and fellow students. Tomorrow's presentation is not merely about counting numbers — it is about UNIFYING every single Katsina State student studying in tertiary institutions across Nigeria on ONE digital platform to guarantee direct welfare and solid support for Malam Dikko Umaru Radda.",
+      notesHausa: "Barka da zuwa dukkan shugabanni da dalibai. Gabatarwar gobe ba kawai batun lissafin adadi bane — babban burin shine HADA KAN DUKKAN ƊALIBAN JIHAR KATSINA da ke karatu a duk faɗin Najeriya akan SHAFIN INTERNET GUDA ƊAYA don tabbatar da tallafi da goyon bayan Malam Dikko Umaru Radda.",
       content: (
         <div className="flex flex-col items-center justify-center text-center space-y-6 py-6">
           <div className="w-20 h-20 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-400 shadow-2xl">
@@ -115,27 +115,27 @@ export default function StudentPresentation() {
           </div>
           <div className="space-y-3 max-w-3xl">
             <Badge className="bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 text-xs px-4 py-1.5 font-bold uppercase tracking-widest">
-              APC Campaign Management System • Katsina State
+              Dikko CMS • One Student Body • One Katsina
             </Badge>
             <h1 className="text-3xl md:text-5xl font-black text-white leading-tight">
-              Dikko CMS Student & Youth Affairs Portal
+              Connecting Katsina Students Nationwide
             </h1>
             <p className="text-emerald-100/90 text-base md:text-lg max-w-2xl mx-auto">
-              Empowering 200+ Nigerian Higher Institutions with Real-Time Student Analytics, PVC Verification, Bursary Welfare Tracking, and Campus Mobilization.
+              Connecting students across 200+ Nigerian Higher Institutions into a single unified campaign & welfare network in solid support of Governor Malam Dikko Umaru Radda (PhD, CON).
             </p>
           </div>
           <div className="grid grid-cols-3 gap-4 w-full max-w-2xl pt-4">
             <div className="bg-white/10 backdrop-blur border border-white/20 p-4 rounded-xl text-center">
-              <h3 className="text-2xl font-black text-emerald-400">{totalStudents.toLocaleString()}</h3>
-              <p className="text-xs text-emerald-100">Registered Students</p>
+              <h3 className="text-2xl font-black text-emerald-400">ONE</h3>
+              <p className="text-xs text-emerald-100">Unified Platform</p>
             </div>
             <div className="bg-white/10 backdrop-blur border border-white/20 p-4 rounded-xl text-center">
               <h3 className="text-2xl font-black text-emerald-400">200+</h3>
-              <p className="text-xs text-emerald-100">Higher Institutions</p>
+              <p className="text-xs text-emerald-100">Tertiary Institutions</p>
             </div>
             <div className="bg-white/10 backdrop-blur border border-white/20 p-4 rounded-xl text-center">
-              <h3 className="text-2xl font-black text-emerald-400">40+</h3>
-              <p className="text-xs text-emerald-100">Banks & Wallets</p>
+              <h3 className="text-2xl font-black text-emerald-400">100%</h3>
+              <p className="text-xs text-emerald-100">Direct Support</p>
             </div>
           </div>
         </div>
