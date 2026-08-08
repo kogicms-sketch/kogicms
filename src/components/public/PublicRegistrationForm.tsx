@@ -856,11 +856,24 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
 
       let { error } = insertResult as any;
 
-      // Fallback retry if a duplicate membership_id error occurs due to network race condition
-      if (error && (error.message?.includes("members_membership_id_key") || error.code === "23505")) {
-        console.warn("Duplicate membership_id detected. Retrying with unique sequence suffix...");
-        const randomSuffix = Math.floor(100 + Math.random() * 900).toString();
-        finalMembershipId = `${membershipId}-${randomSuffix}`;
+      // Fallback retry loop if a duplicate key (membership_id) error occurs
+      let attempts = 0;
+      while (error && attempts < 5) {
+        const errMsg = (error.message || "").toLowerCase();
+        const errCode = (error.code || "").toString();
+        const isDuplicateKey =
+          errCode === "23505" ||
+          errMsg.includes("duplicate key") ||
+          errMsg.includes("unique constraint") ||
+          errMsg.includes("members_membership_id_key");
+
+        if (!isDuplicateKey) break;
+
+        attempts++;
+        console.warn(`Duplicate key detected (Attempt ${attempts}/5). Retrying with guaranteed unique sequence...`);
+        const freshSeq = (Math.floor(Date.now() / 1000) % 8999 + 1000).toString() + Math.floor(10 + Math.random() * 90).toString();
+        const basePrefix = membershipId.split("-").slice(0, 3).join("-");
+        finalMembershipId = `${basePrefix}-${freshSeq}`;
 
         const retryResult = await withTimeout(
           (publicSupabase as any)

@@ -272,9 +272,17 @@ export const generateSequentialMembershipId = async (
     console.error("Error querying local members count:", err);
   }
 
-  const nextSeq = Math.max(remoteCount, localCount, maxSeq) + 1;
-  const seqStr = nextSeq.toString().padStart(4, "0");
+  let nextSeq = Math.max(remoteCount, localCount, maxSeq) + 1;
+  
+  // If queries returned 0 (e.g. due to RLS restriction on anonymous queries or network timeout),
+  // fallback to a unique timestamp + random sequence so we never repeatedly generate 0001!
+  if (nextSeq === 1 && maxSeq === 0 && remoteCount === 0 && localCount === 0) {
+    const timeBasedSeq = (Math.floor(Date.now() / 1000) % 8999 + 1000);
+    const randTwo = Math.floor(10 + Math.random() * 90);
+    return `${prefix}${timeBasedSeq}${randTwo}`;
+  }
 
+  const seqStr = nextSeq.toString().padStart(4, "0");
   return `${prefix}${seqStr}`;
 };
 
