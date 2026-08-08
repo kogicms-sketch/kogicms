@@ -344,6 +344,12 @@ export default function StudentDashboard() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
+              <Link href="/student/presentation">
+                <Button variant="outline" className="border-amber-400/50 bg-amber-950/50 text-amber-200 hover:bg-amber-800/60 font-extrabold gap-2 w-full sm:w-auto text-xs shadow-md">
+                  <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+                  Presentation Mode (Slides)
+                </Button>
+              </Link>
               <Button
                 onClick={() => setIsAddModalOpen(true)}
                 className="bg-emerald-400 hover:bg-emerald-300 text-emerald-950 font-extrabold shadow-md gap-2 w-full sm:w-auto text-xs"
