@@ -825,6 +825,16 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
 
       setSubmitStatus("3. Saving member record to database...");
       let finalMembershipId = membershipId;
+      // Ensure initial finalMembershipId is 100% unique from first attempt
+      const uniqueRandomSalt = Math.random().toString(36).substring(2, 6).toUpperCase();
+      if (!finalMembershipId || !finalMembershipId.includes("-")) {
+        const lgaAbbr = (form.lga || "KAT").toUpperCase().slice(0, 3);
+        const wardAbbr = (form.ward || "WAK").toUpperCase().slice(0, 3);
+        finalMembershipId = `${lgaAbbr}-${wardAbbr}-001-${uniqueRandomSalt}`;
+      } else if (!finalMembershipId.match(/-[A-Z0-9]{4,}$/)) {
+        finalMembershipId = `${finalMembershipId}-${uniqueRandomSalt}`;
+      }
+      
       let insertSuccess = false;
       let attempts = 0;
       let lastError: any = null;
