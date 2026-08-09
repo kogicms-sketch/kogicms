@@ -748,10 +748,15 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
   });
 
   return Promise.race([
-    promise.then((result) => {
-      clearTimeout(timeoutId);
-      return result;
-    }),
+    promise
+      .then((result) => {
+        clearTimeout(timeoutId);
+        return result;
+      })
+      .catch((err) => {
+        clearTimeout(timeoutId);
+        return { data: null, error: err } as unknown as T;
+      }),
     timeoutPromise
   ]);
 }
@@ -820,96 +825,92 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
 
       setSubmitStatus("3. Saving member record to database...");
       let finalMembershipId = membershipId;
-
-      // Wrap the member insert in an 8-second timeout to guarantee button resets on slow network
-      let insertResult = await withTimeout(
-        (publicSupabase as any)
-          .from("members")
-          .insert({
-            full_name: fullName,
-            membership_id: finalMembershipId,
-            phone: form.phone || null,
-            email: form.email || null,
-            social_media_handle: form.socialMediaHandle || null,
-            gender: form.gender || null,
-            date_of_birth: form.dateOfBirth || null,
-            voters_card_id: vinToUse,
-            pvc_status: form.pvcStatus || 'collected',
-            state: "Katsina",
-            lga: form.lga || null,
-            ward: form.ward || null,
-            polling_unit: finalPollingUnitName,
-            polling_unit_id: resolvedPollingUnitId,
-            marital_status: form.maritalStatus || null,
-            occupation: finalOccupation,
-            school_name: finalSchoolName,
-            school_level: finalSchoolLevel,
-            bank_name: form.bankName || null,
-            account_number: form.accountNumber || null,
-            status: "pending",
-            is_verified: false,
-            created_by: agentProfile?.user_id || null,
-          }),
-        8000,
-        { data: null, error: new Error("Network request timed out. Please try again.") }
-      );
-
-      let { error } = insertResult as any;
-
-      // Fallback retry loop if a duplicate key (membership_id) error occurs
+      let insertSuccess = false;
       let attempts = 0;
-      while (error && attempts < 5) {
-        const errMsg = (error.message || "").toLowerCase();
-        const errCode = (error.code || "").toString();
-        const isDuplicateKey =
-          errCode === "23505" ||
-          errMsg.includes("duplicate key") ||
-          errMsg.includes("unique constraint") ||
-          errMsg.includes("members_membership_id_key");
+      let lastError: any = null;
 
-        if (!isDuplicateKey) break;
-
+      while (!insertSuccess && attempts < 5) {
         attempts++;
-        console.warn(`Duplicate key detected (Attempt ${attempts}/5). Retrying with guaranteed unique sequence...`);
-        const freshSeq = (Math.floor(Date.now() / 1000) % 8999 + 1000).toString() + Math.floor(10 + Math.random() * 90).toString();
-        const basePrefix = membershipId.split("-").slice(0, 3).join("-");
-        finalMembershipId = `${basePrefix}-${freshSeq}`;
+        try {
+          const insertResult: any = await withTimeout(
+            (publicSupabase as any)
+              .from("members")
+              .insert({
+                full_name: fullName,
+                membership_id: finalMembershipId,
+                phone: form.phone || null,
+                email: form.email || null,
+                social_media_handle: form.socialMediaHandle || null,
+                gender: form.gender || null,
+                date_of_birth: form.dateOfBirth || null,
+                voters_card_id: vinToUse,
+                pvc_status: form.pvcStatus || 'collected',
+                state: "Katsina",
+                lga: form.lga || null,
+                ward: form.ward || null,
+                polling_unit: finalPollingUnitName,
+                polling_unit_id: resolvedPollingUnitId,
+                marital_status: form.maritalStatus || null,
+                occupation: finalOccupation,
+                school_name: finalSchoolName,
+                school_level: finalSchoolLevel,
+                bank_name: form.bankName || null,
+                account_number: form.accountNumber || null,
+                status: "pending",
+                is_verified: false,
+                created_by: agentProfile?.user_id || null,
+              }),
+            8000,
+            { data: null, error: new Error("Network request timed out. Please try again.") }
+          );
 
-        const retryResult = await withTimeout(
-          (publicSupabase as any)
-            .from("members")
-            .insert({
-              full_name: fullName,
-              membership_id: finalMembershipId,
-              phone: form.phone || null,
-              email: form.email || null,
-              social_media_handle: form.socialMediaHandle || null,
-              gender: form.gender || null,
-              date_of_birth: form.dateOfBirth || null,
-              voters_card_id: vinToUse,
-              pvc_status: form.pvcStatus || 'collected',
-              state: "Katsina",
-              lga: form.lga || null,
-              ward: form.ward || null,
-              polling_unit: finalPollingUnitName,
-              polling_unit_id: resolvedPollingUnitId,
-              marital_status: form.maritalStatus || null,
-              occupation: finalOccupation,
-              school_name: finalSchoolName,
-              school_level: finalSchoolLevel,
-              bank_name: form.bankName || null,
-              account_number: form.accountNumber || null,
-              status: "pending",
-              is_verified: false,
-              created_by: agentProfile?.user_id || null,
-            }),
-          8000,
-          { data: null, error: new Error("Network request timed out. Please try again.") }
-        );
-        error = (retryResult as any).error;
+          const err = insertResult?.error;
+          if (err) {
+            const errMsg = (err.message || JSON.stringify(err)).toLowerCase();
+            const errCode = (err.code || "").toString();
+            const isDupKey =
+              errCode === "23505" ||
+              errMsg.includes("duplicate key") ||
+              errMsg.includes("unique constraint") ||
+              errMsg.includes("members_membership_id_key");
+
+            if (isDupKey) {
+              console.warn(`Duplicate membership_id detected (Attempt ${attempts}/5). Generating fresh unique ID...`);
+              const freshSeq = (Math.floor(Date.now() / 1000) % 8999 + 1000).toString() + Math.floor(10 + Math.random() * 90).toString();
+              const basePrefix = membershipId.split("-").slice(0, 3).join("-");
+              finalMembershipId = `${basePrefix}-${freshSeq}`;
+              lastError = err;
+              continue;
+            } else {
+              throw err;
+            }
+          }
+
+          insertSuccess = true;
+        } catch (err: any) {
+          const errMsg = (err?.message || JSON.stringify(err)).toLowerCase();
+          const errCode = (err?.code || "").toString();
+          const isDupKey =
+            errCode === "23505" ||
+            errMsg.includes("duplicate key") ||
+            errMsg.includes("unique constraint") ||
+            errMsg.includes("members_membership_id_key");
+
+          if (isDupKey && attempts < 5) {
+            console.warn(`Duplicate key exception caught (Attempt ${attempts}/5). Retrying with fresh ID...`);
+            const freshSeq = (Math.floor(Date.now() / 1000) % 8999 + 1000).toString() + Math.floor(10 + Math.random() * 90).toString();
+            const basePrefix = membershipId.split("-").slice(0, 3).join("-");
+            finalMembershipId = `${basePrefix}-${freshSeq}`;
+            lastError = err;
+          } else {
+            throw err;
+          }
+        }
       }
 
-      if (error) throw error;
+      if (!insertSuccess && lastError) {
+        throw lastError;
+      }
 
       setSubmitStatus("4. Dispatching notification to Polling Unit Agent...");
       // Notify PU agent (non-blocking, wrapped so it cannot block redirection)
