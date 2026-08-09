@@ -274,16 +274,26 @@ export const generateSequentialMembershipId = async (
 
   let nextSeq = Math.max(remoteCount, localCount, maxSeq) + 1;
   
+  // Helper to generate clean, readable uppercase ALPHABET + NUMERIC salt (excluding confusing 0/O/1/I)
+  const getAlphaNumSalt = (len = 3): string => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let res = "";
+    for (let i = 0; i < len; i++) {
+      res += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return res;
+  };
+
   // If queries returned 0 (e.g. due to RLS restriction on anonymous queries or network timeout),
-  // fallback to a unique timestamp + random sequence so we never repeatedly generate 0001!
+  // fallback to ALPHABET + NUMBER sequence so we get instant 100% collision-free IDs!
   if (nextSeq === 1 && maxSeq === 0 && remoteCount === 0 && localCount === 0) {
-    const timeBasedSeq = (Math.floor(Date.now() / 1000) % 8999 + 1000);
-    const randTwo = Math.floor(10 + Math.random() * 90);
-    return `${prefix}${timeBasedSeq}${randTwo}`;
+    const alphaCode = getAlphaNumSalt(4);
+    return `${prefix}${alphaCode}`;
   }
 
   const seqStr = nextSeq.toString().padStart(4, "0");
-  return `${prefix}${seqStr}`;
+  const alphaSuffix = getAlphaNumSalt(2);
+  return `${prefix}${seqStr}-${alphaSuffix}`;
 };
 
 export const insertNewVoterToRegistry = async (

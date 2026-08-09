@@ -875,10 +875,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
               errMsg.includes("members_membership_id_key");
 
             if (isDupKey) {
-              console.warn(`Duplicate membership_id detected (Attempt ${attempts}/5). Generating fresh unique ID...`);
-              const freshSeq = (Math.floor(Date.now() / 1000) % 8999 + 1000).toString() + Math.floor(10 + Math.random() * 90).toString();
+              console.warn(`Duplicate membership_id detected (Attempt ${attempts}/5). Generating fresh unique ALPHANUMERIC ID...`);
+              const alphaChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+              let alphaSalt = "";
+              for (let i = 0; i < 4; i++) {
+                alphaSalt += alphaChars.charAt(Math.floor(Math.random() * alphaChars.length));
+              }
               const basePrefix = membershipId.split("-").slice(0, 3).join("-");
-              finalMembershipId = `${basePrefix}-${freshSeq}`;
+              finalMembershipId = `${basePrefix}-${alphaSalt}`;
               lastError = err;
               continue;
             } else {
@@ -897,10 +901,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
             errMsg.includes("members_membership_id_key");
 
           if (isDupKey && attempts < 5) {
-            console.warn(`Duplicate key exception caught (Attempt ${attempts}/5). Retrying with fresh ID...`);
-            const freshSeq = (Math.floor(Date.now() / 1000) % 8999 + 1000).toString() + Math.floor(10 + Math.random() * 90).toString();
+            console.warn(`Duplicate key exception caught (Attempt ${attempts}/5). Retrying with fresh ALPHANUMERIC ID...`);
+            const alphaChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+            let alphaSalt = "";
+            for (let i = 0; i < 4; i++) {
+              alphaSalt += alphaChars.charAt(Math.floor(Math.random() * alphaChars.length));
+            }
             const basePrefix = membershipId.split("-").slice(0, 3).join("-");
-            finalMembershipId = `${basePrefix}-${freshSeq}`;
+            finalMembershipId = `${basePrefix}-${alphaSalt}`;
             lastError = err;
           } else {
             throw err;
