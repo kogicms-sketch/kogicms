@@ -43,6 +43,7 @@ import {
 import { toast } from "sonner";
 import { AddMemberModal } from "@/components/members/AddMemberModal";
 import MemberCard from "@/components/members/MemberCard";
+import { StarAgentButton } from "@/components/members/StarAgentButton";
 import { useMembers, useMemberStats, useVerifyMember } from "@/hooks/useMembers";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePUAgent } from "@/hooks/usePUAgent";
@@ -736,14 +737,22 @@ const Members = () => {
                       >
                         <td>
                           <div className="flex items-center gap-3">
-                            <Avatar className="w-10 h-10 border border-border">
+                            <Avatar className="w-10 h-10 border border-border flex-shrink-0">
                               <AvatarFallback className="bg-navy-deep text-white text-sm font-medium">
                                 {getInitials(member.full_name)}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
-                              <p className="font-medium text-foreground">{member.full_name}</p>
-                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-bold text-foreground">{member.full_name}</p>
+                                <StarAgentButton
+                                  memberId={member.id}
+                                  initialRole={member.role}
+                                  initialSocialHandle={member.social_media_handle}
+                                  size="sm"
+                                />
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                                 <span className="flex items-center gap-1">
                                   <Mail className="w-3 h-3" />
                                   {member.email || "-"}
