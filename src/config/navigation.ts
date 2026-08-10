@@ -16,6 +16,7 @@ import {
   CheckCircle,
   MessageSquare,
   Gift,
+  CreditCard,
 } from "lucide-react";
 
 export type NavGroup = "Main Menu" | "Operations" | "Tools";
