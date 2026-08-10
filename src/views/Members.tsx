@@ -747,6 +747,7 @@ const Members = () => {
                                 <p className="font-bold text-foreground">{member.full_name}</p>
                                 <StarAgentButton
                                   memberId={member.id}
+                                  pollingUnitName={member.polling_unit || ""}
                                   initialRole={member.role}
                                   initialSocialHandle={member.social_media_handle}
                                   size="sm"

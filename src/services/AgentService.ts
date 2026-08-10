@@ -1,6 +1,5 @@
 "use client";
 import { supabase } from "@/integrations/supabase/loose-client";
-import { localRepository } from "@/services/LocalRepository";
 import { toast } from "sonner";
 
 export type AgentDesignation = "lead_agent" | "assistant_agent_1" | "assistant_agent_2" | "unassigned";
@@ -23,10 +22,8 @@ export interface StarredAgentMember {
   created_at?: string;
 }
 
-const STORAGE_KEY_PREFIX = "pu_starred_agents_v1_";
-
 // Helper to get local storage starred state
-export const getLocalStarredAgents = (): Record<string, { is_starred: boolean; designation: AgentDesignation }> => {
+export const getLocalStarredAgents = (): Record<string, { is_starred: boolean; designation: AgentDesignation; polling_unit?: string }> => {
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem("pu_starred_agents_store");
@@ -36,12 +33,17 @@ export const getLocalStarredAgents = (): Record<string, { is_starred: boolean; d
   }
 };
 
-export const setLocalStarredAgent = (memberId: string, isStarred: boolean, designation: AgentDesignation = "lead_agent") => {
+export const setLocalStarredAgent = (
+  memberId: string,
+  isStarred: boolean,
+  designation: AgentDesignation = "lead_agent",
+  pollingUnit?: string
+) => {
   if (typeof window === "undefined") return;
   try {
     const store = getLocalStarredAgents();
     if (isStarred) {
-      store[memberId] = { is_starred: true, designation };
+      store[memberId] = { is_starred: true, designation, polling_unit: pollingUnit };
     } else {
       delete store[memberId];
     }
@@ -52,16 +54,96 @@ export const setLocalStarredAgent = (memberId: string, isStarred: boolean, desig
 };
 
 /**
- * Toggle or set agent designation for a member
+ * Check if current user is allowed to edit / unassign agents (Ward Councillor, Chairman, Super Admin)
+ */
+export const canUserModifyAgents = (userRole?: string | null): boolean => {
+  if (!userRole) return false;
+  const wardAdminRoles = ["councillor", "lga_chairman", "super_admin", "org_admin"];
+  return wardAdminRoles.includes(userRole.toLowerCase());
+};
+
+/**
+ * Check Polling Unit Agent Limit (Max 3 per Polling Unit)
+ */
+export const checkPUAgentLimit = async (
+  pollingUnitName: string,
+  targetMemberId: string
+): Promise<{ allowed: boolean; count: number; errorMsg?: string }> => {
+  try {
+    const localStore = getLocalStarredAgents();
+    
+    // Count local starred agents for this PU
+    let localCount = 0;
+    for (const [mId, rec] of Object.entries(localStore)) {
+      if (rec.is_starred && rec.polling_unit === pollingUnitName && mId !== targetMemberId) {
+        localCount++;
+      }
+    }
+
+    // Count remote DB agents for this PU
+    const { data: dbMembers } = await supabase
+      .from("members")
+      .select("id, role, social_media_handle")
+      .eq("polling_unit", pollingUnitName);
+
+    let dbCount = 0;
+    if (dbMembers) {
+      for (const m of dbMembers) {
+        if (m.id !== targetMemberId) {
+          const isAgent = m.role === "polling_unit_agent" || (m.social_media_handle && m.social_media_handle.startsWith("DESIGNATION:"));
+          if (isAgent) dbCount++;
+        }
+      }
+    }
+
+    const currentCount = Math.max(localCount, dbCount);
+
+    if (currentCount >= 3) {
+      return {
+        allowed: false,
+        count: currentCount,
+        errorMsg: `⚠️ Polling Unit Limit Reached: "${pollingUnitName}" already has the maximum 3 designated agents (Lead Agent + 2 Assistants). Contact Ward Councillor to reassign.`,
+      };
+    }
+
+    return { allowed: true, count: currentCount };
+  } catch (err) {
+    console.error("Error checking PU agent limit:", err);
+    return { allowed: true, count: 0 };
+  }
+};
+
+/**
+ * Toggle or set agent designation for a member (with strict 3-agent limit and role permissions)
  */
 export const toggleStarMemberAgent = async (
   memberId: string,
+  pollingUnitName: string = "",
   designation: AgentDesignation = "lead_agent",
-  isStarred: boolean = true
+  isStarred: boolean = true,
+  userRole?: string | null
 ): Promise<boolean> => {
   try {
-    // 1. Update localStorage instantly
-    setLocalStarredAgent(memberId, isStarred, designation);
+    const localStore = getLocalStarredAgents();
+    const existingRec = localStore[memberId];
+
+    // RULE 2: If member is ALREADY starred, non-ward users CANNOT change or unassign!
+    if (existingRec?.is_starred && !canUserModifyAgents(userRole)) {
+      toast.error("🔒 Permission Denied: Only Ward Councillor or Admin can modify or remove an assigned agent.");
+      return false;
+    }
+
+    // RULE 1: If assigning a NEW agent, check max 3 limit!
+    if (isStarred) {
+      const limitCheck = await checkPUAgentLimit(pollingUnitName, memberId);
+      if (!limitCheck.allowed) {
+        toast.error(limitCheck.errorMsg || "Maximum 3 agents allowed per Polling Unit.");
+        return false;
+      }
+    }
+
+    // 1. Update localStorage
+    setLocalStarredAgent(memberId, isStarred, designation, pollingUnitName);
 
     // 2. Prepare payload for DB
     const roleValue = isStarred ? "polling_unit_agent" : "member";
@@ -81,8 +163,8 @@ export const toggleStarMemberAgent = async (
 
     toast.success(
       isStarred
-        ? `⭐ Tagged as ${designation === "lead_agent" ? "Lead Agent" : designation === "assistant_agent_1" ? "Assistant Agent 1" : "Assistant Agent 2"}`
-        : "Agent tag removed"
+        ? `⭐ Assigned as ${designation === "lead_agent" ? "Lead Agent" : designation === "assistant_agent_1" ? "Assistant Agent 1" : "Assistant Agent 2"}`
+        : "Agent designation removed"
     );
 
     return true;

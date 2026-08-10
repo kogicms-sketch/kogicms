@@ -87,6 +87,7 @@ const MemberCard = ({ member, onClick }: MemberCardProps) => {
       <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
         <StarAgentButton
           memberId={member.id}
+          pollingUnitName={member.polling_unit || ""}
           initialRole={member.role}
           initialSocialHandle={member.social_media_handle}
           size="sm"

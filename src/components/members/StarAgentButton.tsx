@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Star, Check, ShieldCheck, UserCheck, Trash2 } from "lucide-react";
+import { Star, Check, Lock, ShieldAlert, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,10 +14,14 @@ import {
   AgentDesignation,
   getLocalStarredAgents,
   toggleStarMemberAgent,
+  canUserModifyAgents,
 } from "@/services/AgentService";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface StarAgentButtonProps {
   memberId: string;
+  pollingUnitName?: string;
   initialRole?: string | null;
   initialSocialHandle?: string | null;
   size?: "sm" | "default" | "lg" | "icon";
@@ -27,14 +31,17 @@ interface StarAgentButtonProps {
 
 export const StarAgentButton: React.FC<StarAgentButtonProps> = ({
   memberId,
+  pollingUnitName = "",
   initialRole,
   initialSocialHandle,
   size = "sm",
   className = "",
   onUpdate,
 }) => {
+  const { role: userRole } = useAuth();
   const [isStarred, setIsStarred] = useState(false);
   const [designation, setDesignation] = useState<AgentDesignation>("lead_agent");
+  const isWardAdmin = canUserModifyAgents(userRole);
 
   useEffect(() => {
     const localStore = getLocalStarredAgents();
@@ -53,7 +60,13 @@ export const StarAgentButton: React.FC<StarAgentButtonProps> = ({
   }, [memberId, initialRole, initialSocialHandle]);
 
   const handleSelect = async (newDesignation: AgentDesignation) => {
-    const success = await toggleStarMemberAgent(memberId, newDesignation, true);
+    // If already starred and user is not ward admin, deny change
+    if (isStarred && !isWardAdmin) {
+      toast.error("🔒 Only Ward Councillor or Admin can modify an assigned agent.");
+      return;
+    }
+
+    const success = await toggleStarMemberAgent(memberId, pollingUnitName, newDesignation, true, userRole);
     if (success) {
       setIsStarred(true);
       setDesignation(newDesignation);
@@ -62,7 +75,12 @@ export const StarAgentButton: React.FC<StarAgentButtonProps> = ({
   };
 
   const handleRemove = async () => {
-    const success = await toggleStarMemberAgent(memberId, "unassigned", false);
+    if (!isWardAdmin) {
+      toast.error("🔒 Only Ward Councillor or Admin can remove an assigned agent.");
+      return;
+    }
+
+    const success = await toggleStarMemberAgent(memberId, pollingUnitName, "unassigned", false, userRole);
     if (success) {
       setIsStarred(false);
       setDesignation("unassigned");
@@ -98,16 +116,29 @@ export const StarAgentButton: React.FC<StarAgentButtonProps> = ({
         >
           <Star className={`w-4 h-4 ${isStarred ? "fill-white text-white" : "text-amber-500 fill-amber-500/20"}`} />
           <span>{isStarred ? getDesignationLabel(designation) : "Star as PU Agent"}</span>
+          {isStarred && !isWardAdmin && <Lock className="w-3 h-3 text-white/80 ml-0.5" />}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56 p-2 space-y-1">
+      <DropdownMenuContent align="end" className="w-60 p-2 space-y-1">
         <DropdownMenuLabel className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">
-          Designate Polling Unit Agent
+          Designate Agent (Max 3 per PU)
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
+        {isStarred && !isWardAdmin && (
+          <div className="p-2 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-900/50 mb-1">
+            <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1">
+              <Lock className="w-3 h-3 text-amber-600" /> Agent Assigned & Locked
+            </p>
+            <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-0.5 leading-tight">
+              Only Ward Councillor or Admin can reassign or remove this agent.
+            </p>
+          </div>
+        )}
+
         <DropdownMenuItem
           onClick={() => handleSelect("lead_agent")}
+          disabled={isStarred && !isWardAdmin}
           className="cursor-pointer flex items-center justify-between font-semibold text-xs py-2 px-2.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40"
         >
           <div className="flex items-center gap-2">
@@ -122,6 +153,7 @@ export const StarAgentButton: React.FC<StarAgentButtonProps> = ({
 
         <DropdownMenuItem
           onClick={() => handleSelect("assistant_agent_1")}
+          disabled={isStarred && !isWardAdmin}
           className="cursor-pointer flex items-center justify-between font-semibold text-xs py-2 px-2.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/40"
         >
           <div className="flex items-center gap-2">
@@ -136,6 +168,7 @@ export const StarAgentButton: React.FC<StarAgentButtonProps> = ({
 
         <DropdownMenuItem
           onClick={() => handleSelect("assistant_agent_2")}
+          disabled={isStarred && !isWardAdmin}
           className="cursor-pointer flex items-center justify-between font-semibold text-xs py-2 px-2.5 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-950/40"
         >
           <div className="flex items-center gap-2">
@@ -148,7 +181,7 @@ export const StarAgentButton: React.FC<StarAgentButtonProps> = ({
           {isStarred && designation === "assistant_agent_2" && <Check className="w-4 h-4 text-purple-600" />}
         </DropdownMenuItem>
 
-        {isStarred && (
+        {isStarred && isWardAdmin && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem
