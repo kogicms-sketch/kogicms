@@ -87,20 +87,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const roleResult = await withTimeout(
         rolePromise,
-        30000,
-        { data: null, error: new Error("Role fetch timed out") }
+        5000,
+        { data: null, error: { message: "Role fetch timed out" } }
       );
 
       const { data, error } = roleResult as any;
       console.log("Role fetch RPC result:", { data, error });
 
       if (error) {
-        console.error("Error fetching user role via RPC:", error);
+        console.warn("Non-critical notice during role fetch:", error?.message || error);
+        
+        // Attempt secondary fast fallback directly from members table
+        try {
+          const { data: memberData } = await supabase
+            .from("members")
+            .select("role")
+            .eq("id", userId)
+            .maybeSingle();
+
+          if (memberData?.role) {
+            return memberData.role as AppRole;
+          }
+        } catch (e) {
+          // ignore fallback error
+        }
+
         return null;
       }
       return data as AppRole;
     } catch (err) {
-      console.error("Error in fetchUserRole:", err);
+      console.warn("Handled exception in fetchUserRole:", err);
       return null;
     }
   };
@@ -117,19 +133,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const orgResult = await withTimeout(
         orgPromise,
-        30000,
+        5000,
         { data: null, error: null }
       );
 
       const { data, error } = orgResult as any;
 
       if (error) {
-        console.error("Error fetching user organization:", error);
+        console.warn("Non-critical notice during user organization fetch:", error);
         return null;
       }
       return data?.organization_id || null;
     } catch (err) {
-      console.error("Error in fetchUserOrganization:", err);
+      console.warn("Handled exception in fetchUserOrganization:", err);
       return null;
     }
   };
