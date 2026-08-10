@@ -1,6 +1,6 @@
 "use client";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AgentPaymentRoster } from "@/components/councillor/AgentPaymentRoster";
 import { useCouncillor } from "@/hooks/useCouncillors";
 
