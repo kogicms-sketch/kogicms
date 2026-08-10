@@ -93,6 +93,13 @@ export const navItems: NavItem[] = [
     roles: ["councillor"],
   },
   {
+    label: "PU Agents Payment",
+    icon: CreditCard,
+    path: "/councillor/agents",
+    group: "Main Menu",
+    roles: ["councillor", "lga_chairman", "super_admin"],
+  },
+  {
     label: "Dashboard",
     icon: LayoutDashboard,
     path: "/dashboard",

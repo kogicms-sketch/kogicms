@@ -23,6 +23,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/loose-client";
 import AssignAgentModal from "@/components/modals/AssignAgentModal";
 import { toast } from "sonner";
+import { AgentPaymentRoster } from "@/components/councillor/AgentPaymentRoster";
 
 const RecentAgentActivity = ({ lga, ward }: { lga: string; ward: string }) => {
     const { data: locations = [], isLoading } = useQuery({
@@ -377,6 +378,12 @@ const CouncillorDashboard = () => {
                         </motion.div>
                     ))}
                 </div>
+
+                {/* ── ⭐ POLLING UNIT AGENTS PAYMENT & ACCOUNT ROSTER ── */}
+                <AgentPaymentRoster
+                    lga={councillor.lga}
+                    ward={councillor.ward}
+                />
 
                 {/* ── GRANULAR DEMOGRAPHICS ── */}
                 <GranularDemographics

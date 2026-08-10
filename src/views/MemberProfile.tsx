@@ -41,6 +41,7 @@ import { toast } from "sonner";
 import { usePUAgent } from "@/hooks/usePUAgent";
 import { useVerifyMember } from "@/hooks/useMembers";
 import { useMemberIncentives } from "@/hooks/useIncentives";
+import { StarAgentButton } from "@/components/members/StarAgentButton";
 
 const MemberProfile = () => {
     const { partyId } = useParty();
@@ -224,7 +225,13 @@ const MemberProfile = () => {
                 <Button variant="ghost" className="gap-2 pl-0 hover:pl-2 transition-all" onClick={() => navigate(-1)}>
                     <ArrowLeft className="w-4 h-4" /> Back to Members
                 </Button>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center flex-wrap">
+                    <StarAgentButton
+                        memberId={member.id}
+                        initialRole={member.role}
+                        initialSocialHandle={member.social_media_handle}
+                        size="default"
+                    />
                     {!member.is_deceased && (
                         <Button variant="outline" className="gap-2" onClick={handleDownloadIdCard}>
                             <Download className="w-4 h-4" />
