@@ -68,7 +68,7 @@ export const useCouncillor = (options?: { enabled?: boolean }) => {
                     // Background refresh
                     supabase.auth.getUser().then(({ data: { user } }) => {
                         if (user) {
-                            db.from("councillors").select("*").eq("user_id", user.id).single()
+                            db.from("councillors").select("*").eq("user_id", user.id).maybeSingle()
                                 .then(({ data, error }: any) => {
                                     if (data && !error) {
                                         localStorage.setItem("councillor_profile", JSON.stringify(data));
@@ -88,7 +88,7 @@ export const useCouncillor = (options?: { enabled?: boolean }) => {
                 .from("councillors")
                 .select("*")
                 .eq("user_id", user.id)
-                .single();
+                .maybeSingle();
 
             if (error) throw error;
             if (typeof window !== "undefined") {

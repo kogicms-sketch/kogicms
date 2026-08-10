@@ -441,20 +441,22 @@ const Members = () => {
       </div>
 
       <Tabs defaultValue="list" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="list" className="gap-2">
-            <Users className="w-4 h-4" />
-            <span>Supporters List</span>
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="gap-2">
-            <TrendingUp className="w-4 h-4" />
-            <span>Analytics & Trends</span>
-          </TabsTrigger>
-          <TabsTrigger value="demographics" className="gap-2">
-            <BarChart3 className="w-4 h-4" />
-            <span>Demographics Matrix</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto scrollbar-hide mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="w-auto inline-flex justify-start sm:justify-center p-1 bg-muted/60 rounded-xl">
+            <TabsTrigger value="list" className="gap-2 text-xs sm:text-sm whitespace-nowrap">
+              <Users className="w-4 h-4" />
+              <span>Supporters List</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-2 text-xs sm:text-sm whitespace-nowrap">
+              <TrendingUp className="w-4 h-4" />
+              <span>Analytics & Trends</span>
+            </TabsTrigger>
+            <TabsTrigger value="demographics" className="gap-2 text-xs sm:text-sm whitespace-nowrap">
+              <BarChart3 className="w-4 h-4" />
+              <span>Demographics Matrix</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="list">
           {/* Action Bar */}
@@ -467,23 +469,23 @@ const Members = () => {
                   placeholder="Search members..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="input-premium pl-10 w-full sm:w-64 lg:w-80 text-sm"
+                  className="input-premium pl-10 w-full sm:w-64 lg:w-80 text-sm h-10"
                 />
               </div>
-              <Button variant="outline" size="sm" className="gap-2 flex-shrink-0">
+              <Button variant="outline" size="sm" className="gap-2 flex-shrink-0 h-10">
                 <Filter className="w-4 h-4" />
                 <span className="hidden sm:inline">Filters</span>
               </Button>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Button variant="outline" size="sm" className="gap-2 flex-1 sm:flex-initial">
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Export</span>
+            <div className="grid grid-cols-2 sm:flex items-center gap-2 sm:gap-3">
+              <Button variant="outline" size="sm" className="gap-1.5 h-9 text-xs sm:text-sm">
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span>Export</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 flex-1 sm:flex-initial"
+                className="gap-1.5 h-9 text-xs sm:text-sm"
                 onClick={() => {
                   const url = `${window.location.origin}/register`;
                   navigator.clipboard.writeText(url);
@@ -491,22 +493,22 @@ const Members = () => {
                 }}
                 title="Copy public registration link to clipboard"
               >
-                <Link className="w-4 h-4" />
-                <span className="hidden sm:inline">Registration Link</span>
+                <Link className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="truncate">Reg Link</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-2 flex-1 sm:flex-initial"
+                className="gap-1.5 h-9 text-xs sm:text-sm"
                 onClick={() => window.open('/member-registration-form.html', '_blank')}
                 title="Open printable registration form"
               >
-                <Printer className="w-4 h-4" />
-                <span className="hidden sm:inline">Print Form</span>
+                <Printer className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="truncate">Print Form</span>
               </Button>
-              <Button size="sm" className="btn-action gap-2 flex-1 sm:flex-initial" onClick={() => setIsAddModalOpen(true)}>
-                <Plus className="w-4 h-4" />
-                <span>Add Member</span>
+              <Button size="sm" className="btn-action gap-1.5 h-9 text-xs sm:text-sm" onClick={() => setIsAddModalOpen(true)}>
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="truncate">Add Member</span>
               </Button>
               <AddMemberModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} isStudentOnly={role === "student"} />
             </div>
@@ -701,7 +703,7 @@ const Members = () => {
           ) : (
             <>
               {/* Mobile Card View */}
-              <div className="md:hidden space-y-3 animate-fade-in">
+              <div className="md:hidden space-y-3.5 animate-fade-in pb-28 sm:pb-20">
                 {filteredMembers.map((member) => (
                   <MemberCard
                     key={member.id}
