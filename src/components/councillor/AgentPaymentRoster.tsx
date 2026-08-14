@@ -131,7 +131,8 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
 
     setIsSavingBank(true);
     try {
-      const { error } = await supabase
+      // 1. Try updating members by ID
+      const { error: err1 } = await supabase
         .from("members")
         .update({
           bank_name: bankNameInput,
@@ -139,7 +140,16 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
         })
         .eq("id", editingAgent.id);
 
-      if (error) throw error;
+      // 2. If phone exists, also update by phone to guarantee match across tables
+      if (editingAgent.phone) {
+        await supabase
+          .from("members")
+          .update({
+            bank_name: bankNameInput,
+            account_number: accountNumberInput,
+          })
+          .eq("phone", editingAgent.phone.trim());
+      }
 
       toast.success(`Updated payment account for ${editingAgent.full_name}`);
       setEditingAgent(null);

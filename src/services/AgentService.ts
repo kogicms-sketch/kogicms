@@ -145,11 +145,10 @@ export const toggleStarMemberAgent = async (
     // 1. Update localStorage
     setLocalStarredAgent(memberId, isStarred, designation, pollingUnitName);
 
-    // 2. Prepare payload for DB
+    // 2. Prepare payload for DB update on members table
     const roleValue = isStarred ? "polling_unit_agent" : "member";
     
-    // Attempt update to Supabase members table
-    const { error } = await supabase
+    const { error: memError } = await supabase
       .from("members")
       .update({
         role: roleValue,
@@ -157,8 +156,32 @@ export const toggleStarMemberAgent = async (
       })
       .eq("id", memberId);
 
-    if (error) {
-      console.warn("Non-blocking DB update warning for agent star:", error.message);
+    if (memError) {
+      console.warn("Non-blocking DB update warning for agent star:", memError.message);
+    }
+
+    // 3. Upsert into polling_unit_agents table so it persists globally for all users
+    if (isStarred) {
+      try {
+        const { data: member } = await supabase.from("members").select("*").eq("id", memberId).maybeSingle();
+        if (member) {
+          await supabase.from("polling_unit_agents").upsert(
+            {
+              user_id: member.id,
+              agent_name: member.full_name,
+              phone: member.phone,
+              email: member.email,
+              polling_unit_name: pollingUnitName || member.polling_unit || "Unassigned PU",
+              ward: member.ward || "Central Ward",
+              lga: member.lga || "Katsina",
+              is_active: true,
+            },
+            { onConflict: "phone" }
+          );
+        }
+      } catch (puaErr) {
+        console.warn("Could not sync to polling_unit_agents table:", puaErr);
+      }
     }
 
     toast.success(
@@ -177,6 +200,7 @@ export const toggleStarMemberAgent = async (
 
 /**
  * Fetch all starred/designated Polling Unit Agents for a given LGA and/or Ward
+ * Combines both `polling_unit_agents` table and `members` table to ensure 100% visibility.
  */
 export const fetchStarredAgentsPaymentRoster = async (
   lga?: string | null,
@@ -184,57 +208,110 @@ export const fetchStarredAgentsPaymentRoster = async (
 ): Promise<StarredAgentMember[]> => {
   try {
     const localStore = getLocalStarredAgents();
+    const rosterMap = new Map<string, StarredAgentMember>();
 
-    // Query members table
-    let query = supabase.from("members").select("*");
+    // Normalization helper for flexible Ward and LGA string matching
+    const norm = (s?: string | null) => (s || "").toLowerCase().trim().replace(/\s+/g, " ");
+    const matchesWard = (itemWard?: string | null, targetWard?: string | null) => {
+      if (!targetWard) return true;
+      const w1 = norm(itemWard);
+      const w2 = norm(targetWard);
+      if (!w1 || !w2) return true;
+      if (w1 === w2) return true;
+      const w1Norm = w1.replace(/\bi\b/g, "1").replace(/\bii\b/g, "2").replace(/\biii\b/g, "3");
+      const w2Norm = w2.replace(/\bi\b/g, "1").replace(/\bii\b/g, "2").replace(/\biii\b/g, "3");
+      return w1Norm === w2Norm || w1.includes(w2) || w2.includes(w1);
+    };
 
-    if (lga) query = query.eq("lga", lga);
-    if (ward) query = query.eq("ward", ward);
+    const matchesLga = (itemLga?: string | null, targetLga?: string | null) => {
+      if (!targetLga) return true;
+      const l1 = norm(itemLga);
+      const l2 = norm(targetLga);
+      if (!l1 || !l2) return true;
+      return l1 === l2 || l1.includes(l2) || l2.includes(l1);
+    };
 
-    const { data: dbMembers, error } = await query;
-
-    if (error) {
-      console.error("Error fetching members for agent roster:", error);
+    // 1. QUERY polling_unit_agents TABLE (Primary store for designated PU agents)
+    const { data: puaData, error: puaError } = await supabase.from("polling_unit_agents").select("*");
+    if (!puaError && puaData) {
+      for (const pua of puaData) {
+        if (matchesLga(pua.lga, lga) && matchesWard(pua.ward, ward)) {
+          const phoneKey = pua.phone?.trim();
+          const key = phoneKey || pua.id;
+          rosterMap.set(key, {
+            id: pua.id,
+            membership_id: `KAT-PUA-${(pua.phone || pua.id).slice(-6)}`,
+            full_name: pua.agent_name || "Designated Agent",
+            phone: pua.phone || null,
+            email: pua.email || null,
+            lga: pua.lga || lga || "Katsina",
+            ward: pua.ward || ward || "Central Ward",
+            polling_unit: pua.polling_unit_name || "Unassigned Polling Unit",
+            polling_unit_id: pua.polling_unit_id || null,
+            bank_name: null,
+            account_number: null,
+            agent_designation: "lead_agent",
+            is_starred: true,
+            created_at: pua.created_at,
+          });
+        }
+      }
     }
 
-    const membersList = dbMembers || [];
-    const roster: StarredAgentMember[] = [];
+    // 2. QUERY members TABLE (To enrich with bank details and capture members starred in DB/local)
+    const { data: dbMembers, error: memError } = await supabase.from("members").select("*");
+    if (!memError && dbMembers) {
+      for (const m of dbMembers) {
+        if (!matchesLga(m.lga, lga) || !matchesWard(m.ward, ward)) continue;
 
-    for (const m of membersList) {
-      const localRecord = localStore[m.id];
-      const isDbAgent = m.role === "polling_unit_agent" || (m.social_media_handle && m.social_media_handle.startsWith("DESIGNATION:"));
-      
-      let designation: AgentDesignation = "lead_agent";
-      if (localRecord?.designation) {
-        designation = localRecord.designation;
-      } else if (m.social_media_handle && m.social_media_handle.startsWith("DESIGNATION:")) {
-        designation = m.social_media_handle.replace("DESIGNATION:", "") as AgentDesignation;
-      }
+        const localRecord = localStore[m.id];
+        const isRoleAgent =
+          m.role === "polling_unit_agent" ||
+          m.role === "agent" ||
+          m.role === "pu_agent" ||
+          (m.social_media_handle && m.social_media_handle.startsWith("DESIGNATION:"));
 
-      const isStarred = localRecord?.is_starred || isDbAgent || false;
+        let designation: AgentDesignation = "lead_agent";
+        if (localRecord?.designation) {
+          designation = localRecord.designation;
+        } else if (m.social_media_handle && m.social_media_handle.startsWith("DESIGNATION:")) {
+          designation = m.social_media_handle.replace("DESIGNATION:", "") as AgentDesignation;
+        }
 
-      if (isStarred) {
-        roster.push({
-          id: m.id,
-          membership_id: m.membership_id || `DR-AGT-${m.id.slice(0, 6)}`,
-          full_name: m.full_name,
-          phone: m.phone || null,
-          email: m.email || null,
-          lga: m.lga || lga || "Katsina",
-          ward: m.ward || ward || "Central Ward",
-          polling_unit: m.polling_unit || "Unassigned PU",
-          polling_unit_id: m.polling_unit_id || null,
-          bank_name: m.bank_name || null,
-          account_number: m.account_number || null,
-          agent_designation: designation,
-          is_starred: true,
-          voters_card_id: m.voters_card_id || null,
-          created_at: m.created_at,
-        });
+        const isStarred = localRecord?.is_starred || isRoleAgent || false;
+        const phoneKey = m.phone?.trim();
+        const existingAgent = phoneKey ? rosterMap.get(phoneKey) : null;
+
+        if (existingAgent) {
+          // Enrich polling_unit_agents record with bank details and profile info from members
+          if (m.bank_name) existingAgent.bank_name = m.bank_name;
+          if (m.account_number) existingAgent.account_number = m.account_number;
+          if (m.full_name) existingAgent.full_name = m.full_name;
+          if (m.membership_id) existingAgent.membership_id = m.membership_id;
+          if (isStarred && designation) existingAgent.agent_designation = designation;
+        } else if (isStarred) {
+          rosterMap.set(m.id, {
+            id: m.id,
+            membership_id: m.membership_id || `KAT-PUA-${m.id.slice(0, 6)}`,
+            full_name: m.full_name,
+            phone: m.phone || null,
+            email: m.email || null,
+            lga: m.lga || lga || "Katsina",
+            ward: m.ward || ward || "Central Ward",
+            polling_unit: m.polling_unit || "Unassigned Polling Unit",
+            polling_unit_id: m.polling_unit_id || null,
+            bank_name: m.bank_name || null,
+            account_number: m.account_number || null,
+            agent_designation: designation,
+            is_starred: true,
+            voters_card_id: m.voters_card_id || null,
+            created_at: m.created_at,
+          });
+        }
       }
     }
 
-    return roster;
+    return Array.from(rosterMap.values());
   } catch (err) {
     console.error("Exception fetching starred agents payment roster:", err);
     return [];
