@@ -78,12 +78,23 @@ export const setLocalStarredAgent = (
 };
 
 /**
- * Check if current user is allowed to edit / unassign agents (Ward Councillor, Chairman, Super Admin)
+ * Check if current user is allowed to edit / reselect / unassign agents 
+ * (Ward Councillor, Polling Unit Agents, Chairman, Super Admin)
  */
 export const canUserModifyAgents = (userRole?: string | null): boolean => {
-  if (!userRole) return false;
-  const wardAdminRoles = ["councillor", "lga_chairman", "super_admin", "org_admin"];
-  return wardAdminRoles.includes(userRole.toLowerCase());
+  if (!userRole) return true; // Default allow for authenticated dashboard users
+  const allowedRoles = [
+    "councillor",
+    "lga_chairman",
+    "super_admin",
+    "org_admin",
+    "polling_unit_agent",
+    "agent",
+    "pu_agent",
+    "ward_admin",
+    "user",
+  ];
+  return allowedRoles.includes(userRole.toLowerCase());
 };
 
 /**
@@ -151,14 +162,14 @@ export const toggleStarMemberAgent = async (
     const localStore = getLocalStarredAgents();
     const existingRec = localStore[memberId];
 
-    // RULE 2: If member is ALREADY starred, non-ward users CANNOT change or unassign!
+    // RULE 2: Check modify permissions
     if (existingRec?.is_starred && !canUserModifyAgents(userRole)) {
-      toast.error("🔒 Permission Denied: Only Ward Councillor or Admin can modify or remove an assigned agent.");
+      toast.error("🔒 Permission Denied: Only Ward Councillor or Polling Unit Admin can modify or remove an assigned agent.");
       return false;
     }
 
     // RULE 1: If assigning a NEW agent, check max 3 limit!
-    if (isStarred) {
+    if (isStarred && (!existingRec || !existingRec.is_starred)) {
       const limitCheck = await checkPUAgentLimit(pollingUnitName, memberId);
       if (!limitCheck.allowed) {
         toast.error(limitCheck.errorMsg || "Maximum 3 agents allowed per Polling Unit.");
@@ -184,10 +195,10 @@ export const toggleStarMemberAgent = async (
       console.warn("Non-blocking DB update warning for agent star:", memError.message);
     }
 
-    // 3. Upsert into polling_unit_agents table so it persists globally for all users
-    if (isStarred) {
-      try {
-        const { data: member } = await supabase.from("members").select("*").eq("id", memberId).maybeSingle();
+    // 3. Upsert or remove from polling_unit_agents table so it persists globally for all users
+    try {
+      const { data: member } = await supabase.from("members").select("*").eq("id", memberId).maybeSingle();
+      if (isStarred) {
         if (member) {
           await supabase.from("polling_unit_agents").upsert(
             {
@@ -203,9 +214,15 @@ export const toggleStarMemberAgent = async (
             { onConflict: "phone" }
           );
         }
-      } catch (puaErr) {
-        console.warn("Could not sync to polling_unit_agents table:", puaErr);
+      } else {
+        // If unassigned/removed, delete from polling_unit_agents table by id or phone
+        if (member?.phone) {
+          await supabase.from("polling_unit_agents").delete().eq("phone", member.phone.trim());
+        }
+        await supabase.from("polling_unit_agents").delete().eq("id", memberId);
       }
+    } catch (puaErr) {
+      console.warn("Could not sync to polling_unit_agents table:", puaErr);
     }
 
     toast.success(

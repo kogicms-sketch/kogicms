@@ -44,7 +44,7 @@ import {
   XCircle,
   DollarSign,
 } from "lucide-react";
-import { toast } from "sonner";
+import { StarAgentButton } from "@/components/members/StarAgentButton";
 import {
   StarredAgentMember,
   fetchStarredAgentsPaymentRoster,
@@ -618,14 +618,25 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
                         </button>
                       </TableCell>
 
-                      {/* Action Buttons: Edit Bank & Toggle Payment */}
+                      {/* Action Buttons: Edit Bank, Toggle Payment, Reselect/Remove Agent */}
                       <TableCell className="text-right print:hidden">
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          <StarAgentButton
+                            memberId={ag.id}
+                            pollingUnitName={ag.polling_unit}
+                            initialRole="polling_unit_agent"
+                            initialSocialHandle={`DESIGNATION:${ag.agent_designation}`}
+                            size="sm"
+                            onUpdate={async () => {
+                              await loadRoster();
+                            }}
+                          />
+
                           <Button
                             variant={ag.is_paid ? "outline" : "default"}
                             size="sm"
                             onClick={() => handleTogglePaymentStatus(ag)}
-                            className={`h-7 px-2 text-[11px] font-bold gap-1 ${
+                            className={`h-8 px-2 text-[11px] font-bold gap-1 ${
                               ag.is_paid
                                 ? "border-green-600 text-green-700 hover:bg-green-50"
                                 : "bg-green-600 hover:bg-green-700 text-white"
@@ -639,7 +650,7 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
                             variant="ghost"
                             size="sm"
                             onClick={() => handleOpenEdit(ag)}
-                            className="h-7 px-2 text-[11px] font-bold text-primary hover:bg-primary/10 gap-1"
+                            className="h-8 px-2 text-[11px] font-bold text-primary hover:bg-primary/10 gap-1"
                           >
                             <Edit2 className="w-3 h-3" />
                             <span>Edit Bank</span>
