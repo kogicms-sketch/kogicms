@@ -39,15 +39,35 @@ import {
   CreditCard,
   UserCheck,
   RefreshCw,
+  Filter,
+  Check,
+  XCircle,
+  DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   StarredAgentMember,
   fetchStarredAgentsPaymentRoster,
   toggleStarMemberAgent,
+  setLocalAgentPayment,
 } from "@/services/AgentService";
 import { NIGERIAN_BANKS } from "@/data/nigerian_banks";
 import { supabase } from "@/integrations/supabase/loose-client";
+
+const KATSINA_WARDS = [
+  "Wakilin Kudu I",
+  "Wakilin Kudu II",
+  "Wakilin Kudu III",
+  "Wakilin Gabas I",
+  "Wakilin Gabas II",
+  "Wakilin Yamma I",
+  "Wakilin Yamma II",
+  "Wakilin Arewa I",
+  "Wakilin Arewa II",
+  "Kofar Sauri",
+  "Shinkafi I",
+  "Shinkafi II",
+];
 
 interface AgentPaymentRosterProps {
   lga?: string | null;
@@ -57,7 +77,7 @@ interface AgentPaymentRosterProps {
 }
 
 export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
-  lga,
+  lga = "Katsina",
   ward,
   title = "⭐ Polling Unit Agents Payment & Account Roster",
   subtitle = "Direct account sorting and payment export for all designated Polling Unit Agents",
@@ -65,6 +85,8 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
   const [agents, setAgents] = useState<StarredAgentMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedWard, setSelectedWard] = useState<string>(ward || "");
+  const [paymentFilter, setPaymentFilter] = useState<"all" | "paid" | "unpaid">("all");
   
   // Edit Bank Modal State
   const [editingAgent, setEditingAgent] = useState<StarredAgentMember | null>(null);
@@ -72,10 +94,18 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
   const [accountNumberInput, setAccountNumberInput] = useState("");
   const [isSavingBank, setIsSavingBank] = useState(false);
 
+  // Sync ward prop if changed externally
+  useEffect(() => {
+    if (ward) {
+      setSelectedWard(ward);
+    }
+  }, [ward]);
+
   const loadRoster = async () => {
     setLoading(true);
     try {
-      const data = await fetchStarredAgentsPaymentRoster(lga, ward);
+      const activeWard = ward || selectedWard || null;
+      const data = await fetchStarredAgentsPaymentRoster(lga, activeWard);
       setAgents(data);
     } catch (err) {
       console.error("Error loading agent payment roster:", err);
@@ -87,28 +117,89 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
 
   useEffect(() => {
     loadRoster();
-  }, [lga, ward]);
+  }, [lga, ward, selectedWard]);
 
-  // Filtered agents
+  // Ward normalization helper
+  const norm = (s?: string | null) => (s || "").toLowerCase().trim().replace(/\s+/g, " ");
+  const matchesWardFilter = (itemWard?: string | null, targetWard?: string | null) => {
+    if (!targetWard) return true;
+    const w1 = norm(itemWard);
+    const w2 = norm(targetWard);
+    if (!w1 || !w2) return true;
+    if (w1 === w2) return true;
+    const w1Norm = w1.replace(/\bi\b/g, "1").replace(/\bii\b/g, "2").replace(/\biii\b/g, "3");
+    const w2Norm = w2.replace(/\bi\b/g, "1").replace(/\bii\b/g, "2").replace(/\biii\b/g, "3");
+    return w1Norm === w2Norm || w1.includes(w2) || w2.includes(w1);
+  };
+
+  // Filtered agents strictly by Ward, Search Term, and Payment Status
   const filteredAgents = agents.filter((ag) => {
+    // 1. Strict Ward Filter
+    const activeWard = ward || selectedWard;
+    if (activeWard && !matchesWardFilter(ag.ward, activeWard)) {
+      return false;
+    }
+
+    // 2. Payment Status Filter
+    if (paymentFilter === "paid" && !ag.is_paid) return false;
+    if (paymentFilter === "unpaid" && ag.is_paid) return false;
+
+    // 3. Search Filter
     const term = searchTerm.toLowerCase();
+    if (!term) return true;
+
     return (
       ag.full_name.toLowerCase().includes(term) ||
       (ag.phone && ag.phone.toLowerCase().includes(term)) ||
       (ag.membership_id && ag.membership_id.toLowerCase().includes(term)) ||
       (ag.bank_name && ag.bank_name.toLowerCase().includes(term)) ||
       (ag.account_number && ag.account_number.toLowerCase().includes(term)) ||
-      ag.polling_unit.toLowerCase().includes(term)
+      ag.polling_unit.toLowerCase().includes(term) ||
+      ag.ward.toLowerCase().includes(term)
     );
   });
 
   // Analytics Metrics
-  const totalAgents = agents.length;
-  const completeAccounts = agents.filter(
+  const wardAgents = agents.filter(ag => {
+    const activeWard = ward || selectedWard;
+    return !activeWard || matchesWardFilter(ag.ward, activeWard);
+  });
+
+  const totalAgents = wardAgents.length;
+  const paidCount = wardAgents.filter((ag) => ag.is_paid).length;
+  const unpaidCount = totalAgents - paidCount;
+  const completeAccounts = wardAgents.filter(
     (ag) => ag.bank_name && ag.account_number && ag.account_number.length >= 10
   ).length;
   const missingAccounts = totalAgents - completeAccounts;
-  const uniquePUs = new Set(agents.map((ag) => ag.polling_unit)).size;
+  const uniquePUs = new Set(wardAgents.map((ag) => ag.polling_unit)).size;
+
+  // Toggle Payment Status Action (Paid <-> Unpaid)
+  const handleTogglePaymentStatus = async (ag: StarredAgentMember) => {
+    const newPaidStatus = !ag.is_paid;
+    setLocalAgentPayment(ag.id, newPaidStatus);
+    if (ag.phone) {
+      setLocalAgentPayment(ag.phone.trim(), newPaidStatus);
+    }
+
+    // Update state locally for immediate UI response
+    setAgents(prev => prev.map(item => {
+      if (item.id === ag.id || (item.phone && ag.phone && item.phone.trim() === ag.phone.trim())) {
+        return {
+          ...item,
+          is_paid: newPaidStatus,
+          paid_at: newPaidStatus ? new Date().toISOString() : undefined,
+        };
+      }
+      return item;
+    }));
+
+    toast.success(
+      newPaidStatus
+        ? `✅ Marked ${ag.full_name} as PAID (An Biya)`
+        : `⏳ Marked ${ag.full_name} as UNPAID (Ba a Biya Ba)`
+    );
+  };
 
   // Open Bank Edit Modal
   const handleOpenEdit = (ag: StarredAgentMember) => {
@@ -131,8 +222,7 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
 
     setIsSavingBank(true);
     try {
-      // 1. Try updating members by ID
-      const { error: err1 } = await supabase
+      await supabase
         .from("members")
         .update({
           bank_name: bankNameInput,
@@ -140,7 +230,6 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
         })
         .eq("id", editingAgent.id);
 
-      // 2. If phone exists, also update by phone to guarantee match across tables
       if (editingAgent.phone) {
         await supabase
           .from("members")
@@ -162,10 +251,14 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
     }
   };
 
-  // Export CSV Payment Schedule File
-  const handleExportCSV = () => {
-    if (filteredAgents.length === 0) {
-      toast.error("No agent records available to export");
+  // Export CSV Payment Schedule File (All or Unpaid Only)
+  const handleExportCSV = (unpaidOnly: boolean = false) => {
+    const recordsToExport = unpaidOnly 
+      ? filteredAgents.filter(ag => !ag.is_paid)
+      : filteredAgents;
+
+    if (recordsToExport.length === 0) {
+      toast.error(unpaidOnly ? "No unpaid agent records available to export" : "No agent records available to export");
       return;
     }
 
@@ -180,10 +273,11 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
       "LGA",
       "Ward",
       "Polling Unit Name",
-      "Account Status",
+      "Bank Status",
+      "Payment Status",
     ];
 
-    const rows = filteredAgents.map((ag, idx) => [
+    const rows = recordsToExport.map((ag, idx) => [
       idx + 1,
       `"${ag.membership_id || ""}"`,
       `"${ag.full_name.replace(/"/g, '""')}"`,
@@ -195,6 +289,7 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
       `"${ag.ward}"`,
       `"${ag.polling_unit.replace(/"/g, '""')}"`,
       `"${ag.bank_name && ag.account_number ? "READY FOR PAYMENT" : "MISSING ACCOUNT"}"`,
+      `"${ag.is_paid ? "PAID (AN BIYA)" : "UNPAID (BA A BIYA BA)"}"`,
     ]);
 
     const csvContent =
@@ -204,13 +299,17 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    const fileName = `PU_Agents_Payment_Schedule_${(ward || lga || "Katsina").replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.csv`;
+    
+    const activeWardStr = (ward || selectedWard || "Katsina").replace(/\s+/g, "_");
+    const filePrefix = unpaidOnly ? "UNPAID_Agents_Only" : "PU_Agents_Payment_Schedule";
+    const fileName = `${filePrefix}_${activeWardStr}_${new Date().toISOString().slice(0, 10)}.csv`;
+    
     link.setAttribute("download", fileName);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
-    toast.success(`Exported payment schedule for ${filteredAgents.length} agents!`);
+    toast.success(`Exported ${recordsToExport.length} ${unpaidOnly ? "unpaid " : ""}agent records!`);
   };
 
   // Print Payroll Voucher
@@ -243,7 +342,7 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
               <CardTitle className="text-xl font-extrabold text-foreground">{title}</CardTitle>
             </div>
             <CardDescription className="text-xs text-muted-foreground mt-1">
-              {subtitle} {ward && <strong className="text-foreground">({ward} Ward)</strong>}
+              {subtitle} {(ward || selectedWard) && <strong className="text-foreground">({ward || selectedWard} Ward)</strong>}
             </CardDescription>
           </div>
 
@@ -269,19 +368,30 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
               <span>Print Voucher</span>
             </Button>
 
+            {/* Export Unpaid Only CSV */}
             <Button
               size="sm"
-              onClick={handleExportCSV}
+              onClick={() => handleExportCSV(true)}
+              className="gap-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/20 print:hidden"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>🚨 Export UNPAID Only ({unpaidCount})</span>
+            </Button>
+
+            {/* Export All CSV */}
+            <Button
+              size="sm"
+              onClick={() => handleExportCSV(false)}
               className="gap-1.5 text-xs font-bold bg-green-600 hover:bg-green-700 text-white shadow-md shadow-green-600/20 print:hidden"
             >
               <Download className="w-4 h-4" />
-              <span>📥 Export Payment List (CSV)</span>
+              <span>📥 Export All CSV ({totalAgents})</span>
             </Button>
           </div>
         </div>
 
         {/* Analytics Header Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 print:hidden">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4 print:hidden">
           <div className="bg-background border border-border/50 rounded-xl p-3 flex flex-col justify-between">
             <span className="text-[11px] font-bold text-muted-foreground uppercase">Designated Agents</span>
             <div className="flex items-baseline gap-2 mt-1">
@@ -291,20 +401,30 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
           </div>
 
           <div className="bg-background border border-border/50 rounded-xl p-3 flex flex-col justify-between">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase">PUs Covered</span>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase">Paid (An Biya)</span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-blue-600">{uniquePUs}</span>
-              <span className="text-[10px] text-muted-foreground">Polling Units</span>
+              <span className="text-2xl font-black text-green-600">{paidCount}</span>
+              <span className="text-[10px] text-green-600 font-bold">
+                ({totalAgents > 0 ? Math.round((paidCount / totalAgents) * 100) : 0}%)
+              </span>
             </div>
           </div>
 
           <div className="bg-background border border-border/50 rounded-xl p-3 flex flex-col justify-between">
-            <span className="text-[11px] font-bold text-muted-foreground uppercase">Ready for Payment</span>
+            <span className="text-[11px] font-bold text-muted-foreground uppercase">Unpaid (Ba a Biya Ba)</span>
             <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-black text-green-600">{completeAccounts}</span>
-              <span className="text-[10px] text-green-600 font-bold">
-                ({totalAgents > 0 ? Math.round((completeAccounts / totalAgents) * 100) : 0}%)
+              <span className={`text-2xl font-black ${unpaidCount > 0 ? "text-amber-600" : "text-gray-400"}`}>
+                {unpaidCount}
               </span>
+              <span className="text-[10px] text-muted-foreground">Pending</span>
+            </div>
+          </div>
+
+          <div className="bg-background border border-border/50 rounded-xl p-3 flex flex-col justify-between">
+            <span className="text-[11px] font-bold text-muted-foreground uppercase">PUs Covered</span>
+            <div className="flex items-baseline gap-2 mt-1">
+              <span className="text-2xl font-black text-blue-600">{uniquePUs}</span>
+              <span className="text-[10px] text-muted-foreground">Polling Units</span>
             </div>
           </div>
 
@@ -321,8 +441,9 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
       </CardHeader>
 
       <CardContent className="p-6">
-        {/* Search Bar */}
-        <div className="flex items-center gap-3 mb-6 print:hidden">
+        {/* Controls Bar: Search, Ward Selector, Payment Status Filter Tabs */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 mb-6 print:hidden">
+          {/* Search Bar */}
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
@@ -331,6 +452,58 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 text-xs h-10 font-medium"
             />
+          </div>
+
+          {/* Ward Selection Dropdown (For Ward Isolation) */}
+          {!ward && (
+            <div className="w-full md:w-56">
+              <select
+                value={selectedWard}
+                onChange={(e) => setSelectedWard(e.target.value)}
+                className="w-full h-10 rounded-lg border border-input bg-background px-3 py-2 text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
+              >
+                <option value="">-- All Wards in {lga} --</option>
+                {KATSINA_WARDS.map((w) => (
+                  <option key={w} value={w}>
+                    📍 {w}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Payment Status Filter Buttons */}
+          <div className="flex items-center bg-muted/60 p-1 rounded-xl border border-border/50 self-start md:self-auto">
+            <button
+              onClick={() => setPaymentFilter("all")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                paymentFilter === "all"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All ({totalAgents})
+            </button>
+            <button
+              onClick={() => setPaymentFilter("paid")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                paymentFilter === "paid"
+                  ? "bg-green-600 text-white shadow-xs"
+                  : "text-muted-foreground hover:text-green-600"
+              }`}
+            >
+              ✅ Paid ({paidCount})
+            </button>
+            <button
+              onClick={() => setPaymentFilter("unpaid")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                paymentFilter === "unpaid"
+                  ? "bg-amber-600 text-white shadow-xs"
+                  : "text-muted-foreground hover:text-amber-600"
+              }`}
+            >
+              ⏳ Unpaid ({unpaidCount})
+            </button>
           </div>
         </div>
 
@@ -344,7 +517,9 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
             <Star className="w-12 h-12 text-amber-400 opacity-40 mb-3" />
             <h3 className="text-sm font-bold text-foreground">No Designated Agents Found</h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm">
-              Go to the Members List or Polling Unit page and click the Star (⭐) button next to members to designate them as Polling Unit Agents!
+              {paymentFilter === "unpaid" 
+                ? "Great! All agents in this ward have been marked as PAID (An Biya)!"
+                : "Go to the Members List or Polling Unit page and click the Star (⭐) button next to members to designate them as Polling Unit Agents!"}
             </p>
           </div>
         ) : (
@@ -355,11 +530,12 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
                   <TableHead className="w-12 text-center text-[11px] font-bold uppercase">S/N</TableHead>
                   <TableHead className="text-[11px] font-bold uppercase">Agent Name & ID</TableHead>
                   <TableHead className="text-[11px] font-bold uppercase">Designation</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase">Polling Unit</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase">Polling Unit & Ward</TableHead>
                   <TableHead className="text-[11px] font-bold uppercase">Phone Number</TableHead>
                   <TableHead className="text-[11px] font-bold uppercase">Bank Name</TableHead>
                   <TableHead className="text-[11px] font-bold uppercase">Account Number</TableHead>
-                  <TableHead className="text-[11px] font-bold uppercase text-center">Status</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase text-center">Bank Status</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase text-center">Payment Status</TableHead>
                   <TableHead className="text-[11px] font-bold uppercase text-right print:hidden">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -384,7 +560,7 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-bold text-xs text-foreground">{ag.polling_unit}</span>
-                          <span className="text-[10px] text-muted-foreground">{ag.ward}, {ag.lga}</span>
+                          <span className="text-[10px] text-muted-foreground font-semibold">{ag.ward}, {ag.lga}</span>
                         </div>
                       </TableCell>
 
@@ -421,16 +597,54 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
                         )}
                       </TableCell>
 
-                      <TableCell className="text-right print:hidden">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenEdit(ag)}
-                          className="h-8 px-2.5 text-xs font-bold text-primary hover:bg-primary/10 gap-1"
+                      {/* Payment Status (Paid vs Unpaid Badge & Quick Toggle) */}
+                      <TableCell className="text-center">
+                        <button
+                          onClick={() => handleTogglePaymentStatus(ag)}
+                          className="focus:outline-none transition-transform active:scale-95"
+                          title="Click to toggle Paid / Unpaid status"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
-                          <span>Edit Bank</span>
-                        </Button>
+                          {ag.is_paid ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-white bg-green-600 hover:bg-green-700 px-2.5 py-1 rounded-full shadow-xs cursor-pointer">
+                              <Check className="w-3 h-3 stroke-[3]" />
+                              AN BIYA (PAID)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:text-amber-300 px-2.5 py-1 rounded-full border border-amber-300 dark:border-amber-800 cursor-pointer">
+                              <XCircle className="w-3 h-3 text-amber-600" />
+                              BA A BIYA BA (UNPAID)
+                            </span>
+                          )}
+                        </button>
+                      </TableCell>
+
+                      {/* Action Buttons: Edit Bank & Toggle Payment */}
+                      <TableCell className="text-right print:hidden">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant={ag.is_paid ? "outline" : "default"}
+                            size="sm"
+                            onClick={() => handleTogglePaymentStatus(ag)}
+                            className={`h-7 px-2 text-[11px] font-bold gap-1 ${
+                              ag.is_paid
+                                ? "border-green-600 text-green-700 hover:bg-green-50"
+                                : "bg-green-600 hover:bg-green-700 text-white"
+                            }`}
+                          >
+                            <DollarSign className="w-3 h-3" />
+                            <span>{ag.is_paid ? "Mark Unpaid" : "Mark Paid"}</span>
+                          </Button>
+
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenEdit(ag)}
+                            className="h-7 px-2 text-[11px] font-bold text-primary hover:bg-primary/10 gap-1"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            <span>Edit Bank</span>
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );

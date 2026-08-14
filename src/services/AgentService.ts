@@ -18,9 +18,33 @@ export interface StarredAgentMember {
   account_number: string | null;
   agent_designation: AgentDesignation;
   is_starred: boolean;
+  is_paid?: boolean;
+  paid_at?: string | null;
   voters_card_id?: string | null;
   created_at?: string;
 }
+
+// Helper to get local storage payment state
+export const getLocalAgentPayments = (): Record<string, { is_paid: boolean; paid_at?: string }> => {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem("pu_agent_payment_status_store");
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return {};
+  }
+};
+
+export const setLocalAgentPayment = (agentId: string, isPaid: boolean) => {
+  if (typeof window === "undefined") return;
+  try {
+    const store = getLocalAgentPayments();
+    store[agentId] = { is_paid: isPaid, paid_at: isPaid ? new Date().toISOString() : undefined };
+    localStorage.setItem("pu_agent_payment_status_store", JSON.stringify(store));
+  } catch (e) {
+    console.error("Error writing payment status to localStorage:", e);
+  }
+};
 
 // Helper to get local storage starred state
 export const getLocalStarredAgents = (): Record<string, { is_starred: boolean; designation: AgentDesignation; polling_unit?: string }> => {
@@ -308,6 +332,18 @@ export const fetchStarredAgentsPaymentRoster = async (
             created_at: m.created_at,
           });
         }
+      }
+    }
+
+    // 3. Attach Payment Status (Paid / Unpaid)
+    const localPayments = getLocalAgentPayments();
+    for (const [_, agent] of rosterMap.entries()) {
+      const paymentRec = localPayments[agent.id] || (agent.phone ? localPayments[agent.phone.trim()] : undefined);
+      if (paymentRec) {
+        agent.is_paid = paymentRec.is_paid;
+        agent.paid_at = paymentRec.paid_at;
+      } else {
+        agent.is_paid = false;
       }
     }
 
