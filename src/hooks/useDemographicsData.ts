@@ -24,18 +24,38 @@ export interface DemographicsData {
 }
 
 const fetchFreshDemographicsData = async ({ lga, lgas, ward }: DemographicsParams): Promise<DemographicsData> => {
-  let query = supabase.from("members").select("gender, date_of_birth, is_verified, is_deceased");
+  // 1. Exact count query for total active members (supports millions of supporters)
+  let countQuery = supabase
+    .from("members")
+    .select("*", { count: "exact", head: true })
+    .or("is_deceased.eq.false,is_deceased.is.null");
 
   if (ward) {
-    query = query.eq("ward", ward);
+    countQuery = countQuery.eq("ward", ward);
   }
   if (lga) {
-    query = query.eq("lga", lga);
+    countQuery = countQuery.eq("lga", lga);
   } else if (lgas && lgas.length > 0) {
-    query = query.in("lga", lgas);
+    countQuery = countQuery.in("lga", lgas);
   }
 
-  // Fetch deceased count from voter_registry
+  // 2. Exact count query for expected turnout (verified members)
+  let verifiedQuery = supabase
+    .from("members")
+    .select("*", { count: "exact", head: true })
+    .eq("is_verified", true)
+    .or("is_deceased.eq.false,is_deceased.is.null");
+
+  if (ward) {
+    verifiedQuery = verifiedQuery.eq("ward", ward);
+  }
+  if (lga) {
+    verifiedQuery = verifiedQuery.eq("lga", lga);
+  } else if (lgas && lgas.length > 0) {
+    verifiedQuery = verifiedQuery.in("lga", lgas);
+  }
+
+  // 3. Fetch deceased count from voter_registry
   let deceasedQuery = supabase
     .from("voter_registry")
     .select("*", { count: "exact", head: true })
@@ -50,16 +70,58 @@ const fetchFreshDemographicsData = async ({ lga, lgas, ward }: DemographicsParam
     deceasedQuery = deceasedQuery.in("lga", lgas);
   }
 
-  const [membersRes, deceasedRes] = await Promise.all([
-    query,
-    deceasedQuery
+  // Execute exact count queries in parallel
+  const [countRes, verifiedRes, deceasedRes] = await Promise.all([
+    countQuery,
+    verifiedQuery,
+    deceasedQuery,
   ]);
 
-  if (membersRes.error) throw membersRes.error;
-  if (deceasedRes.error) throw deceasedRes.error;
+  if (countRes.error) console.warn("Error fetching total member count:", countRes.error.message);
+  if (verifiedRes.error) console.warn("Error fetching verified member count:", verifiedRes.error.message);
+  if (deceasedRes.error) console.warn("Error fetching deceased count:", deceasedRes.error.message);
 
-  const data = membersRes.data;
   const deathsCount = deceasedRes.count || 0;
+
+  // 4. Paginated batch query for demographic ratio calculations (gender & age)
+  const PAGE_SIZE = 1000;
+  let allRows: any[] = [];
+  let page = 0;
+  let hasMore = true;
+
+  while (hasMore && page < 50) { // Fetch up to 50,000 sample rows for high precision
+    let batchQuery = supabase
+      .from("members")
+      .select("gender, date_of_birth, is_verified, is_deceased")
+      .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+    if (ward) {
+      batchQuery = batchQuery.eq("ward", ward);
+    }
+    if (lga) {
+      batchQuery = batchQuery.eq("lga", lga);
+    } else if (lgas && lgas.length > 0) {
+      batchQuery = batchQuery.in("lga", lgas);
+    }
+
+    const { data: batchData, error: batchErr } = await batchQuery;
+    if (batchErr) break;
+
+    if (batchData && batchData.length > 0) {
+      allRows = allRows.concat(batchData);
+      if (batchData.length < PAGE_SIZE) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+    } else {
+      hasMore = false;
+    }
+  }
+
+  const sampleActive = allRows.filter((m) => !m.is_deceased);
+  const totalRegistered = countRes.count !== null && countRes.count !== undefined ? countRes.count : sampleActive.length;
+  const expectedTurnout = verifiedRes.count !== null && verifiedRes.count !== undefined ? verifiedRes.count : sampleActive.filter((m) => m.is_verified).length;
 
   let male = 0;
   let female = 0;
@@ -67,15 +129,10 @@ const fetchFreshDemographicsData = async ({ lga, lgas, ward }: DemographicsParam
   let youths = 0;
   let middleAged = 0;
   let seniors = 0;
-  let expectedTurnout = 0;
 
   const currentYear = new Date().getFullYear();
 
-  data?.forEach((m: any) => {
-    if (m.is_deceased) {
-      return; // Exclude from active stats
-    }
-
+  sampleActive.forEach((m: any) => {
     // Gender Split
     if (m.gender?.toLowerCase() === "male") {
       male++;
@@ -97,21 +154,29 @@ const fetchFreshDemographicsData = async ({ lga, lgas, ward }: DemographicsParam
         middleAged++;
       }
     }
-
-    // Expected Turnout (Verified and not deceased)
-    if (m.is_verified) {
-      expectedTurnout++;
-    }
   });
 
-  const totalActive = male + female;
+  // Scale gender and age group breakdown to exact total registered if total exceeds sample size
+  const sampleGenderTotal = male + female;
+  let finalMale = male;
+  let finalFemale = female;
+
+  if (sampleGenderTotal > 0 && totalRegistered > sampleGenderTotal) {
+    const scaleFactor = totalRegistered / sampleGenderTotal;
+    finalMale = Math.round(male * scaleFactor);
+    finalFemale = Math.round(female * scaleFactor);
+    teenagers = Math.round(teenagers * scaleFactor);
+    youths = Math.round(youths * scaleFactor);
+    middleAged = Math.round(middleAged * scaleFactor);
+    seniors = Math.round(seniors * scaleFactor);
+  }
 
   return {
-    genderSplit: { male, female },
+    genderSplit: { male: finalMale, female: finalFemale },
     ageGroups: { teenagers, youths, middleAged, seniors },
     deathsCount,
     expectedTurnout,
-    totalRegistered: totalActive,
+    totalRegistered,
   };
 };
 

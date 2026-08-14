@@ -30,15 +30,18 @@ export const useDashboardStats = (organizationId?: string | null) => {
       if (activitiesResult.error) throw activitiesResult.error;
 
       const organizations = {
-        total: orgsResult.data?.length || 0,
-        active: orgsResult.data?.length || 0, // Assume all are active
+        total: orgsResult.count !== null && orgsResult.count !== undefined ? orgsResult.count : (orgsResult.data?.length || 0),
+        active: orgsResult.count !== null && orgsResult.count !== undefined ? orgsResult.count : (orgsResult.data?.length || 0),
       };
 
+      const membersCount = membersResult.count !== null && membersResult.count !== undefined ? membersResult.count : (membersResult.data?.length || 0);
+      const verifiedCount = membersResult.data?.filter((m) => m.is_verified === true).length || 0;
+
       const members = {
-        total: membersResult.data?.length || 0,
-        active: membersResult.data?.filter((m) => m.status === "active").length || 0,
-        verified: membersResult.data?.filter((m) => m.is_verified === true).length || 0,
-        pending: membersResult.data?.filter((m) => m.is_verified === false || m.is_verified === null).length || 0,
+        total: membersCount,
+        active: membersCount,
+        verified: verifiedCount,
+        pending: Math.max(0, membersCount - verifiedCount),
       };
 
       const activities = {
