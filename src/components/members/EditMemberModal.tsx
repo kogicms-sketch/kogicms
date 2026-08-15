@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/loose-client";
 import { toast } from "sonner";
 import { SchoolSelect } from "@/components/common/SchoolSelect";
 import { STUDENT_INSTITUTIONS } from "@/data/student_institutions";
+import { NIGERIAN_BANKS } from "@/data/nigerian_banks";
 
 interface EditMemberModalProps {
   isOpen: boolean;
@@ -250,6 +251,8 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
     occupation: member.occupation || "",
     schoolName: member.school_name || "",
     schoolLevel: member.school_level || "",
+    bankName: member.bank_name || "",
+    accountNumber: member.account_number || "",
     isDeceased: member.is_deceased || false,
     ...initialParsed
   });
@@ -284,6 +287,8 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
         occupation: member.occupation || "",
         schoolName: member.school_name || "",
         schoolLevel: member.school_level || "",
+        bankName: member.bank_name || "",
+        accountNumber: member.account_number || "",
         isDeceased: member.is_deceased || false,
         ...parsedFields
       });
@@ -448,6 +453,8 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
         occupation: finalOccupation,
         school_name: finalSchoolName || null,
         school_level: finalSchoolLevel || null,
+        bank_name: formData.bankName || null,
+        account_number: formData.accountNumber || null,
         is_deceased: formData.isDeceased,
       };
 
@@ -865,6 +872,42 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
               value={formData.votersCardId}
               onChange={(e) => setFormData({ ...formData, votersCardId: e.target.value })}
             />
+          </div>
+
+          {/* Bank & Payment Account Details Section */}
+          <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 space-y-3">
+            <h4 className="text-xs font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+              💳 Bank & Payment Account Details
+            </h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">Select Bank Name</label>
+                <select
+                  className="input-premium w-full text-xs font-medium bg-background"
+                  value={formData.bankName}
+                  onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                >
+                  <option value="">-- Select Bank --</option>
+                  {NIGERIAN_BANKS.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">10-Digit NUBAN Account Number</label>
+                <input
+                  type="text"
+                  maxLength={10}
+                  className="input-premium w-full text-xs font-mono font-bold bg-background"
+                  placeholder="e.g. 0123456789"
+                  value={formData.accountNumber}
+                  onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value.replace(/\D/g, "") })}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">

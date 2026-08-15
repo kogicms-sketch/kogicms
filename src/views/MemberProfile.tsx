@@ -521,11 +521,20 @@ const MemberProfile = () => {
 
                     {/* Demographics & Occupation */}
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="flex flex-row items-center justify-between pb-3">
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <User className="w-5 h-5 text-primary" />
                                 Demographics & Occupation
                             </CardTitle>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setIsEditModalOpen(true)}
+                              className="h-8 text-xs font-bold gap-1 text-primary hover:bg-primary/10 border-primary/30"
+                            >
+                              <CreditCard className="w-3.5 h-3.5 text-primary" />
+                              <span>Edit Bank Account</span>
+                            </Button>
                         </CardHeader>
                         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
                             <div className="space-y-3">
@@ -539,13 +548,13 @@ const MemberProfile = () => {
                                 </div>
                                 <div className="flex justify-between items-center py-2 border-b border-border">
                                     <span className="text-sm text-muted-foreground">Bank Name</span>
-                                    <span className="text-sm font-semibold">{member.bank_name || "Not provided"}</span>
+                                    <span className="text-sm font-bold text-foreground">{member.bank_name || <span className="text-red-500 italic text-xs">Not provided</span>}</span>
                                 </div>
                             </div>
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center py-2 border-b border-border">
                                     <span className="text-sm text-muted-foreground">Account Number</span>
-                                    <span className="text-sm font-semibold">{member.account_number || "Not provided"}</span>
+                                    <span className="text-sm font-mono font-extrabold text-foreground">{member.account_number || <span className="text-red-500 italic text-xs">Not provided</span>}</span>
                                 </div>
                                 {member.occupation?.toLowerCase() === "student" && (
                                     <>
