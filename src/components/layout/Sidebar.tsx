@@ -51,9 +51,8 @@ const Sidebar = () => {
           </div>
           {!collapsed && (
             <div className="animate-fade-in min-w-0">
-              <p className="text-[10px] text-white/60 leading-tight">
-                Campaign Management
-              </p>
+              <h2 className="text-sm font-bold text-white truncate leading-tight">Kogi State {party.shortName}</h2>
+              <p className="text-[10px] text-white/70 leading-tight">{party.tagline || "Nigeria First"}</p>
             </div>
           )}
         </div>

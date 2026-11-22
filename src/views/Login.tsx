@@ -142,7 +142,7 @@ const Login = () => {
           </motion.div>
         </div>
         <div className="space-y-1">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">{party.shortName} Campaign</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">Kogi State {party.shortName}</h1>
           <p className="text-sm sm:text-base text-white/80">{party.fullName}</p>
         </div>
         <div className="flex items-center gap-2 text-white/90 mt-2">
@@ -206,7 +206,7 @@ const Login = () => {
             <APCFlag size="md" variant="icon" />
             <div>
               <h1 className="text-2xl font-bold text-white tracking-tight">
-                {party.shortName} Campaign
+                Kogi State {party.shortName}
               </h1>
               <p className="text-sm text-white/80">{party.fullName}</p>
             </div>
@@ -258,7 +258,7 @@ const Login = () => {
             transition={{ duration: 0.5, delay: 0.8 }}
             className="text-sm text-white/40"
           >
-            © 2026 Dikko Radda Campaign Management System. All rights reserved.
+            © 2026 Kogi State APM Campaign Management System. All rights reserved.
           </motion.p>
         </div>
       </div>
@@ -285,7 +285,7 @@ const Login = () => {
                 </div>
               </div>
               <h1 className="text-xl font-bold text-white tracking-tight">
-                {party.shortName} Campaign
+                Kogi State {party.shortName}
               </h1>
               <p className="text-sm text-white/60">{party.tagline}</p>
             </motion.div>
@@ -444,7 +444,7 @@ const Login = () => {
         {/* Mobile Footer - Copyright */}
         <div className="lg:hidden px-6 pb-6 safe-area-bottom">
           <p className="text-xs text-center text-muted-foreground">
-            © 2026 Dikko Radda Campaign Management System
+            © 2026 Kogi State APM Campaign Management System
           </p>
         </div>
       </div>

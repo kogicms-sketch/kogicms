@@ -1,7 +1,7 @@
 // Party brand registry — drives runtime theming across the app.
 // HSL triplets only (e.g. "120 100% 30%") so they can plug into CSS vars.
 
-export type PartyId = "apc" | "pdp" | "adc" | "ndc" | "neutral";
+export type PartyId = "apm" | "apc" | "pdp" | "adc" | "ndc" | "neutral";
 
 export interface PartyBrand {
     id: PartyId;
@@ -27,6 +27,26 @@ export interface PartyBrand {
 }
 
 export const PARTIES: Record<PartyId, PartyBrand> = {
+    apm: {
+        id: "apm",
+        name: "APM",
+        fullName: "Allied Peoples' Movement",
+        shortName: "APM",
+        tagline: "Nigeria First.",
+        logo: "/parties/apm-logo.png",
+        flag: "/parties/apm-logo.png",
+        colors: {
+            primary: "147 100% 30%",         // Vibrant APM Green (#009A44)
+            primaryDark: "147 100% 23%",     // Deep Green (#007534)
+            primaryForeground: "0 0% 100%",  // White
+            secondary: "205 100% 15%",       // APM Deep Navy Blue (#002B49)
+            accent: "199 100% 40%",          // APM Sky Blue (#0085CA)
+            sidebar: "205 100% 15%",         // Deep Navy Blue (#002B49)
+            sidebarDark: "205 100% 10%",     // Darker Navy (#001B2E)
+            ring: "147 100% 30%",
+            swatches: ["#009A44", "#002B49", "#0085CA", "#FFFFFF"],
+        },
+    },
     apc: {
         id: "apc",
         name: "APC",
@@ -129,6 +149,6 @@ export const PARTIES: Record<PartyId, PartyBrand> = {
     },
 };
 
-export const DEFAULT_PARTY: PartyId = "apc";
+export const DEFAULT_PARTY: PartyId = "apm";
 
 export const PARTY_LIST = Object.values(PARTIES);

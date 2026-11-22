@@ -30,10 +30,13 @@ export const usePostGenerator = () => {
 
     try {
       // 1. Determine context based on the logged-in user's role and details
+      const isApm = partyId === "apm";
       const isApc = partyId === "apc";
       let supportGroupContext = "";
-      let candidateContext = isApc 
-        ? "Dikko Umar Radda (Governor of Katsina State)"
+      let candidateContext = partyId === "apm"
+        ? "Allied Peoples' Movement (APM) Kogi State Leadership - Nigeria First"
+        : isApc 
+        ? "APC Leadership"
         : "Local Government Administration and Grassroots development";
       let roleContext = "";
       let locationContext = "";
@@ -121,7 +124,25 @@ export const usePostGenerator = () => {
       const API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || "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";
       const MODEL = params.model || "google/gemini-2.5-flash";
 
-      const systemPrompt = isApc 
+            const systemPrompt = isApm
+        ? `You are an expert Nigerian political content writer and social media strategist specializing in creating viral, compelling political posts. You are writing content to support the Allied Peoples' Movement (APM) campaign in Kogi State under the banner "Nigeria First".
+      
+      TARGET CANDIDATE / LEADERSHIP: ${candidateContext}
+      USER ROLE/CONTEXT: ${roleContext}
+      LOCATION CONTEXT: ${locationContext}
+      SUPPORT GROUP INFO: ${supportGroupContext}
+      
+      ABOUT ALLIED PEOPLES' MOVEMENT (APM) - KOGI STATE:
+      - Official Motto / Slogan: "Nigeria First"
+      - Party Emblem / Symbol: Cassava (signifying agricultural wealth, food security, and self-reliance)
+      - Key Pillars: Grassroots development, youth employment, modern education, quality healthcare in all 239 wards, infrastructural connectivity across Kogi Central, Kogi East, and Kogi West
+      
+      TRENDING POST STRUCTURE (MUST FOLLOW THIS EXACT FORMAT):
+      1. **Attention-Grabbing Hook**: Powerful, emotional, or dramatic opening line using relevant emojis (🇳🇬, 🌾, ⚡, ✊).
+      2. **The Story / The Proof**: 1-2 punchy paragraphs or bullet points highlighting concrete community development, economic growth, and youth opportunities in Kogi State.
+      3. **Call-to-Action (CTA)**: Inspiring closing asking citizens to rally behind APM (e.g. "Look for the Cassava on the ballot!", "Nigeria First, Kogi First!").
+      4. **Hashtags**: End with 4-6 trending hashtags: #NigeriaFirst #APMKogi #KogiState #KogiDecides #AlliedPeoplesMovement.`
+        : isApc 
         ? `You are an expert Nigerian political content writer and social media strategist specializing in creating viral, compelling political posts. You are writing content to support the campaign of Dikko Umar Radda (Governor of Katsina State) and aligned candidates.
       
       TARGET CANDIDATE: ${candidateContext}
@@ -209,7 +230,7 @@ The post should be so compelling that it will trend on social media and inspire 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${API_KEY}`,
           'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
-          'X-Title': 'DikkoCMS'
+          'X-Title': 'KogiCMS'
         },
         body: JSON.stringify({
           model: MODEL,
@@ -259,11 +280,11 @@ The post should be so compelling that it will trend on social media and inspire 
       if (!isApc) {
         const lgaName = locationContext.match(/LGA:\s*([^,]+)/)?.[1] || "Katsina State";
         finalPost = finalPost
-          .replace(/Dikko Umar Radda/gi, `${lgaName} Local Government`)
-          .replace(/Dikko Radda/gi, `${lgaName} Local Government`)
-          .replace(/Dikko/gi, `${lgaName} LG`)
-          .replace(/Radda/gi, "")
-          .replace(/#DR2027/gi, `#${lgaName.replace(/\s+/g, "")}Campaign`)
+          .replace(/Dikko Umar Radda/gi, partyId === "apm" ? "APM Kogi Leadership" : `${lgaName} Administration`)
+          .replace(/Dikko Radda/gi, partyId === "apm" ? "APM Kogi" : `${lgaName} Leadership`)
+          .replace(/Dikko/gi, partyId === "apm" ? "APM" : `${lgaName}`)
+          .replace(/#DikkoRadda/gi, partyId === "apm" ? "#APMKogi" : `#${lgaName.replace(/\s+/g, '')}Gov`)
+          .replace(/Sai Dikko/gi, partyId === "apm" ? "Sai APM" : `Sai ${lgaName}`)
           .replace(/#DikkoRadda/gi, `#${lgaName.replace(/\s+/g, "")}Campaign`)
           .replace(/Sai Dikko/gi, `Sai ${lgaName} LG`);
       }

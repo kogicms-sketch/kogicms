@@ -204,7 +204,7 @@ const STEPS = ["Location", "Personal", "Details", "Confirm"];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateMembershipId() {
-  return `DR-${Date.now().toString(36).toUpperCase()}`;
+  return `APM-${Date.now().toString(36).toUpperCase()}`;
 }
 
 // Helper to generate a client-side UUID v4

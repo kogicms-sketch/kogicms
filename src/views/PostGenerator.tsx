@@ -102,8 +102,8 @@ const PostGenerator = () => {
           <h1 className="text-2xl md:text-3xl font-bold">AI Post Generator</h1>
         </div>
         <p className="text-muted-foreground text-sm md:text-base">
-          {partyId === "apc" 
-            ? "Create professional, viral-worthy political posts for Dikko Radda's campaign"
+          {partyId === "apm"
+            ? "Create professional, viral-worthy political posts for Kogi State APM Campaign (Nigeria First)"
             : "Create professional, viral-worthy posts for your campaign"}
         </p>
       </div>
@@ -148,8 +148,8 @@ const PostGenerator = () => {
                   <Label htmlFor="topic">Topic / Subject</Label>
                   <Textarea
                     id="topic"
-                    placeholder={partyId === "apc"
-                      ? "E.g., Security in Katsina, Development plans, Youth empowerment, Why DR is the best candidate..."
+                    placeholder={partyId === "apm"
+                      ? "E.g., Confluence State development, Agriculture in Kogi East, Steel city revival in Ajaokuta, Why APM is the best choice for Kogi State..."
                       : "E.g., Local development, Community healthcare plans, Youth empowerment, Our progress..."}
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}

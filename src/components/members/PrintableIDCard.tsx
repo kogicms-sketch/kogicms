@@ -30,9 +30,7 @@ interface PrintableIDCardProps {
 export const PrintableIDCard = forwardRef<HTMLDivElement, PrintableIDCardProps>(
     ({ member }, ref) => {
         const { partyId } = useParty();
-        const campaignName = partyId === "apc" 
-            ? CAMPAIGN_NAME 
-            : `${member.lga || "Kogi State"} Campaign`;
+        const campaignName = "Kogi State APM Campaign";
         const initials = member.full_name
             .split(" ")
             .map((n) => n[0])
@@ -40,7 +38,7 @@ export const PrintableIDCard = forwardRef<HTMLDivElement, PrintableIDCardProps>(
             .toUpperCase()
             .slice(0, 2);
 
-        const membershipId = member.membership_id || `DR-${member.id.slice(0, 8).toUpperCase()}`;
+        const membershipId = member.membership_id || `APM-${member.id.slice(0, 8).toUpperCase()}`;
 
         const formattedDob = member.date_of_birth
             ? (() => {

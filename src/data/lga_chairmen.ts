@@ -12,7 +12,7 @@ export interface LGAChairman {
 export const KOGI_LGA_CHAIRMEN: LGAChairman[] = KOGI_LGAS.map(lga => ({
     lga,
     chairman: `Executive Chairman (${lga})`,
-    party: 'APC',
+    party: 'APM',
     electionDate: '2024-10-19',
     swornInDate: '2024-10-21',
     fullTitle: `Hon. Chairman, ${lga} LGA`
@@ -33,7 +33,7 @@ export const getAllChairmen = (): LGAChairman[] => {
 
 export const CHAIRMEN_SUMMARY = {
     totalLGAs: KOGI_LGA_CHAIRMEN.length,
-    party: 'APC',
+    party: 'APM',
     electionDate: 'October 19, 2024',
     swornInDate: 'October 21, 2024',
     electionAuthority: 'KOSIEC (Kogi State Independent Electoral Commission)',

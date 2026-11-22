@@ -34,14 +34,12 @@ interface DigitalMembershipCardProps {
 
 export const DigitalMembershipCard = ({
   member,
-  campaignName = "Kogi CMS Campaign",
+  campaignName = "Kogi State APM Campaign",
   onCardGenerated,
 }: DigitalMembershipCardProps) => {
   const { partyId } = useParty();
   const isApc = partyId === "apc";
-  const resolvedCampaignName = isApc 
-    ? campaignName 
-    : `${member.lga || "Kogi State"} Campaign`;
+  const resolvedCampaignName = "Kogi State APM Campaign";
 
   const cardRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -117,7 +115,7 @@ export const DigitalMembershipCard = ({
       });
 
       const link = document.createElement("a");
-      link.download = `DR-Membership-${member.full_name.replace(/\s+/g, "-")}.png`;
+      link.download = `APM-Membership-${member.full_name.replace(/\s+/g, "-")}.png`;
       link.href = dataUrl;
       link.click();
 

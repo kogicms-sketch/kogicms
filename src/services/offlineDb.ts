@@ -17,7 +17,7 @@ export class AppOfflineDB extends Dexie {
     sync_queue!: Table<QueuedMutation, string>;
 
     constructor() {
-        super('DikkoCMS_OfflineDB');
+        super('KogiCMS_OfflineDB');
         this.version(1).stores({
             members: 'id, full_name, email, phone, organization_id, support_group_id, polling_unit_id, polling_unit, lga, ward',
             polling_unit_cells: 'id, polling_unit_id, lga, ward',

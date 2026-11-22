@@ -38,7 +38,7 @@ function applyPartyToDom(party: PartyBrand) {
     root.style.setProperty("--sidebar-primary-foreground", c.primary);
     root.style.setProperty("--sidebar-border", c.sidebarDark);
 
-    // Legacy APC tokens repointed so older components still themed correctly
+    // Legacy tokens repointed so older components are still themed correctly
     root.style.setProperty("--apc-green", c.primary);
     root.style.setProperty("--apc-green-dark", c.primaryDark);
     root.style.setProperty("--apc-blue", c.secondary);
@@ -66,10 +66,10 @@ function applyPartyToDom(party: PartyBrand) {
         appleLink.href = party.logo;
 
         // Update document title dynamically
-        if (party.id === "apc") {
-            document.title = "DikkoCMS";
+        if (party.id === "apm") {
+            document.title = "Kogi State APM CMS";
         } else {
-            document.title = `${party.shortName} CMS`;
+            document.title = `Kogi State ${party.shortName} CMS`;
         }
     } catch { /* noop */ }
 }
@@ -77,7 +77,15 @@ function applyPartyToDom(party: PartyBrand) {
 function readInitialParty(): PartyId {
     if (typeof window === "undefined") return DEFAULT_PARTY;
     const stored = window.localStorage.getItem(STORAGE_KEY) as PartyId | null;
-    if (stored && PARTIES[stored]) return stored;
+    if (stored && PARTIES[stored]) {
+        // Upgrade legacy "apc" selection to APM default
+        if (stored === "apc") {
+            window.localStorage.setItem(STORAGE_KEY, "apm");
+            return "apm";
+        }
+        return stored;
+    }
+    window.localStorage.setItem(STORAGE_KEY, DEFAULT_PARTY);
     return DEFAULT_PARTY;
 }
 
@@ -96,13 +104,13 @@ export const PartyProvider = ({ children }: { children: ReactNode }) => {
         try {
             const titleEl = document.querySelector("title");
             if (titleEl) {
-                const expectedTitle = partyId === "apc" ? "DikkoCMS" : `${party.shortName} CMS`;
+                const expectedTitle = partyId === "apm" ? "Kogi State APM CMS" : `Kogi State ${party.shortName} CMS`;
                 if (document.title !== expectedTitle) {
                     document.title = expectedTitle;
                 }
 
                 observer = new MutationObserver(() => {
-                    const currentExpected = partyId === "apc" ? "DikkoCMS" : `${PARTIES[partyId].shortName} CMS`;
+                    const currentExpected = partyId === "apm" ? "Kogi State APM CMS" : `Kogi State ${PARTIES[partyId].shortName} CMS`;
                     if (document.title !== currentExpected) {
                         document.title = currentExpected;
                     }

@@ -27,7 +27,7 @@ export const PartyBrandingCard = () => {
     };
 
     const toggleBrand = async (on: boolean) => {
-        await choose(on ? "apc" : "neutral");
+        await choose(on ? "apm" : "neutral");
     };
 
     return (

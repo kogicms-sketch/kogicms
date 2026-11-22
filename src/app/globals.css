@@ -7,7 +7,7 @@
 
 @layer base {
   :root {
-    /* APC Green Primary - Dominant Color */
+        /* APM Brand Colors (Allied Peoples' Movement - Nigeria First) */
     --background: 220 25% 97%;
     --foreground: 220 60% 10%;
 
@@ -17,19 +17,19 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 60% 10%;
 
-    /* APC Green Primary - Growth & Progress */
-    --primary: 120 100% 30%;
+    /* APM Vibrant Green Primary */
+    --primary: 147 100% 30%;
     --primary-foreground: 0 0% 100%;
 
-    /* Subtle Green Secondary */
-    --secondary: 120 30% 94%;
-    --secondary-foreground: 120 60% 12%;
+    /* APM Subtle Sky Blue Secondary */
+    --secondary: 200 60% 95%;
+    --secondary-foreground: 205 100% 15%;
 
     --muted: 220 20% 94%;
     --muted-foreground: 220 15% 45%;
 
-    /* APC Green Accent - Dominant */
-    --accent: 120 100% 30%;
+    /* APM Green Accent */
+    --accent: 147 100% 30%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -38,47 +38,47 @@
     /* Borders & Inputs */
     --border: 220 20% 88%;
     --input: 220 20% 88%;
-    --ring: 120 100% 30%;
+    --ring: 147 100% 30%;
 
     --radius: 0.75rem;
 
-    /* Sidebar - APC Green Brand */
-    --sidebar-background: 120 100% 25%;
+    /* Sidebar - APM Deep Navy Brand */
+    --sidebar-background: 205 100% 15%;
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 0 0% 100%;
-    --sidebar-primary-foreground: 120 100% 25%;
-    --sidebar-accent: 120 100% 20%;
+    --sidebar-primary: 147 100% 30%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 205 100% 10%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 120 60% 20%;
-    --sidebar-ring: 0 0% 100%;
+    --sidebar-border: 205 60% 22%;
+    --sidebar-ring: 147 100% 30%;
 
-    /* Custom tokens - APC Colors */
-    --apc-green: 120 100% 30%;
-    --apc-green-dark: 120 100% 25%;
-    --apc-red: 356 95% 46%;
-    --apc-red-dark: 356 95% 40%;
-    --apc-blue: 207 100% 39%;
-    --apc-blue-dark: 207 100% 33%;
-    --navy-deep: 220 60% 8%;
-    --navy-medium: 220 55% 15%;
-    --navy-light: 220 40% 25%;
-    --success: 145 65% 42%;
+    /* Custom tokens - APM Colors */
+    --apc-green: 147 100% 30%;
+    --apc-green-dark: 147 100% 23%;
+    --apc-red: 200 100% 40%;
+    --apc-red-dark: 200 100% 32%;
+    --apc-blue: 205 100% 15%;
+    --apc-blue-dark: 205 100% 10%;
+    --navy-deep: 205 100% 12%;
+    --navy-medium: 205 100% 18%;
+    --navy-light: 205 50% 28%;
+    --success: 147 100% 30%;
     --warning: 38 95% 55%;
-    --chart-1: 120 100% 30%;
-    --chart-2: 207 100% 39%;
-    --chart-3: 356 95% 46%;
+    --chart-1: 147 100% 30%;
+    --chart-2: 205 100% 15%;
+    --chart-3: 200 100% 40%;
     --chart-4: 38 95% 55%;
     --chart-5: 220 40% 50%;
 
-    /* Legacy support - maps power-red to APC green */
-    --power-red: 120 100% 30%;
+    /* Legacy support */
+    --power-red: 147 100% 30%;
 
-    /* Brand-generic tokens (overridden at runtime by PartyContext) */
-    --brand: 120 100% 30%;
-    --brand-dark: 120 100% 25%;
+    /* Brand-generic tokens */
+    --brand: 147 100% 30%;
+    --brand-dark: 147 100% 23%;
     --brand-foreground: 0 0% 100%;
-    --brand-secondary: 207 100% 39%;
-    --brand-accent: 356 95% 46%;
+    --brand-secondary: 205 100% 15%;
+    --brand-accent: 200 100% 40%;
   }
 
   .dark {
@@ -91,7 +91,7 @@
     --popover: 220 55% 10%;
     --popover-foreground: 220 20% 95%;
 
-    --primary: 120 100% 35%;
+    --primary: 147 100% 35%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 40% 18%;
@@ -100,7 +100,7 @@
     --muted: 220 40% 18%;
     --muted-foreground: 220 15% 60%;
 
-    --accent: 120 100% 35%;
+    --accent: 147 100% 35%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 70% 45%;
@@ -108,13 +108,13 @@
 
     --border: 220 40% 18%;
     --input: 220 40% 18%;
-    --ring: 120 100% 35%;
+    --ring: 147 100% 35%;
 
-    --sidebar-background: 120 100% 22%;
+    --sidebar-background: 205 100% 12%;
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 0 0% 100%;
     --sidebar-primary-foreground: 120 100% 22%;
-    --sidebar-accent: 120 100% 18%;
+    --sidebar-accent: 205 100% 9%;
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 120 60% 18%;
     --sidebar-ring: 0 0% 100%;

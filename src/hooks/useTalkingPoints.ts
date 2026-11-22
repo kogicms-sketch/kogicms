@@ -259,7 +259,7 @@ export const formatTalkingPointForShare = (talkingPoint: TalkingPoint): string =
     content += talkingPoint.hashtags.join(" ") + "\n\n";
   }
   
-  content += "🇳🇬 #DR2027 #DikkoRadda #KatsinaFirst";
+  content += "🇳🇬 #NigeriaFirst #APMKogi #KogiState #APM";
   
   return content;
 };

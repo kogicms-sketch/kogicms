@@ -2,7 +2,7 @@ import { ALL_WARDS, ALL_POLLING_UNITS } from "../data/aggregated_lga_data";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { localRepository } from "@/services/LocalRepository";
 
-export const CAMPAIGN_NAME = "Kogi State Campaign";
+export const CAMPAIGN_NAME = "Kogi State APM Campaign";
 export const CAMPAIGN_STATE = "Kogi State";
 
 export const KOGI_LGAS = [
@@ -255,7 +255,7 @@ export const generateSequentialMembershipId = async (
   voterCardId?: string | null
 ): Promise<string> => {
   if (!lga || !ward || !pollingUnitName) {
-    return `DR-${Date.now().toString(36).toUpperCase()}`;
+    return `APM-${Date.now().toString(36).toUpperCase()}`;
   }
 
   // 1. Get LGA abbreviation (e.g. Katsina -> KAT)
@@ -263,7 +263,7 @@ export const generateSequentialMembershipId = async (
   
   // 2. Get Ward & PU code
   let puCode = "";
-  if (voterCardId && voterCardId.startsWith("20-")) {
+  if (voterCardId && (voterCardId.startsWith("22-") || voterCardId.startsWith("20-"))) {
     const parts = voterCardId.split("-");
     if (parts.length >= 4) {
       puCode = `W${parts[2]}-${parts[3]}`;
