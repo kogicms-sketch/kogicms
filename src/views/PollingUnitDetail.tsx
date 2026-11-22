@@ -71,7 +71,7 @@ const getPollingUnitCode = (lga: string, ward: string, name: string, fallbackCod
 
 const getStandardPuCode = (lgaName: string, puCode: string): string => {
     if (!puCode) return "";
-    if (puCode.startsWith("20-")) {
+    if (puCode.startsWith("22-") || puCode.startsWith("20-")) {
         return puCode;
     }
     const match = puCode.match(/W(\d+)-(\d+)/i);
