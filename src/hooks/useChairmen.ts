@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/loose-client";
+import { localVoterService } from "@/services/LocalVoterService";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -30,15 +31,22 @@ export interface ChairmanDashboardStats {
     totalWards: number;
     totalPollingUnits: number;
     totalRegisteredVoters: number;
+    maleVoters: number;
+    malePct: string;
+    femaleVoters: number;
+    femalePct: string;
     totalMembers: number;
     verifiedMembers: number;
     pendingVerification: number;
+    remainingVoters: number;
+    expectedTurnoutRate: string;
     totalCouncillors: number;
     totalSupportGroups: number;
     wardPerformance: {
         ward: string;
         pollingUnits: number;
         members: number;
+        totalVoters?: number;
         performance: number;
     }[];
 }
@@ -93,72 +101,78 @@ export const useChairman = () => {
 };
 
 const fetchFreshChairmanDashboardStats = async (chairman: LGAChairman): Promise<ChairmanDashboardStats> => {
-    // Get total wards and polling units from the main polling_units table
-    const { data: pollingUnits, error: puError } = await supabase
-        .from("polling_units")
-        .select("ward_name, name, lga_name")
-        .eq("lga_name", chairman.lga);
+    // 1. Get official INEC voter & gender stats for this LGA
+    const summary = await localVoterService.getSummary(chairman.lga);
+    const totalWards = summary?.total_wards || 0;
+    const totalPollingUnits = summary?.total_polling_units || 0;
+    const totalRegisteredVoters = summary?.total_voters_extracted || 0;
+    const maleVoters = summary?.male_voters || 0;
+    const malePct = summary?.male_pct || "0%";
+    const femaleVoters = summary?.female_voters || 0;
+    const femalePct = summary?.female_pct || "0%";
 
-    if (puError) throw puError;
+    // 2. Fetch campaign registered members in Supabase for this LGA
+    let totalMembers = 0;
+    let verifiedMembers = 0;
+    let pendingVerification = 0;
+    let membersData: any[] = [];
 
-    const uniqueWards = new Set<string>(
-        ((pollingUnits as any[] | undefined)?.map((pu) => String(pu.ward_name || "")).filter(Boolean)) || []
-    );
-    const totalWards = uniqueWards.size;
-    const totalPollingUnits = pollingUnits?.length || 0;
+    try {
+        const { data, error } = await supabase
+            .from("members")
+            .select("id, status, is_verified, ward, gender, lga");
 
-    // Get total members and verification stats in LGA using the optimized RPC
-    const { data: lgaSummary, error: lgaError } = await (supabase as any).rpc("get_jurisdiction_lga_summary", {
-        target_lgas: [chairman.lga]
-    });
-
-    if (lgaError) throw lgaError;
-    const lgaStats = lgaSummary?.[0] || {};
-    const totalRegisteredVoters = Number(lgaStats.inec_registered_voters || 0);
-    const totalMembers = lgaStats.app_members_total || 0;
-    const verifiedMembers = lgaStats.app_members_verified || 0;
-    const pendingVerification = lgaStats.app_members_pending || 0;
-
-    // Get members per ward for performance overview
-    const { data: memberStats, error: memberStatsError } = await supabase
-        .from("members")
-        .select("ward")
-        .eq("lga", chairman.lga);
-
-    if (memberStatsError) throw memberStatsError;
-
-    const memberCountByWard = (memberStats || []).reduce((acc: Record<string, number>, member) => {
-        if (member.ward) {
-            acc[member.ward] = (acc[member.ward] || 0) + 1;
+        if (!error && data) {
+            const normLga = chairman.lga.toLowerCase().replace(/[^a-z]/g, "");
+            membersData = data.filter((m: any) => {
+                if (!m.lga) return false;
+                const mNorm = m.lga.toLowerCase().replace(/[^a-z]/g, "");
+                return mNorm === normLga || mNorm.includes(normLga) || normLga.includes(mNorm);
+            });
+            totalMembers = membersData.length;
+            verifiedMembers = membersData.filter((m: any) => m.is_verified || m.status === "active").length;
+            pendingVerification = totalMembers - verifiedMembers;
         }
-        return acc;
-    }, {});
+    } catch (e) {
+        console.warn("Could not load campaign members from Supabase:", e);
+    }
 
-    // Get total councillors
-    const { count: councillorCount, error: councillorError } = await db
-        .from("councillors")
-        .select("*", { count: "exact", head: true })
-        .eq("lga", chairman.lga);
+    const remainingVoters = Math.max(0, totalRegisteredVoters - totalMembers);
+    const expectedTurnoutRate = totalRegisteredVoters > 0
+        ? ((totalMembers / totalRegisteredVoters) * 100).toFixed(1) + "%"
+        : "0%";
 
-    if (councillorError) throw councillorError;
+    // 3. Councillors & Support Groups
+    let councillorCount = 0;
+    try {
+        const { count } = await db
+            .from("councillors")
+            .select("*", { count: "exact", head: true })
+            .ilike("lga", `%${chairman.lga}%`);
+        councillorCount = count || 0;
+    } catch {}
 
-    // Get total support groups in LGA
-    const { count: sgCount, error: sgError } = await supabase
-        .from("organizations")
-        .select("*", { count: "exact", head: true })
-        .eq("category", "support_group")
-        .eq("lga", chairman.lga);
+    let sgCount = 0;
+    try {
+        const { count } = await supabase
+            .from("organizations")
+            .select("*", { count: "exact", head: true })
+            .eq("category", "support_group");
+        sgCount = count || 0;
+    } catch {}
 
-    if (sgError) throw sgError;
-
-    // Calculate ward performance
-    const wardStats = Array.from(uniqueWards).map((ward) => {
-        const wardPUs = (pollingUnits as any[] | undefined)?.filter((pu) => pu.ward_name === ward) || [];
+    // 4. Calculate ward breakdown
+    const wardStats = (summary?.wards || []).map((w) => {
+        const wardMembers = membersData.filter((m) =>
+            m.ward && m.ward.toLowerCase().trim() === w.ward_name.toLowerCase().trim()
+        ).length;
+        const perf = w.total_voters > 0 ? (wardMembers / w.total_voters) * 100 : 0;
         return {
-            ward,
-            pollingUnits: wardPUs.length,
-            members: memberCountByWard[ward] || 0,
-            performance: 0, // Could be calculated based on a target if available
+            ward: w.ward_name,
+            pollingUnits: w.polling_units_count,
+            totalVoters: w.total_voters,
+            members: wardMembers,
+            performance: parseFloat(perf.toFixed(1)),
         };
     });
 
@@ -166,13 +180,19 @@ const fetchFreshChairmanDashboardStats = async (chairman: LGAChairman): Promise<
         totalWards,
         totalPollingUnits,
         totalRegisteredVoters,
+        maleVoters,
+        malePct,
+        femaleVoters,
+        femalePct,
         totalMembers,
         verifiedMembers,
         pendingVerification,
-        totalCouncillors: councillorCount || 0,
-        totalSupportGroups: sgCount || 0,
+        remainingVoters,
+        expectedTurnoutRate,
+        totalCouncillors: councillorCount,
+        totalSupportGroups: sgCount,
         wardPerformance: wardStats,
-    } as ChairmanDashboardStats;
+    };
 };
 
 // Get dashboard statistics for chairman's LGA

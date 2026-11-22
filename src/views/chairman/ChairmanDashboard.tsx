@@ -7,11 +7,16 @@ import { Users, MapPin, Building2, UserCheck, Globe, TrendingUp, Shield, Chevron
 import { Button } from "@/components/ui/button";
 import { useRouter } from 'next/navigation';
 import { APCBanner } from "@/components/branding/APCBanner";
+import { useState } from "react";
+import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal";
+import { KeyRound } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { APCFlag } from "@/components/branding/APCFlag";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CandidateSupportGroupsTab } from "@/components/support-groups/CandidateSupportGroupsTab";
 
 const ChairmanDashboard = () => {
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const router = useRouter();
   const navigate = (path, options) => { if (path === -1) router.back(); else router.push(path); };
     const { data: chairman, isLoading: chairmanLoading } = useChairman();
@@ -31,7 +36,11 @@ const ChairmanDashboard = () => {
                         <p className="text-muted-foreground font-medium">Loading dashboard...</p>
                     </div>
                 </div>
-            </DashboardLayout>
+                <ChangePasswordModal
+                isOpen={isPasswordModalOpen}
+                onClose={() => setIsPasswordModalOpen(false)}
+            />
+        </DashboardLayout>
         );
     }
 
@@ -207,19 +216,32 @@ const ChairmanDashboard = () => {
                         <div className="absolute -top-10 -right-10 w-48 h-48 sm:w-72 sm:h-72 rounded-full bg-white/5 pointer-events-none" />
                         <div className="absolute -bottom-8 -left-8 w-40 h-40 rounded-full bg-white/5 pointer-events-none" />
 
-                        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-                            {/* Flag */}
-                            <div className="flex-shrink-0 hidden sm:block">
-                                <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center border-2 border-white/20 shadow-lg">
-                                    <APCFlag size="sm" variant="full" />
+                        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
+                            <div className="flex items-center gap-4">
+                                <div className="flex-shrink-0 hidden sm:block">
+                                    <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center border-2 border-white/20 shadow-lg">
+                                        <APCFlag size="sm" variant="full" />
+                                    </div>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight tracking-tight">
+                                        {chairman.lga} LGA
+                                    </h1>
+                                    <p className="text-xs sm:text-sm text-white/80 font-medium mt-0.5">
+                                        {chairman.chairman_name} • {chairman.email}
+                                    </p>
                                 </div>
                             </div>
 
-                            {/* Text — only LGA name shown */}
-                            <div className="flex-1 min-w-0">
-                                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight tracking-tight">
-                                    {chairman.lga} LGA
-                                </h1>
+                            <div>
+                                <Button
+                                    onClick={() => setIsPasswordModalOpen(true)}
+                                    variant="outline"
+                                    className="bg-white/15 hover:bg-white/25 text-white border-white/30 text-xs sm:text-sm gap-2 backdrop-blur shadow-sm"
+                                >
+                                    <KeyRound className="w-4 h-4 text-emerald-300" />
+                                    Sauya Kalmar Sirri (Change Password)
+                                </Button>
                             </div>
                         </div>
                     </div>
@@ -230,6 +252,150 @@ const ChairmanDashboard = () => {
                         <div className="flex-1 bg-white border-y border-gray-200" />
                         <div className="flex-1 bg-apc-red" />
                     </div>
+                </div>
+
+                
+                {/* ── VOTER STATS: TURNOUT TRACKER & GENDER BREAKDOWN ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Expected Turnout & Mobilization */}
+                    <Card className="border border-emerald-100 shadow-sm bg-gradient-to-br from-emerald-50/50 via-white to-white overflow-hidden">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700">
+                                        <TrendingUp className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-base font-bold text-gray-800">
+                                            Expected Turnout & Campaign Mobilization
+                                        </CardTitle>
+                                        <p className="text-xs text-muted-foreground">
+                                            Masu zaɓen da aka yi wa rajista a wannan campaign
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                                        {stats?.expectedTurnoutRate || "0%"} Turnout Rate
+                                    </span>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4 pt-1">
+                            <div className="grid grid-cols-3 gap-3 text-center">
+                                <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-2xs">
+                                    <span className="text-[11px] text-gray-500 font-medium block">INEC Registered</span>
+                                    <strong className="text-lg sm:text-xl font-extrabold text-gray-800">
+                                        {stats?.totalRegisteredVoters?.toLocaleString() || 0}
+                                    </strong>
+                                </div>
+                                <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-100 shadow-2xs">
+                                    <span className="text-[11px] text-emerald-700 font-medium block">Campaign Members</span>
+                                    <strong className="text-lg sm:text-xl font-extrabold text-emerald-700">
+                                        {stats?.totalMembers?.toLocaleString() || 0}
+                                    </strong>
+                                </div>
+                                <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-100 shadow-2xs">
+                                    <span className="text-[11px] text-amber-700 font-medium block">Remaining Voters</span>
+                                    <strong className="text-lg sm:text-xl font-extrabold text-amber-800">
+                                        {stats?.remainingVoters?.toLocaleString() || 0}
+                                    </strong>
+                                </div>
+                            </div>
+
+                            {/* Progress Bar */}
+                            <div>
+                                <div className="flex justify-between text-xs text-gray-500 mb-1.5 font-medium">
+                                    <span>Campaign Mobilization Progress</span>
+                                    <span className="font-bold text-emerald-700">{stats?.expectedTurnoutRate || "0%"}</span>
+                                </div>
+                                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden p-0.5">
+                                    <div
+                                        className="h-full bg-gradient-to-r from-emerald-500 to-green-600 rounded-full transition-all duration-700"
+                                        style={{
+                                            width: `${Math.min(
+                                                100,
+                                                Math.max(
+                                                    1,
+                                                    stats?.totalRegisteredVoters
+                                                        ? ((stats.totalMembers / stats.totalRegisteredVoters) * 100)
+                                                        : 0
+                                                )
+                                            )}%`
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Gender Breakdown (Maza da Mata) */}
+                    <Card className="border border-blue-100 shadow-sm bg-gradient-to-br from-blue-50/40 via-white to-white overflow-hidden">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center gap-2">
+                                <div className="p-2 rounded-lg bg-blue-100 text-blue-700">
+                                    <Users className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <CardTitle className="text-base font-bold text-gray-800">
+                                        Rarrabuwar Jinsi (Gender Breakdown)
+                                    </CardTitle>
+                                    <p className="text-xs text-muted-foreground">
+                                        Adadin maza da mata masu zaɓe a {chairman.lga} LGA
+                                    </p>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4 pt-1">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-blue-50/70 p-3.5 rounded-xl border border-blue-100 flex items-center justify-between">
+                                    <div>
+                                        <span className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
+                                            👨 Maza (Male Voters)
+                                        </span>
+                                        <div className="text-xl sm:text-2xl font-extrabold text-blue-900 mt-1">
+                                            {stats?.maleVoters?.toLocaleString() || 0}
+                                        </div>
+                                    </div>
+                                    <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 font-bold">
+                                        {stats?.malePct || "0%"}
+                                    </Badge>
+                                </div>
+
+                                <div className="bg-rose-50/70 p-3.5 rounded-xl border border-rose-100 flex items-center justify-between">
+                                    <div>
+                                        <span className="text-xs font-semibold text-rose-800 flex items-center gap-1.5">
+                                            👩 Mata (Female Voters)
+                                        </span>
+                                        <div className="text-xl sm:text-2xl font-extrabold text-rose-900 mt-1">
+                                            {stats?.femaleVoters?.toLocaleString() || 0}
+                                        </div>
+                                    </div>
+                                    <Badge variant="outline" className="bg-rose-100 text-rose-800 border-rose-300 font-bold">
+                                        {stats?.femalePct || "0%"}
+                                    </Badge>
+                                </div>
+                            </div>
+
+                            {/* Split Bar */}
+                            <div>
+                                <div className="flex justify-between text-xs text-gray-500 mb-1.5 font-medium">
+                                    <span className="text-blue-700 font-semibold">Maza: {stats?.malePct || "50%"}</span>
+                                    <span className="text-rose-700 font-semibold">Mata: {stats?.femalePct || "50%"}</span>
+                                </div>
+                                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden flex">
+                                    <div
+                                        className="h-full bg-blue-500 transition-all duration-700"
+                                        style={{ width: stats?.malePct || "50%" }}
+                                    />
+                                    <div
+                                        className="h-full bg-rose-500 transition-all duration-700"
+                                        style={{ width: stats?.femalePct || "50%" }}
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
                 {/* ── STATS GRID ── */}

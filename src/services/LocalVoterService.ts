@@ -30,6 +30,10 @@ export interface LgaSummary {
   total_wards: number;
   total_polling_units: number;
   total_voters_extracted: number;
+  male_voters?: number;
+  male_pct?: string;
+  female_voters?: number;
+  female_pct?: string;
   wards: {
     ward_code: string;
     ward_folder: string;
