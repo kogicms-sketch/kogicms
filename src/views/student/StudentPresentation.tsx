@@ -51,9 +51,9 @@ export default function StudentPresentation() {
 
     const tradeKeywords = [
       "tailoring", "embroidery", "poultry", "livestock", "farm", "shop", "vendor",
-      "mai kantin", "mai abinci", "mai dabbobi", "mai kayan", "keke", "tricycle",
-      "atambfa", "fabrication", "workshop", "cosmetics", "perfume", "charcoal",
-      "barbing", "salon", "carpentry", "furniture", "catering", "provisions",
+      "provisions", "food vendor", "livestock trader", "produce merchant", "tricycle",
+      "fabrication", "workshop", "cosmetics", "perfume", "charcoal",
+      "barbing", "salon", "carpentry", "furniture", "catering",
       "textile", "merchant", "dealer", "showroom", "enterprise", "fleet",
       "lga:", "ward:", "civil servant", "ministry", "irrigation", "rain-fed",
       "trader", "artisan", "housewife", "butcher", "mechanic"
@@ -68,24 +68,25 @@ export default function StudentPresentation() {
     }
 
     const isAcademicLevel = ["tertiary", "secondary", "nd 1", "nd 2", "hnd 1", "hnd 2", "100 level", "200 level", "300 level", "400 level", "500 level"].some(kw => level.includes(kw));
-    const isAcademicSchool = ["university", "college", "polytechnic", "poly", "institute", "academy", "umyu", "fudma", "ikcoe", "fce", "ksitm", "al-qalam"].some(kw => sch.includes(kw));
-
-    return isAcademicLevel || isAcademicSchool;
+    return isAcademicLevel;
   };
 
   const studentMembers = allAppMembers.filter(isStudentMember);
-  const totalStudents = studentMembers.length || 753;
-  const verifiedStudents = studentMembers.filter(m => m.is_verified || m.voters_card_id || m.pvc_status === "collected").length || totalStudents;
-  const malesCount = studentMembers.filter(m => (m.gender || "").toLowerCase() === "male").length || Math.round(totalStudents * 0.59);
-  const femalesCount = studentMembers.filter(m => (m.gender || "").toLowerCase() === "female").length || (totalStudents - malesCount);
+  const totalStudents = studentMembers.length;
+  const verifiedStudents = studentMembers.filter((m: any) => m.voter_status === "verified" || m.vin).length;
+  const malesCount = studentMembers.filter((m: any) => (m.gender || "").toLowerCase() === "male").length;
+  const femalesCount = studentMembers.filter((m: any) => (m.gender || "").toLowerCase() === "female").length;
 
-  // Keyboard controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight" || e.key === "Space" || e.key === "Enter") {
+      if (e.key === "ArrowRight" || e.key === "Space") {
         setCurrentSlide((prev) => Math.min(prev + 1, slides.length - 1));
       } else if (e.key === "ArrowLeft") {
         setCurrentSlide((prev) => Math.max(prev - 1, 0));
+      } else if (e.key === "f" || e.key === "F") {
+        toggleFullscreen();
+      } else if (e.key === "n" || e.key === "N") {
+        setShowNotes((prev) => !prev);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -106,10 +107,9 @@ export default function StudentPresentation() {
     {
       id: 1,
       tag: "CORE VISION & MISSION",
-      title: "Uniting All Katsina State Students on ONE Platform",
-      subtitle: "Executive Mobilization & Welfare Portal Supporting His Excellency Malam Dikko Umaru Radda (PhD, CON)",
-      notesEnglish: "Good day, distinguished delegates, leaders, and fellow students. Tomorrow's presentation is not merely about counting numbers — it is about UNIFYING every single Katsina State student studying in tertiary institutions across Nigeria on ONE digital platform to guarantee direct welfare and solid support for Malam Dikko Umaru Radda.",
-      notesHausa: "Barka da zuwa dukkan shugabanni da dalibai. Gabatarwar gobe ba kawai batun lissafin adadi bane — babban burin shine HADA KAN DUKKAN ƊALIBAN JIHAR KATSINA da ke karatu a duk faɗin Najeriya akan SHAFIN INTERNET GUDA ƊAYA don tabbatar da tallafi da goyon bayan Malam Dikko Umaru Radda.",
+      title: "Uniting All Kogi State Students on ONE Platform",
+      subtitle: "Executive Mobilization & Welfare Portal Supporting APM Kogi State Leadership — Nigeria First",
+      notesEnglish: "Good day, distinguished delegates, student leaders, and stakeholders. This presentation is about UNIFYING every single Kogi State student studying in tertiary institutions across Nigeria on ONE digital platform to guarantee direct welfare, transparent bursaries, and solid grassroots mobilization under the Allied Peoples' Movement (APM).",
       content: (
         <div className="flex flex-col items-center justify-center text-center space-y-6 py-6">
           <div className="w-20 h-20 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center text-emerald-400 shadow-2xl">
@@ -117,13 +117,13 @@ export default function StudentPresentation() {
           </div>
           <div className="space-y-3 max-w-3xl">
             <Badge className="bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 text-xs px-4 py-1.5 font-bold uppercase tracking-widest">
-              Dikko CMS • One Student Body • One Katsina
+              APM CMS • One Student Body • One Kogi
             </Badge>
             <h1 className="text-3xl md:text-5xl font-black text-white leading-tight">
-              Connecting Katsina Students Nationwide
+              Connecting Kogi Students Nationwide
             </h1>
             <p className="text-emerald-100/90 text-base md:text-lg max-w-2xl mx-auto">
-              Connecting students across 200+ Nigerian Higher Institutions into a single unified campaign & welfare network in solid support of Governor Malam Dikko Umaru Radda (PhD, CON).
+              Connecting students across 200+ Nigerian Higher Institutions into a single unified campaign & welfare network in solid support of Allied Peoples' Movement (APM) — Nigeria First.
             </p>
           </div>
           <div className="grid grid-cols-3 gap-4 w-full max-w-2xl pt-4">
@@ -147,10 +147,9 @@ export default function StudentPresentation() {
     {
       id: 2,
       tag: "CORE OBJECTIVE",
-      title: "Core Purpose & Vision for Katsina State Students",
-      subtitle: "Why His Excellency Malam Dikko Umaru Radda Prioritizes Student Empowerment",
-      notesEnglish: "Governor Dikko Radda's vision is built on youth inclusion. The Student Dashboard ensures every Katsina student studying anywhere in Nigeria is verified, supported with welfare bursaries, and organized into active campus chapters.",
-      notesHausa: "Manufar Gwamna Dikko Umaru Radda ita ce baiwa matasa da dalibai muhimmanci. Wannan dashboard din yana tabbatar da cewa dukkan dalibin Katsina da ke karatu a kowace jami'a a Najeriya an tantance shi, yana samun tallafi da bursa.",
+      title: "Core Purpose & Vision for Kogi State Students",
+      subtitle: "Why APM Prioritizes Student Empowerment & Grassroots Inclusivity",
+      notesEnglish: "The APM vision is built on youth inclusion and digital transparency. The Student Dashboard ensures every Kogi student studying anywhere in Nigeria is verified, supported with welfare bursaries, and organized into active campus chapters.",
       content: (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center py-4">
           <div className="space-y-4">
@@ -185,7 +184,7 @@ export default function StudentPresentation() {
               <div>
                 <h4 className="font-bold text-white text-base">Campus Chapters Mobilization</h4>
                 <p className="text-xs text-purple-100/80 mt-1">
-                  Organizes student coalitions in UMYU, FUDMA, HUK Poly, IKCOE, Al-Qalam, ABU Zaria, BUK, and institutions nationwide.
+                  Organizes student coalitions in PAAU, FULOKOJA, Kogi Poly, CUSTECH, FCE Okene, and institutions nationwide.
                 </p>
               </div>
             </div>
@@ -228,8 +227,7 @@ export default function StudentPresentation() {
       tag: "REAL-TIME METRICS",
       title: "Live Student Population & Voter Statistics",
       subtitle: "Verified Cloud Metrics & Gender Demographics Breakdown",
-      notesEnglish: "Here you can see the total student count. Out of all registered students, 100% are verified with voter records. We also track gender equality with 59% male and 41% female distribution across Katsina LGAs.",
-      notesHausa: "Wannan yana nuna alkaluman dalibai na zahiri. 100% na daliban an tantance su da katin zabe. Haka zalika muna lura da maza (59%) da mata (41%) wajen raba damammaki.",
+      notesEnglish: "Here you can see the total student count. Out of all registered students, 100% are verified with voter records. We also track gender equality with balanced representation across all 21 Kogi LGAs.",
       content: (
         <div className="space-y-6 py-2">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -257,12 +255,12 @@ export default function StudentPresentation() {
 
           <div className="bg-white/10 p-6 rounded-2xl border border-white/20 space-y-4">
             <div className="flex justify-between items-center text-sm font-bold text-white">
-              <span>👨 Male Students: {malesCount} ({Math.round((malesCount/totalStudents)*100)}%)</span>
-              <span>👩 Female Students: {femalesCount} ({Math.round((femalesCount/totalStudents)*100)}%)</span>
+              <span>👨 Male Students: {malesCount} ({totalStudents > 0 ? Math.round((malesCount/totalStudents)*100) : 50}%)</span>
+              <span>👩 Female Students: {femalesCount} ({totalStudents > 0 ? Math.round((femalesCount/totalStudents)*100) : 50}%)</span>
             </div>
             <div className="w-full h-5 rounded-full overflow-hidden flex bg-black/40 border border-white/20">
-              <div style={{ width: `${(malesCount/totalStudents)*100}%` }} className="bg-blue-500 font-bold text-[10px] text-white flex items-center justify-center">Male</div>
-              <div style={{ width: `${(femalesCount/totalStudents)*100}%` }} className="bg-pink-500 font-bold text-[10px] text-white flex items-center justify-center">Female</div>
+              <div style={{ width: `${totalStudents > 0 ? (malesCount/totalStudents)*100 : 50}%` }} className="bg-blue-500 font-bold text-[10px] text-white flex items-center justify-center">Male</div>
+              <div style={{ width: `${totalStudents > 0 ? (femalesCount/totalStudents)*100 : 50}%` }} className="bg-pink-500 font-bold text-[10px] text-white flex items-center justify-center">Female</div>
             </div>
           </div>
         </div>
@@ -274,36 +272,35 @@ export default function StudentPresentation() {
       tag: "LEADERBOARD RANKING",
       title: "Educational Institutions Leaderboard",
       subtitle: "Strict Academic Ranking of Higher Institutions with Active Student Enrolment",
-      notesEnglish: "The dashboard features a strict Educational Institutions Leaderboard. Commercial trades like tailoring or poultry shops are completely excluded. Only real universities, polytechnics, and colleges appear here.",
-      notesHausa: "Teburin makarantu yana tsattsauran tace makarantu. Sana'o'i basu shigowa nan kwata-kwata — jami'o'i da kwalejojin ilimi na zahiri kawai ke fitowa.",
+      notesEnglish: "The dashboard features a strict Educational Institutions Leaderboard. Commercial trades like tailoring or trade shops are completely excluded. Only real universities, polytechnics, and colleges appear here.",
       content: (
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-xl bg-white/10 border border-emerald-400/30 flex items-center justify-between">
               <div>
-                <h4 className="font-bold text-white text-sm">🏛️ Umaru Musa Yar'adua University (UMYU)</h4>
-                <p className="text-xs text-emerald-200">Katsina State University • State</p>
+                <h4 className="font-bold text-white text-sm">🏛️ Prince Abubakar Audu University (PAAU), Anyigba</h4>
+                <p className="text-xs text-emerald-200">Kogi State University • State</p>
               </div>
               <Badge className="bg-emerald-500 text-slate-950 font-extrabold text-xs">Top Enrolment</Badge>
             </div>
             <div className="p-4 rounded-xl bg-white/10 border border-blue-400/30 flex items-center justify-between">
               <div>
-                <h4 className="font-bold text-white text-sm">🏛️ Federal University Dutsin-Ma (FUDMA)</h4>
+                <h4 className="font-bold text-white text-sm">🏛️ Federal University Lokoja (FULOKOJA)</h4>
                 <p className="text-xs text-blue-200">Federal University • Federal</p>
               </div>
               <Badge className="bg-blue-500 text-white font-extrabold text-xs">High Enrolment</Badge>
             </div>
             <div className="p-4 rounded-xl bg-white/10 border border-purple-400/30 flex items-center justify-between">
               <div>
-                <h4 className="font-bold text-white text-sm">⚙️ Hassan Usman Katsina Polytechnic (HUK POLY)</h4>
+                <h4 className="font-bold text-white text-sm">⚙️ Kogi State Polytechnic, Lokoja</h4>
                 <p className="text-xs text-purple-200">State Polytechnic • State</p>
               </div>
               <Badge className="bg-purple-500 text-white font-extrabold text-xs">Polytechnic Leader</Badge>
             </div>
             <div className="p-4 rounded-xl bg-white/10 border border-amber-400/30 flex items-center justify-between">
               <div>
-                <h4 className="font-bold text-white text-sm">🎓 Isa Kaita College of Education (IKCOE)</h4>
-                <p className="text-xs text-amber-200">College of Education • State</p>
+                <h4 className="font-bold text-white text-sm">🎓 Federal College of Education, Okene (FCE Okene)</h4>
+                <p className="text-xs text-amber-200">College of Education • Federal</p>
               </div>
               <Badge className="bg-amber-500 text-slate-950 font-extrabold text-xs">Teacher Education</Badge>
             </div>
@@ -321,7 +318,6 @@ export default function StudentPresentation() {
       title: "Comprehensive Nigerian Banks & Wallets Support",
       subtitle: "Over 40+ Financial Institutions Supported for Student Welfare & Bursaries",
       notesEnglish: "To ensure every student receives welfare financial payouts without friction, we updated the system to include Sterling Bank, Stanbic IBTC, Moniepoint, OPay, Palmpay, GTBank, First Bank, Zenith, UBA, Kuda, and non-interest banks like Jaiz and TAJBank.",
-      notesHausa: "Don tabbatar da dalibai sun samu bursa ko tallafin kudi cikin sauki, an shigar da dukkan bankunan Najeriya sama da 40 har da OPay, Moniepoint, Sterling, Stanbic IBTC da Jaiz Bank.",
       content: (
         <div className="space-y-4 py-2">
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3 text-center">
@@ -343,8 +339,7 @@ export default function StudentPresentation() {
       tag: "SEARCHABLE INSTITUTION REGISTRY",
       title: "Searchable School Selection in Registration Forms",
       subtitle: "Instant Live Search Filter across 200+ Nigerian Higher Institutions",
-      notesEnglish: "Users don't have to scroll through endless lists. In the registration form, typing 'ABU', 'BUK', 'FUDMA', or 'UMYU' instantly filters the school list for quick, error-free selection.",
-      notesHausa: "Masu cike rajista basa shan wahalar neman sunan makaranta. Rubuta gajeren sunanta kamar 'ABU', 'BUK', ko 'UMYU' yana fito da ita nan take.",
+      notesEnglish: "Users don't have to scroll through endless lists. In the registration form, typing 'FULOKOJA', 'PAAU', 'KOGI POLY', or 'ABU' instantly filters the school list for quick, error-free selection.",
       content: (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center py-2">
           <div className="space-y-4">
@@ -355,10 +350,10 @@ export default function StudentPresentation() {
             <div className="bg-black/50 p-4 rounded-xl border border-emerald-500/40 space-y-2">
               <div className="flex items-center gap-2 bg-white/10 px-3 py-2 rounded-lg text-xs text-white">
                 <Search className="w-4 h-4 text-emerald-400" />
-                <span>Type to search: "FUDMA"</span>
+                <span>Type to search: "FULOKOJA"</span>
               </div>
               <div className="bg-emerald-950 p-2 rounded-lg text-xs text-emerald-300 border border-emerald-500/30">
-                ✓ Federal University Dutsin-Ma, Katsina (FUDMA)
+                ✓ Federal University Lokoja, Kogi State (FULOKOJA)
               </div>
             </div>
           </div>
@@ -394,7 +389,6 @@ export default function StudentPresentation() {
       title: "PVC Status & 'Not Collected' VIN Tracking",
       subtitle: "Inclusive Registration for Students Awaiting Voters Card Collection",
       notesEnglish: "Students without PVC are not left out. When a student marks 'Not Collected', the system generates a synthetic VIN code starting with 'NC-' (Not Collected), ensuring they are tracked for PVC collection drives.",
-      notesHausa: "Dalibin da bai karbi katin zabe ba za a iya yi masa rajista. Tsarin yana bashi lamba ta musamman mai farawa da 'NC-' har zuwa lokacin da zai karbi katin.",
       content: (
         <div className="space-y-6 py-2">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -423,13 +417,12 @@ export default function StudentPresentation() {
       tag: "TAILORED SIDEBAR",
       title: "Role-Based Navigation & Dedicated Student Sidebar",
       subtitle: "Simplified Interface Removing Unrelated Election & Situation Room Views",
-      notesEnglish: "We cleaned up the sidebar for the Student Role. Unrelated operational links like Polling Unit Cells, Election Day, Command Wall, and Situation Room are removed, leaving a clean 5-item menu.",
-      notesHausa: "An gyara sidebar din dalibai ta yadda abubuwan da suka shafesu kawai ke fitowa — an cire Situation Room, Election Day, da Polling Unit Cells.",
+      notesEnglish: "We cleaned up the sidebar for the Student Role. Unrelated operational links like Polling Unit Cells, Election Day, Command Wall, and Situation Room are removed, leaving a clean menu.",
       content: (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center py-2">
           <div className="bg-emerald-950 p-6 rounded-2xl border border-emerald-500/40 space-y-4">
             <h3 className="text-base font-bold text-emerald-400 uppercase tracking-wider">
-              ✅ Active Student Navigation (5 Essential Items)
+              ✅ Active Student Navigation (Essential Items)
             </h3>
             <div className="space-y-2 text-sm text-white font-medium">
               <div className="p-2.5 bg-white/10 rounded-lg flex items-center gap-3">
@@ -473,8 +466,7 @@ export default function StudentPresentation() {
       tag: "DEMONSTRATION & DEPLOYMENT",
       title: "Live Deployment & Portal Access Details",
       subtitle: "Accessing the Student Portal Local Server & Public Registration Links",
-      notesEnglish: "The platform is live on http://localhost:8080/student/dashboard. Registrations are collected at http://localhost:8080/register. All data is backed up to Supabase Cloud and IndexedDB offline cache.",
-      notesHausa: "Shagon app din yana aiki a http://localhost:8080/student/dashboard. Shafin cike rajista yana http://localhost:8080/register.",
+      notesEnglish: "The platform is live on http://localhost:3000/student/dashboard. Registrations are collected at http://localhost:3000/register. All data is backed up to Supabase Cloud and IndexedDB offline cache.",
       content: (
         <div className="space-y-6 py-2 text-center">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
@@ -486,7 +478,7 @@ export default function StudentPresentation() {
                 Access direct real-time analytics, Leaderboard ranking, and student mobilization:
               </p>
               <div className="bg-black/60 p-3 rounded-lg text-emerald-400 font-mono text-xs border border-emerald-500/40">
-                http://localhost:8080/student/dashboard
+                http://localhost:3000/student/dashboard
               </div>
             </div>
 
@@ -498,7 +490,7 @@ export default function StudentPresentation() {
                 Shareable link for students across Nigeria to register their details and welfare accounts:
               </p>
               <div className="bg-black/60 p-3 rounded-lg text-emerald-400 font-mono text-xs border border-emerald-500/40">
-                http://localhost:8080/register
+                http://localhost:3000/register
               </div>
             </div>
           </div>
@@ -509,10 +501,9 @@ export default function StudentPresentation() {
     {
       id: 10,
       tag: "CONCLUSION",
-      title: "Building Brighter Futures for Katsina Students",
+      title: "Building Brighter Futures for Kogi Students",
       subtitle: "Thank You — Questions, Remarks & Official Delegation Discussion",
-      notesEnglish: "Thank you for your attention. Together, under His Excellency Malam Dikko Umaru Radda (PhD, CON), we are empowering the students of Katsina State. We are now open for questions and feedback.",
-      notesHausa: "Mungode kwarai da sauraronsu. Wannan shine takaitaccen bayanin Student Dashboard dinmu na Malam Dikko Umaru Radda. Za mu iya amsa tambayoyinku yanzu.",
+      notesEnglish: "Thank you for your attention. Together under the Allied Peoples' Movement (APM), we are empowering the students of Kogi State — Nigeria First. We are now open for questions and feedback.",
       content: (
         <div className="flex flex-col items-center justify-center text-center space-y-6 py-8">
           <div className="w-24 h-24 rounded-full bg-emerald-500/20 border-4 border-emerald-400 flex items-center justify-center text-emerald-400 shadow-2xl">
@@ -520,10 +511,10 @@ export default function StudentPresentation() {
           </div>
           <div className="space-y-3 max-w-2xl">
             <h1 className="text-3xl md:text-4xl font-black text-white">
-              Thank You! Nagode Kwarai!
+              Thank You! Together for Kogi's Future!
             </h1>
             <p className="text-emerald-100 text-sm md:text-base">
-              Malam Dikko Umaru Radda (PhD, CON) — Executive Governor of Katsina State
+              Allied Peoples' Movement (APM) — Kogi State Campaign Command • Nigeria First
             </p>
           </div>
           <div className="pt-4 flex gap-4">
@@ -541,18 +532,24 @@ export default function StudentPresentation() {
   const current = slides[currentSlide];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between p-4 md:p-8 font-sans select-none">
-      {/* Top Header Controls */}
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-4 md:p-8 font-sans select-none">
+      {/* Header Bar */}
       <div className="flex items-center justify-between border-b border-white/10 pb-4">
         <div className="flex items-center gap-3">
           <Link href="/student/dashboard">
-            <Button variant="outline" size="sm" className="border-white/20 text-white hover:bg-white/10 text-xs gap-1.5">
-              <Home className="w-4 h-4" /> Dashboard
+            <Button variant="ghost" size="sm" className="text-emerald-400 hover:text-emerald-300 gap-1.5 px-2">
+              <Home className="w-4 h-4" /> Exit to Dashboard
             </Button>
           </Link>
-          <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs">
-            Slide {currentSlide + 1} of {slides.length}
-          </Badge>
+          <span className="text-white/20">|</span>
+          <div className="flex items-center gap-2">
+            <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[11px] font-bold uppercase tracking-wider">
+              {current.tag}
+            </Badge>
+            <span className="text-xs text-white/50 hidden md:inline">
+              Slide {currentSlide + 1} of {slides.length}
+            </span>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -560,42 +557,43 @@ export default function StudentPresentation() {
             variant="outline"
             size="sm"
             onClick={() => setShowNotes(!showNotes)}
-            className={`text-xs gap-1.5 ${showNotes ? "bg-emerald-500 text-slate-950 font-bold border-emerald-400" : "border-white/20 text-white hover:bg-white/10"}`}
+            className={`text-xs gap-1.5 border-white/20 ${showNotes ? "bg-emerald-500 text-slate-950 font-bold border-emerald-400" : "text-white hover:bg-white/10"}`}
           >
-            <MessageSquare className="w-4 h-4" /> {showNotes ? "Hide Notes" : "Speaker Notes"}
+            <MessageSquare className="w-3.5 h-3.5" />
+            {showNotes ? "Hide Notes (N)" : "Speaker Notes (N)"}
           </Button>
 
           <Button
             variant="outline"
             size="sm"
             onClick={toggleFullscreen}
-            className="border-white/20 text-white hover:bg-white/10 text-xs gap-1.5"
+            className="text-white hover:bg-white/10 border-white/20 text-xs gap-1.5 hidden sm:flex"
           >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-            {isFullscreen ? "Exit" : "Fullscreen"}
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            {isFullscreen ? "Exit (F)" : "Fullscreen (F)"}
           </Button>
         </div>
       </div>
 
-      {/* Main Slide Card Container */}
-      <div className="my-auto py-6 max-w-5xl mx-auto w-full">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950 via-slate-900 to-teal-950 p-6 md:p-10 border border-emerald-500/30 shadow-2xl min-h-[480px] flex flex-col justify-between">
-          <div className="space-y-2 border-b border-emerald-500/20 pb-4">
-            <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-400">
-              {current.tag}
-            </span>
-            <h2 className="text-2xl md:text-3xl font-black text-white">{current.title}</h2>
-            <p className="text-xs md:text-sm text-emerald-200/80">{current.subtitle}</p>
+      {/* Main Slide Card Area */}
+      <div className="my-auto py-4 max-w-5xl w-full mx-auto">
+        <div className="bg-gradient-to-b from-slate-900 to-slate-950 border border-white/15 rounded-3xl p-6 md:p-10 shadow-2xl backdrop-blur relative overflow-hidden transition-all duration-300">
+          {/* Subtle Glow */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl -z-10" />
+
+          {/* Slide Header */}
+          <div className="space-y-1 mb-6 border-b border-white/10 pb-4">
+            <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight">
+              {current.title}
+            </h2>
+            <p className="text-xs md:text-sm text-emerald-300/80 font-medium">
+              {current.subtitle}
+            </p>
           </div>
 
-          <div className="my-auto">{current.content}</div>
-
-          {/* Slide Navigation Progress Bar */}
-          <div className="w-full bg-black/40 h-2 rounded-full overflow-hidden border border-white/10 mt-4">
-            <div
-              className="bg-emerald-400 h-full transition-all duration-300"
-              style={{ width: `${((currentSlide + 1) / slides.length) * 100}%` }}
-            />
+          {/* Dynamic Slide Body */}
+          <div className="min-h-[380px] flex flex-col justify-center">
+            {current.content}
           </div>
         </div>
 
@@ -603,17 +601,11 @@ export default function StudentPresentation() {
         {showNotes && (
           <div className="mt-4 p-5 rounded-2xl bg-slate-900 border border-emerald-500/40 space-y-3 animate-fade-in">
             <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase tracking-wider">
-              <MessageSquare className="w-4 h-4" /> Speaker Speech Script & Notes
+              <MessageSquare className="w-4 h-4" /> Speaker Speech Script & Presentation Notes
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div className="p-3 bg-black/40 rounded-xl border border-white/10 space-y-1">
-                <span className="text-emerald-300 font-bold block">🇬🇧 English Script:</span>
-                <p className="text-slate-200 leading-relaxed">{current.notesEnglish}</p>
-              </div>
-              <div className="p-3 bg-black/40 rounded-xl border border-white/10 space-y-1">
-                <span className="text-emerald-300 font-bold block">🇳🇬 Hausa Script (Bayanai na Hausa):</span>
-                <p className="text-slate-200 leading-relaxed">{current.notesHausa}</p>
-              </div>
+            <div className="p-3 bg-black/40 rounded-xl border border-white/10 space-y-1 text-xs">
+              <span className="text-emerald-300 font-bold block">🎙️ Presentation Script:</span>
+              <p className="text-slate-200 leading-relaxed text-sm">{current.notesEnglish}</p>
             </div>
           </div>
         )}
@@ -644,7 +636,7 @@ export default function StudentPresentation() {
         <Button
           onClick={() => setCurrentSlide((prev) => Math.min(prev + 1, slides.length - 1))}
           disabled={currentSlide === slides.length - 1}
-          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs gap-2 px-5 py-5 disabled:opacity-30"
+          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs gap-2 px-5 py-5 disabled:opacity-30"
         >
           Next Slide <ChevronRight className="w-4 h-4" />
         </Button>

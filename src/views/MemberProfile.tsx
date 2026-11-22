@@ -708,7 +708,7 @@ const MemberProfile = () => {
                                                                     : 'border-orange-500 text-orange-600'
                                                             }>
                                                                 {inc.audit_status === 'verified' 
-                                                                    ? 'Verified (Aikin Gaskiya)' 
+                                                                    ? 'Verified (Audited)' 
                                                                     : inc.audit_status === 'flagged' 
                                                                     ? 'Flagged' 
                                                                     : 'Pending Audit'

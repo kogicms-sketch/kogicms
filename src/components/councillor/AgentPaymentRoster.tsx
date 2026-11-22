@@ -53,20 +53,11 @@ import {
 } from "@/services/AgentService";
 import { NIGERIAN_BANKS } from "@/data/nigerian_banks";
 import { supabase } from "@/integrations/supabase/loose-client";
+import { getWardsForLga } from "@/lib/campaign-data";
 
-const KATSINA_WARDS = [
-  "Wakilin Kudu I",
-  "Wakilin Kudu II",
-  "Wakilin Kudu III",
-  "Wakilin Gabas I",
-  "Wakilin Gabas II",
-  "Wakilin Yamma I",
-  "Wakilin Yamma II",
-  "Wakilin Arewa I",
-  "Wakilin Arewa II",
-  "Kofar Sauri",
-  "Shinkafi I",
-  "Shinkafi II",
+const KOGI_DEFAULT_WARDS = [
+  "Ward A (Lokoja Core)", "Ward B", "Ward C", "Ward D", "Ward E",
+  "Adankolo", "Kogi (Koton-Karfe)", "Okene-North", "Bariki", "Ankpa I"
 ];
 
 interface AgentPaymentRosterProps {
@@ -77,7 +68,7 @@ interface AgentPaymentRosterProps {
 }
 
 export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
-  lga = "Katsina",
+  lga = "Lokoja",
   ward,
   title = "⭐ Polling Unit Agents Payment & Account Roster",
   subtitle = "Direct account sorting and payment export for all designated Polling Unit Agents",
@@ -300,7 +291,7 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
     
-    const activeWardStr = (ward || selectedWard || "Katsina").replace(/\s+/g, "_");
+    const activeWardStr = (ward || selectedWard || "Lokoja").replace(/\s+/g, "_");
     const filePrefix = unpaidOnly ? "UNPAID_Agents_Only" : "PU_Agents_Payment_Schedule";
     const fileName = `${filePrefix}_${activeWardStr}_${new Date().toISOString().slice(0, 10)}.csv`;
     
@@ -463,7 +454,7 @@ export const AgentPaymentRoster: React.FC<AgentPaymentRosterProps> = ({
                 className="w-full h-10 rounded-lg border border-input bg-background px-3 py-2 text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
               >
                 <option value="">-- All Wards in {lga} --</option>
-                {KATSINA_WARDS.map((w) => (
+                {(getWardsForLga(lga || "Lokoja").length > 0 ? getWardsForLga(lga || "Lokoja") : KOGI_DEFAULT_WARDS).map((w) => (
                   <option key={w} value={w}>
                     📍 {w}
                   </option>

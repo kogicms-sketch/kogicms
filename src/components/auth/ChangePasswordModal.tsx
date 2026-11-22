@@ -30,12 +30,12 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
     e.preventDefault();
 
     if (!newPassword || newPassword.length < 6) {
-      toast.error("Kalmar sirri dole ta kasance aƙalla haruffa ko lambobi 6.");
+      toast.error("Password must be at least 6 characters.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      toast.error("Kalmomin sirri ba su dace ba. Da fatan a sake dubawa.");
+      toast.error("Passwords do not match. Please verify.");
       return;
     }
 
@@ -46,15 +46,15 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
       });
 
       if (error) {
-        toast.error(`Kuskure: ${error.message}`);
+        toast.error(`Error: ${error.message}`);
       } else {
-        toast.success("An yi nasarar sauya kalmar sirri (Password updated successfully)!");
+        toast.success("Password updated successfully!");
         setNewPassword("");
         setConfirmPassword("");
         onClose();
       }
     } catch (err: any) {
-      toast.error("An samu matsala wajen sauya kalmar sirri.");
+      toast.error("An error occurred while updating password.");
     } finally {
       setLoading(false);
     }
@@ -68,23 +68,23 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
             <KeyRound className="w-6 h-6" />
           </div>
           <DialogTitle className="text-center text-xl font-bold">
-            Sauya Kalmar Sirri (Change Password)
+            Change Password
           </DialogTitle>
           <DialogDescription className="text-center text-sm text-muted-foreground">
-            Saka sabuwar kalmar sirri da kake so don kare asusunka na LGA Dashboard.
+            Enter your new password to secure your account.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div>
             <label className="text-xs font-semibold text-gray-700 block mb-1">
-              Sabuwar Kalmar Sirri (New Password)
+              New Password
             </label>
             <div className="relative">
               <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
               <Input
                 type={showPassword ? "text" : "password"}
-                placeholder="Aƙalla haruffa 6"
+                placeholder="At least 6 characters"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="pl-9 pr-10 text-sm"
@@ -102,13 +102,13 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
           <div>
             <label className="text-xs font-semibold text-gray-700 block mb-1">
-              Tabbatar da Kalmar Sirri (Confirm Password)
+              Confirm Password
             </label>
             <div className="relative">
               <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
               <Input
                 type={showPassword ? "text" : "password"}
-                placeholder="Sake rubuta kalmar sirri"
+                placeholder="Re-enter new password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="pl-9 pr-10 text-sm"
@@ -125,14 +125,14 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
               disabled={loading}
               className="text-sm"
             >
-              Soke (Cancel)
+              Cancel
             </Button>
             <Button
               type="submit"
               disabled={loading}
               className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
             >
-              {loading ? "Ana sabuntawa..." : "Ajiye (Save Password)"}
+              {loading ? "Updating..." : "Save Password"}
             </Button>
           </DialogFooter>
         </form>

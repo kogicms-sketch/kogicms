@@ -38,6 +38,7 @@ import {
     useUpdatePollingUnitCell 
 } from "@/hooks/usePollingUnitCells";
 import { useCouncillor } from "@/hooks/useCouncillors";
+import { localVoterService } from "@/services/LocalVoterService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParty } from "@/contexts/PartyContext";
 import AssignAgentModal from "@/components/modals/AssignAgentModal";
@@ -358,6 +359,23 @@ const PollingUnitDetail = () => {
         queryKey: ["polling-unit-registry-voters", unit?.lga, unit?.pu_code],
         queryFn: async () => {
             if (!unit?.pu_code || !unit?.lga) return [];
+            // 1. Try local INEC dataset first
+            const wardName = unit.ward || unit.ward_name || "";
+            const localVoters = await localVoterService.getPollingUnitVoters(unit.lga, wardName, unit.pu_code);
+            if (localVoters && localVoters.length > 0) {
+                return localVoters.map(v => ({
+                    id: v.vin,
+                    vin: v.vin,
+                    full_name: v.full_name,
+                    dob_year: v.dob_year,
+                    gender: v.gender,
+                    polling_unit_code: v.polling_unit_code,
+                    polling_unit_name: v.polling_unit_name,
+                    voter_status: "collected",
+                    photo_url: null,
+                }));
+            }
+
             const standardCode = getStandardPuCode(unit.lga, unit.pu_code);
             
             let allVoters: any[] = [];

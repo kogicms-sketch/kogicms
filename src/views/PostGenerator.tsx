@@ -173,17 +173,17 @@ const PostGenerator = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="hausa">Hausa</SelectItem>
-                      <SelectItem value="english">English</SelectItem>
-                      <SelectItem value="mixed">Mixed (Hausa & English)</SelectItem>
+                      <SelectItem value="english">Standard English</SelectItem>
+                      <SelectItem value="pidgin">Nigerian Pidgin</SelectItem>
+                      <SelectItem value="grassroots">Grassroots English</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   {[
-                    { value: 'hausa', label: 'Hausa', desc: 'Turanci Hausa' },
-                    { value: 'english', label: 'English', desc: 'Pure English' },
-                    { value: 'mixed', label: 'Mixed', desc: 'Hausa & English' }
+                    { value: 'english', label: 'English', desc: 'Standard & Official' },
+                    { value: 'pidgin', label: 'Pidgin', desc: 'Grassroots & Relatable' },
+                    { value: 'grassroots', label: 'Grassroots', desc: 'Punchy & Community-Focused' }
                   ].map((lang) => (
                     <button
                       key={lang.value}

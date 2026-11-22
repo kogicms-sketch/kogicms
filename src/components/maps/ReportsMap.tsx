@@ -24,7 +24,7 @@ interface ReportsMapProps {
   selectedAgentLogs: LocationLog[];
   selectedAgentId: string | null;
   selectedAgentData?: { name: string; ward: string; pu: string; logs: LocationLog[] } | null;
-  katsinaCenter: [number, number];
+  kogiCenter: [number, number];
 }
 
 export default function ReportsMap({
@@ -32,7 +32,7 @@ export default function ReportsMap({
   selectedAgentLogs,
   selectedAgentId,
   selectedAgentData,
-  katsinaCenter,
+  kogiCenter,
 }: ReportsMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -54,7 +54,7 @@ export default function ReportsMap({
 
     // Create fresh Leaflet map
     const map = L.map(containerRef.current, {
-      center: katsinaCenter,
+      center: kogiCenter,
       zoom: 11,
       scrollWheelZoom: true,
     });

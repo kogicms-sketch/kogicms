@@ -105,7 +105,7 @@ export function SchoolSelect({
               })
             ) : (
               <div className="p-4 text-center text-xs text-muted-foreground">
-                No matching school found. Select "Other Higher Institution Outside Katsina" or refine your search.
+                No matching school found. Select "Other Higher Institution Outside Kogi" or refine your search.
               </div>
             )}
           </div>

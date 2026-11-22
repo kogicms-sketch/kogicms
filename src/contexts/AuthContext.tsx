@@ -356,8 +356,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isMockRef.current = true;
     const mockUser: any = {
       id: "mock-student-id-001",
-      email: `${targetRole}@katsina.gov.ng`,
-      user_metadata: { full_name: "Katsina Student Monitor" },
+      email: `${targetRole}@kogicms.ng`,
+      user_metadata: { full_name: "Kogi Student Monitor" },
     };
     setUser(mockUser);
     setSession({ user: mockUser } as any);

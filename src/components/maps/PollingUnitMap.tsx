@@ -86,7 +86,7 @@ export const PollingUnitMap = ({
   const [selectedUnit, setSelectedUnit] = useState<PollingUnitCell | null>(null);
 
   // Kogi State approximate center
-  const katsinaCenter: [number, number] = [7.8023, 6.7430];
+  const kogiCenter: [number, number] = [7.8023, 6.7430];
 
   // Process units to add coordinates if missing
   const mappedUnits = useMemo(() => {
@@ -100,7 +100,7 @@ export const PollingUnitMap = ({
       }
 
       // Simulate coordinates based on LGA
-      const lgaCenter = LGA_COORDINATES[unit.lga] || katsinaCenter;
+      const lgaCenter = LGA_COORDINATES[unit.lga] || kogiCenter;
 
       // Generate deterministic random offset
       // Use polling_unit_name and ward for seed to keep it consistent
@@ -190,7 +190,7 @@ export const PollingUnitMap = ({
               className="rounded-lg overflow-hidden relative"
             >
               <MapContainer
-                center={katsinaCenter}
+                center={kogiCenter}
                 zoom={10}
                 style={{ height: "100%", width: "100%" }}
               >

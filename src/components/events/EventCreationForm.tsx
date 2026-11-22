@@ -24,7 +24,7 @@ import {
 import { useCreateCampaignEvent, EVENT_TYPE_LABELS } from "@/hooks/useCampaignEvents";
 import { useOrganizations } from "@/hooks/useOrganizations";
 import { useAuth } from "@/contexts/AuthContext";
-import { KATSINA_LGAS, getWardsForLga, CAMPAIGN_STATE } from "@/lib/campaign-data";
+import { KOGI_LGAS, getWardsForLga, CAMPAIGN_STATE } from "@/lib/campaign-data";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -135,7 +135,7 @@ export const EventCreationForm = ({ onSuccess }: EventCreationFormProps) => {
               <FormItem className="md:col-span-2">
                 <FormLabel>Event Title *</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., Katsina Central Mega Rally" {...field} />
+                  <Input placeholder="e.g., Kogi Central Mega Rally" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -264,7 +264,7 @@ export const EventCreationForm = ({ onSuccess }: EventCreationFormProps) => {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {KATSINA_LGAS.map((lga) => (
+                    {KOGI_LGAS.map((lga) => (
                       <SelectItem key={lga} value={lga}>{lga}</SelectItem>
                     ))}
                   </SelectContent>
@@ -343,7 +343,7 @@ export const EventCreationForm = ({ onSuccess }: EventCreationFormProps) => {
             <FormItem>
               <FormLabel>Location *</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Katsina Township Stadium" {...field} />
+                <Input placeholder="e.g., Confluence Stadium, Lokoja" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

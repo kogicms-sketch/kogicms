@@ -111,55 +111,55 @@ const OCCUPATIONS = [
 const BANKS = NIGERIAN_BANKS;
 
 const TRADER_SUB_TRADES = [
-  "Grain / Produce Merchant (Mai Hatsi)",
-  "Livestock Trader (Mai Dabbobi)",
-  "Textile / Wrapper Dealer (Mai Atamfa da Yadudduka)",
-  "Provisions Shop Owner (Mai Kantin Shago)",
-  "Tea & Bread Vendor (Mai Shayi da Buredi)",
-  "Perishable Goods / Vegetable Vendor (Mai Kayan Miya)",
-  "Mobile Phone Accessory / Charging Point (Mai Charge da Waya)",
-  "POS Agent / Mobile Money Operator (Mai POS)",
-  "Butcher / Meat Vendor (Mai Naman Shanu/Akuya)",
-  "Cosmetics & Perfume Seller (Mai Kayan Kwalliya)",
-  "Footwear & Shoe Dealer (Mai Takalma)",
-  "Hardware & Building Materials (Mai Kayan Gini)",
-  "Auto / Motorcycle Spare Parts (Mai Kayan Mota da Keke)",
-  "Second-Hand Clothes Merchant (Mai Gwanjo)",
-  "Gold & Silver Goldsmith (Mai Gyaran Gwal)",
-  "Charcoal / Firewood Seller (Mai Gawayi da Itace)",
-  "Catering / Cooked Food Vendor (Mai Abinci)",
-  "Cement Dealer (Mai Simenti)",
-  "Plastic Ware & Kitchen Utensils (Mai Kayan Robobi)",
-  "Electrical Appliances Dealer (Mai Kayan Wutar Lantarki)",
-  "Tailoring Materials Merchant (Mai Kayan Dinki)",
+  "Grain & Agricultural Produce Merchant",
+  "Livestock Trader",
+  "Textile, Fabric & Lace Dealer",
+  "Provisions & Grocery Store Owner",
+  "Tea, Coffee & Beverage Vendor",
+  "Perishable Goods & Fresh Produce Vendor",
+  "Mobile Phone Accessories & Charging Point",
+  "POS Agent & Mobile Money Operator",
+  "Butcher & Fresh Meat Vendor",
+  "Cosmetics & Beauty Products Seller",
+  "Footwear & Shoe Dealer",
+  "Hardware & Building Materials Dealer",
+  "Auto & Motorcycle Spare Parts Dealer",
+  "Second-Hand Clothing & Thrift Merchant",
+  "Jewelry & Goldsmith Services",
+  "Charcoal & Cooking Fuel Vendor",
+  "Catering & Cooked Food Vendor",
+  "Cement & Masonry Supplies Dealer",
+  "Plastic Ware & Household Utensils",
+  "Electrical Appliances Dealer",
+  "Tailoring Materials & Haberdashery",
   "Other Trader"
 ];
 
 // STUDENT_INSTITUTIONS imported from @/data/student_institutions
 
 const BUSINESS_SECTORS = [
-  "Commercial Transport Fleet (Mota/Buses)",
-  "Tricycle Operations Owner (Keke Napep Fleet)",
-  "Commercial Motorcycle Fleet (Achaba Operator)",
-  "Pharmacy / Wholesale Chemist",
-  "Patent Medicine Store (Local Chemist Shop)",
+  "Commercial Transport Fleet (Buses & Taxis)",
+  "Commercial Tricycle Fleet Operator",
+  "Commercial Motorcycle Fleet Operator",
+  "Pharmacy & Wholesale Chemist",
+  "Patent Medicine Store (Community Chemist)",
   "Block Industry & Concrete Molding Yard",
-  "Tailoring & Embroidery Fashion Center",
+  "Tailoring & Fashion Design Center",
   "Computer Cyber Café & IT Support Center",
   "Welding & Iron Fabrication Workshop",
   "Carpentry & Furniture Showroom",
-  "Grain Milling & Agro-Processing Factory (Gidan Nika)",
-  "Bakery / Confectionery Factory",
-  "Dry Cleaning & Laundry Business",
-  "Barbing / Hair Dressing Salon",
-  "Poultry / Livestock Farm Enterprise",
-  "Pure Water / Sachet Water Factory",
+  "Grain Milling & Agro-Processing Enterprise",
+  "Bakery & Confectionery Enterprise",
+  "Dry Cleaning & Laundry Services",
+  "Barbing & Hair Dressing Salon",
+  "Poultry & Livestock Farm Enterprise",
+  "Table Water & Beverage Production Factory",
   "Car Wash Outlet",
   "Printing Press & Graphic Design Studio",
-  "Scrap Metal Yard (Mai Kayan Ruwa)",
-  "Electrical / Solar Installation Agency",
-  "Artisan Workshop (Mechanic, Panel Beater)",
-  "Other / Unknown Business"
+  "Scrap Metal & Recycling Yard",
+  "Electrical & Solar Installation Agency",
+  "Automotive Workshop & Mechanics",
+  "Other Enterprise"
 ];
 
 const KOGI_MINISTRIES = [
@@ -1571,8 +1571,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                       <Field label="Seasonal Type" required error={errors.farmerSeasonalType}>
                         <select style={selectStyle} value={form.farmerSeasonalType} onChange={set("farmerSeasonalType")}>
                           <option value="">Select Season</option>
-                          <option value="Noman Damana (Rain-fed)">Noman Damana (Rain-fed)</option>
-                          <option value="Noman Rani (Irrigation)">Noman Rani (Irrigation)</option>
+                          <option value="Rain-fed Farming">Rain-fed Farming</option>
+                          <option value="Irrigation / Dry Season Farming">Irrigation / Dry Season Farming</option>
                           <option value="Both">Both</option>
                         </select>
                       </Field>

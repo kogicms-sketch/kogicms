@@ -9,15 +9,13 @@ export const campaignPosts = {
         `🛣️ **INFRASTRUCTURE CONNECTING COMMUNITIES** 🏗️\n\nWe will connect our rural farming communities to major urban centers and river transport links with durable roads that stand the test of time.\n\nVote for lasting progress with APM.\n\n#APMKogi #Infrastructure #ConfluenceProgress`,
         `🗳️ **YOUR VOTE IS YOUR VOICE: VOTE APM** 🗳️\n\nDon't mortgage your future. Vote with conviction and pride. Look for the Cassava emblem on the ballot sheet — Vote APM!\n\n#APMKogi #NigeriaFirst #VoteAPM`
     ],
-    hausa: [
-        `🏛️ **KOGI: ZABIN ALLAH DA TALAKA TARE DA APM!**\n\nJihar Kogi tana bukatar shugabanci mai kishin kasa da rikon amana. Jam'iyyar APM (Allied Peoples' Movement) tazo ne domin kawo ingantaccen ci gaba, aikin yi ga matasa, da bunkasa noma a fadin jihar Kogi.\n\nJama'ar Kogi, mu hada kai domin zaben APM mai alamar Rogo!\n\n#APMKogi #NigeriaFirst #KogiDecides`,
-        `🌾 **NOMAN RANI DA DAMINA: TUSHEN ARZIKIN KOGI** 🌾\n\nJihar Kogi tana da albarkar filayen noma da koguna guda biyu (Niger da Benue). Jam'iyyar APM zata tabbatar da cewa kowane manomi ya samu tallafi na gaske domin samar da abinci da wadatar kudi.\n\nZabi APM mai alamar Rogo domin bunkasar tattalin arziki!\n\n#APMKogi #NomaTushenArziki`,
-        `🤝 **HADIN KAI DA ZAMAN LAFIYA** 🤝\n\nKogi daya ce. Ko kai dan Kogi Gabas ne, Tsakiya ne, ko Yamma, APM zata tabbatar da adalci da raba arzikin jaha ga kowa ba tare da nuna banbanci ba.\n\nNajeriya a gaba, Kogi a gaba!\n\n#APMKogi #HadinKai`,
-        `💡 **HASKEN CI GABA DA ILIMI** 💡\n\n'Ya'yanmu sune makomarmu. Gwamnatin APM zata inganta makarantu da makarantun gaba da sakandare a jihar Kogi, ta yadda kowane dalibi zai samu ilimi mai nagarta.\n\nKu fito kwansu da kwarkwata ku goyi bayan APM!\n\n#APMKogi #Ilimi`,
-        `🗳️ **KURI'AR KU, 'YANCIN KU: ZABI APM** 🗳️\n\nKada ku sayar da kuri'arku. Ku duba alamar Rogo a takardar kada kuri'a — ku zabi APM domin gina jihar Kogi mai albarka.\n\n#APMKogi #ZabeMaiKyau #NigeriaFirst`
+    pidgin: [
+        `🇳🇬 **KOGI PEOPLE, MAKE WE STAND FIRM WITH APM!** 🇳🇬\n\nBetter life no suppose hard to get. The Allied Peoples' Movement (APM) dey come with real solution for food price, good roads, and youth empowerment across all 21 LGAs for Kogi State.\n\nLook for the Cassava logo on election day and vote APM!\n\n#APMKogi #NigeriaFirst #BetterKogi`,
+        `🌾 **BETTER LIFE FOR FARMERS & TRADERS** 🌾\n\nOur farmers for Kogi East, Central, and West deserve good road to carry their market go town and fair prices for their harvest. APM get solid blueprint to support every grassroots worker.\n\nMake we join hands together vote APM!\n\n#APMKogi #GrassrootsPower #VoteAPM`,
+        `🚀 **YOUTHS OF KOGI STATE, DIS ONE NA OUR TIME!** 🚀\n\nNo more empty promises. APM dey bring real skills, tech training, and good jobs to our state. With Nigeria First, our future dey secure!\n\nVote APM, vote progress!\n\n#APMKogi #KogiYouths #NigeriaFirst`
     ],
-    mixed: [
-        `🦁 **KOGI STATE IS READY FOR APM!** 🦁\n\nCi gaban jihar Kogi ba maganar baki bace kawai, aiki ne da gaskiya. With the Allied Peoples' Movement (APM), we are putting Nigeria First and Kogi First!\n\nLook for the Cassava symbol on the ballot — Support APM! 🚀\n\n#APMKogi #NigeriaFirst #KogiDecides #APM`,
-        `🔥 **KOGI YOUTHS, LET'S SECURE OUR FUTURE!** 🔥\n\nThe future belongs to us. APM has a clear economic and digital empowerment plan for every youth in Kogi State.\n\nBa maganar karya bace, aiki ne na zahiri! Let's build Kogi together with APM.\n\n#APMKogi #KogiYouths #NigeriaFirst`
+    grassroots: [
+        `🏛️ **UNITED FOR KOGI'S PROGRESS: APM ALL THE WAY!** 🏛️\n\nTrue leadership begins with putting the people first. Across all 239 wards of Kogi State, APM is building an all-inclusive government where every community feels the impact of governance.\n\nVote APM for transparent and responsive leadership!\n\n#APMKogi #NigeriaFirst #GrassrootsVoice`,
+        `💡 **RELIABLE BASIC AMENITIES FOR EVERY COMMUNITY** 💡\n\nClean water, solar street lights, functional primary health clinics, and upgraded community schools — this is the APM pledge to the good people of Kogi State.\n\nStand with the Allied Peoples' Movement!\n\n#APMKogi #CommunityFirst #KogiState`
     ]
 };

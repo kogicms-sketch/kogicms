@@ -308,5 +308,5 @@ export const STUDENT_INSTITUTIONS = [
   "College of Education, Katsina-Ala, Benue",
 
   // --- Other / Catch-all ---
-  "Other Higher Institution Outside Katsina"
+  "Other Higher Institution Outside Kogi"
 ];

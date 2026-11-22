@@ -53,7 +53,7 @@ export const usePoliticalExcos = (filters?: {
   });
 };
 
-export const useExcoHierarchy = (state: string = "Katsina") => {
+export const useExcoHierarchy = (state: string = "Kogi") => {
   return useQuery({
     queryKey: ["exco-hierarchy", state],
     queryFn: async () => {

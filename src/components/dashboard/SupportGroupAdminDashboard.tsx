@@ -129,7 +129,7 @@ const SupportGroupAdminDashboard = () => {
                       <h4 className="text-lg font-extrabold text-apc-red">
                         Governor Campaign
                       </h4>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Aligned to Katsina State Central Command</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">Aligned to Kogi State Central Command</p>
                     </div>
                   </CardContent>
                 </Card>

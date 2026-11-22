@@ -42,7 +42,7 @@ export const PollingUnitReports = () => {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
   // Kogi approximate center
-  const katsinaCenter: [number, number] = [7.8023, 6.7430];
+  const kogiCenter: [number, number] = [7.8023, 6.7430];
 
   const fetchLocations = async () => {
     setLoading(true);
@@ -187,7 +187,7 @@ export const PollingUnitReports = () => {
                 selectedAgentLogs={selectedAgentLogs}
                 selectedAgentId={selectedAgentId}
                 selectedAgentData={selectedAgentData}
-                katsinaCenter={katsinaCenter}
+                kogiCenter={kogiCenter}
               />
             </CardContent>
           </Card>

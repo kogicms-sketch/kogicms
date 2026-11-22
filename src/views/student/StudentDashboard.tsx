@@ -65,8 +65,7 @@ export default function StudentDashboard() {
     // EXCLUDE NON-STUDENT TRADES & ENTERPRISES
     const tradeKeywords = [
       "tailoring", "embroidery", "poultry", "livestock", "farm", "shop", "vendor",
-      "mai kantin", "mai abinci", "mai dabbobi", "mai kayan", "keke", "tricycle",
-      "atambfa", "fabrication", "workshop", "cosmetics", "perfume", "charcoal",
+      "food vendor", "livestock trader", "produce merchant", "grocery", "tricycle", "fabrication", "workshop", "cosmetics", "perfume", "charcoal",
       "barbing", "salon", "carpentry", "furniture", "catering", "provisions",
       "textile", "merchant", "dealer", "showroom", "enterprise", "fleet",
       "lga:", "ward:", "civil servant", "ministry", "irrigation", "rain-fed",
@@ -179,8 +178,7 @@ export default function StudentDashboard() {
 
     const tradeKeywords = [
       "tailoring", "embroidery", "poultry", "livestock", "farm", "shop", "vendor",
-      "mai kantin", "mai abinci", "mai dabbobi", "mai kayan", "keke", "tricycle",
-      "atambfa", "fabrication", "workshop", "cosmetics", "perfume", "charcoal",
+      "food vendor", "livestock trader", "produce merchant", "grocery", "tricycle", "fabrication", "workshop", "cosmetics", "perfume", "charcoal",
       "barbing", "salon", "carpentry", "furniture", "catering", "provisions",
       "textile", "merchant", "dealer", "showroom", "enterprise", "fleet",
       "lga:", "ward:", "civil servant", "ministry", "irrigation", "rain-fed",

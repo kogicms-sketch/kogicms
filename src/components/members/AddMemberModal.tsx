@@ -12,6 +12,7 @@ import {
   voterDobToDate,
   type VoterRecord,
 } from "@/hooks/useVoterRegistry";
+import { localVoterService } from "@/services/LocalVoterService";
 import { useOrganizations } from "@/hooks/useOrganizations";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserOrganization } from "@/hooks/useUserOrganization";
@@ -61,55 +62,55 @@ const COMMON_OCCUPATIONS = [
 ];
 
 const TRADER_SUB_TRADES = [
-  "Grain / Produce Merchant (Mai Hatsi)",
-  "Livestock Trader (Mai Dabbobi)",
-  "Textile / Wrapper Dealer (Mai Atamfa da Yadudduka)",
-  "Provisions Shop Owner (Mai Kantin Shago)",
-  "Tea & Bread Vendor (Mai Shayi da Buredi)",
-  "Perishable Goods / Vegetable Vendor (Mai Kayan Miya)",
-  "Mobile Phone Accessory / Charging Point (Mai Charge da Waya)",
-  "POS Agent / Mobile Money Operator (Mai POS)",
-  "Butcher / Meat Vendor (Mai Naman Shanu/Akuya)",
-  "Cosmetics & Perfume Seller (Mai Kayan Kwalliya)",
-  "Footwear & Shoe Dealer (Mai Takalma)",
-  "Hardware & Building Materials (Mai Kayan Gini)",
-  "Auto / Motorcycle Spare Parts (Mai Kayan Mota da Keke)",
-  "Second-Hand Clothes Merchant (Mai Gwanjo)",
-  "Gold & Silver Goldsmith (Mai Gyaran Gwal)",
-  "Charcoal / Firewood Seller (Mai Gawayi da Itace)",
-  "Catering / Cooked Food Vendor (Mai Abinci)",
-  "Cement Dealer (Mai Simenti)",
-  "Plastic Ware & Kitchen Utensils (Mai Kayan Robobi)",
-  "Electrical Appliances Dealer (Mai Kayan Wutar Lantarki)",
-  "Tailoring Materials Merchant (Mai Kayan Dinki)",
+  "Grain & Agricultural Produce Merchant",
+  "Livestock Trader",
+  "Textile, Fabric & Lace Dealer",
+  "Provisions & Grocery Store Owner",
+  "Tea, Coffee & Beverage Vendor",
+  "Perishable Goods & Fresh Produce Vendor",
+  "Mobile Phone Accessories & Charging Point",
+  "POS Agent & Mobile Money Operator",
+  "Butcher & Fresh Meat Vendor",
+  "Cosmetics & Beauty Products Seller",
+  "Footwear & Shoe Dealer",
+  "Hardware & Building Materials Dealer",
+  "Auto & Motorcycle Spare Parts Dealer",
+  "Second-Hand Clothing & Thrift Merchant",
+  "Jewelry & Goldsmith Services",
+  "Charcoal & Cooking Fuel Vendor",
+  "Catering & Cooked Food Vendor",
+  "Cement & Masonry Supplies Dealer",
+  "Plastic Ware & Household Utensils",
+  "Electrical Appliances Dealer",
+  "Tailoring Materials & Haberdashery",
   "Other Trader"
 ];
 
 // STUDENT_INSTITUTIONS imported from @/data/student_institutions
 
 const BUSINESS_SECTORS = [
-  "Commercial Transport Fleet (Mota/Buses)",
-  "Tricycle Operations Owner (Keke Napep Fleet)",
-  "Commercial Motorcycle Fleet (Achaba Operator)",
-  "Pharmacy / Wholesale Chemist",
-  "Patent Medicine Store (Local Chemist Shop)",
+  "Commercial Transport Fleet (Buses & Taxis)",
+  "Commercial Tricycle Fleet Operator",
+  "Commercial Motorcycle Fleet Operator",
+  "Pharmacy & Wholesale Chemist",
+  "Patent Medicine Store (Community Chemist)",
   "Block Industry & Concrete Molding Yard",
-  "Tailoring & Embroidery Fashion Center",
+  "Tailoring & Fashion Design Center",
   "Computer Cyber Café & IT Support Center",
   "Welding & Iron Fabrication Workshop",
   "Carpentry & Furniture Showroom",
-  "Grain Milling & Agro-Processing Factory (Gidan Nika)",
-  "Bakery / Confectionery Factory",
-  "Dry Cleaning & Laundry Business",
-  "Barbing / Hair Dressing Salon",
-  "Poultry / Livestock Farm Enterprise",
-  "Pure Water / Sachet Water Factory",
+  "Grain Milling & Agro-Processing Enterprise",
+  "Bakery & Confectionery Enterprise",
+  "Dry Cleaning & Laundry Services",
+  "Barbing & Hair Dressing Salon",
+  "Poultry & Livestock Farm Enterprise",
+  "Table Water & Beverage Production Factory",
   "Car Wash Outlet",
   "Printing Press & Graphic Design Studio",
-  "Scrap Metal Yard (Mai Kayan Ruwa)",
-  "Electrical / Solar Installation Agency",
-  "Artisan Workshop (Mechanic, Panel Beater)",
-  "Other / Unknown Business"
+  "Scrap Metal & Recycling Yard",
+  "Electrical & Solar Installation Agency",
+  "Automotive Workshop & Mechanics",
+  "Other Enterprise"
 ];
 
 const KOGI_MINISTRIES = [
@@ -208,14 +209,19 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
   const [puVoters, setPuVoters] = useState<VoterRecord[]>([]);
   const [puVotersLoading, setPuVotersLoading] = useState(false);
   const [puVoterSearch, setPuVoterSearch] = useState("");
+  const [puTotalInecCount, setPuTotalInecCount] = useState<number>(0);
+  const [puRegisteredCount, setPuRegisteredCount] = useState<number>(0);
   const [showManualPvcOption, setShowManualPvcOption] = useState(false);
   const [searching, setSearching] = useState(false);
 
-  // Fetch voters for the selected Polling Unit
+  // Fetch voters for the selected Polling Unit from local INEC dataset
   useEffect(() => {
+    let isMounted = true;
     const fetchPuVoters = async () => {
       if (!formData.lga || !formData.ward || !formData.polling_unit) {
         setPuVoters([]);
+        setPuTotalInecCount(0);
+        setPuRegisteredCount(0);
         return;
       }
       
@@ -224,30 +230,71 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
         const puObj = getPollingUnitObjects(formData.lga, formData.ward).find(
           pu => pu.name === formData.polling_unit
         );
-        
-        if (!puObj?.code) {
-          setPuVoters([]);
-          return;
+        const puIdentifier = puObj?.code || formData.polling_unit;
+
+        // 1. Load INEC voters from local extracted files (offline, zero Supabase network latency)
+        const rawLocalVoters = await localVoterService.getPollingUnitVoters(
+          formData.lga,
+          formData.ward,
+          puIdentifier
+        );
+
+        // 2. Fetch already registered members from Supabase to filter them out
+        // Existing registered voters transferred to active member roster
+        const registeredVins = new Set();
+        try {
+          const { data: registeredMembers } = await supabase
+            .from("members")
+            .select("voters_card_id")
+            .eq("lga", formData.lga);
+          if (registeredMembers) {
+            registeredMembers.forEach(m => {
+              if (m.voters_card_id) {
+                registeredVins.add(m.voters_card_id.trim().toUpperCase());
+              }
+            });
+          }
+        } catch (err) {
+          console.warn("Could not check registered members in Supabase:", err);
         }
 
-        const standardCode = getStandardPuCode(formData.lga, puObj.code);
-        
-        const { data, error } = await supabase
-          .from("voter_registry")
-          .select("*")
-          .eq("polling_unit_code", standardCode)
-          .order("full_name", { ascending: true });
-          
-        if (error) throw error;
-        setPuVoters(data || []);
+        // 3. Exclude registered members from INEC list
+        const availableVoters: VoterRecord[] = rawLocalVoters
+          .filter(v => !registeredVins.has((v.vin || "").trim().toUpperCase()))
+          .map(v => ({
+            id: v.vin,
+            vin: v.vin,
+            full_name: v.full_name,
+            dob_year: v.dob_year,
+            gender: v.gender,
+            lga: v.lga,
+            ward: v.ward,
+            polling_unit_code: v.polling_unit_code,
+            polling_unit_name: v.polling_unit_name,
+            photo_url: null,
+          }));
+
+        if (isMounted) {
+          setPuTotalInecCount(rawLocalVoters.length);
+          setPuRegisteredCount(rawLocalVoters.length - availableVoters.length);
+          setPuVoters(availableVoters);
+        }
       } catch (err) {
         console.error("Error fetching voters for polling unit:", err);
+        if (isMounted) {
+          setPuVoters([]);
+          setPuTotalInecCount(0);
+          setPuRegisteredCount(0);
+        }
       } finally {
-        setPuVotersLoading(false);
+        if (isMounted) {
+          setPuVotersLoading(false);
+        }
       }
     };
     
     fetchPuVoters();
+    return () => { isMounted = false; };
   }, [formData.lga, formData.ward, formData.polling_unit]);
 
   const [showOccupationDropdown, setShowOccupationDropdown] = useState(false);
@@ -327,25 +374,46 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
     setLookupError(null);
     setSearching(true);
     try {
-      const { data, error } = await supabase
-        .from("voter_registry")
-        .select("*")
-        .eq("vin", vinInput.trim())
-        .eq("lga", formData.lga)
-        .eq("ward", formData.ward)
+      const trimmedVin = vinInput.trim().toUpperCase();
+
+      // 1. Check if voter already registered as a campaign member in Supabase
+      const { data: existingMember } = await supabase
+        .from("members")
+        .select("id, full_name, voters_card_id")
+        .eq("voters_card_id", trimmedVin)
         .maybeSingle();
 
-      if (error) throw error;
+      if (existingMember) {
+        setMatchedVoter(null);
+        setLookupError(`This voter (${existingMember.full_name}) is already registered as a member in the campaign!`);
+        return;
+      }
 
-      if (data) {
-        applyVoter(data as VoterRecord);
+      // 2. Search local INEC register for this ward
+      const localVoter = await localVoterService.findWardVoterByVin(formData.lga, formData.ward, trimmedVin);
+
+      if (localVoter) {
+        const voterRec: VoterRecord = {
+          id: localVoter.vin,
+          vin: localVoter.vin,
+          full_name: localVoter.full_name,
+          dob_year: localVoter.dob_year,
+          gender: localVoter.gender,
+          lga: localVoter.lga,
+          ward: localVoter.ward,
+          polling_unit_code: localVoter.polling_unit_code,
+          polling_unit_name: localVoter.polling_unit_name,
+          photo_url: null,
+        };
+        applyVoter(voterRec);
         setFormData(prev => ({ ...prev, pvcStatus: "collected" }));
         setShowManualPvcOption(false);
       } else {
         setMatchedVoter(null);
         setLookupError("No registered voter found for that VIN in the selected ward.");
       }
-    } catch {
+    } catch (err) {
+      console.error("VIN lookup error:", err);
       setLookupError("Lookup failed. Please try again.");
     } finally {
       setSearching(false);
@@ -360,22 +428,47 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
     setLookupError(null);
     setSearching(true);
     try {
-      const { data, error } = await supabase
-        .from("voter_registry")
-        .select("*")
-        .eq("lga", formData.lga)
-        .eq("ward", formData.ward)
-        .ilike("full_name", `%${nameQuery.trim()}%`)
-        .order("full_name", { ascending: true })
-        .limit(200);
+      // 1. Search local INEC register in this ward
+      const localMatches = await localVoterService.searchWardVoters(formData.lga, formData.ward, nameQuery.trim());
 
-      if (error) throw error;
-
-      setNameResults(data as VoterRecord[]);
-      if (!data || data.length === 0) {
-        setLookupError("No registered voters match that name in this ward.");
+      // 2. Fetch registered campaign members in this LGA from Supabase to filter out
+      const registeredVins = new Set();
+      try {
+        const { data: registeredMembers } = await supabase
+          .from("members")
+          .select("voters_card_id")
+          .eq("lga", formData.lga);
+        if (registeredMembers) {
+          registeredMembers.forEach(m => {
+            if (m.voters_card_id) registeredVins.add(m.voters_card_id.trim().toUpperCase());
+          });
+        }
+      } catch (err) {
+        console.warn("Could not check registered members in Supabase:", err);
       }
-    } catch {
+
+      // 3. Filter out registered members
+      const availableMatches: VoterRecord[] = localMatches
+        .filter(v => !registeredVins.has((v.vin || "").trim().toUpperCase()))
+        .map(v => ({
+          id: v.vin,
+          vin: v.vin,
+          full_name: v.full_name,
+          dob_year: v.dob_year,
+          gender: v.gender,
+          lga: v.lga,
+          ward: v.ward,
+          polling_unit_code: v.polling_unit_code,
+          polling_unit_name: v.polling_unit_name,
+          photo_url: null,
+        }));
+
+      setNameResults(availableMatches);
+      if (availableMatches.length === 0) {
+        setLookupError("No available registered voters match that name in this ward.");
+      }
+    } catch (err) {
+      console.error("Name search error:", err);
       setLookupError("Search failed. Please try again.");
     } finally {
       setSearching(false);
@@ -698,7 +791,11 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
                   <h3 className="text-sm font-semibold text-foreground">2. Polling Unit Voters</h3>
                 </div>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                  {puVotersLoading ? "Loading..." : `${puVoters.length} Voters`}
+                  {puVotersLoading
+                  ? "Loading..."
+                  : puRegisteredCount > 0
+                  ? `${puVoters.length} Remaining (${puRegisteredCount} Registered / ${puTotalInecCount} Total INEC)`
+                  : `${puVoters.length} Voters`}
                 </span>
               </div>
 
@@ -1222,8 +1319,8 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
                       onChange={(e) => setFormData({ ...formData, farmerSeasonalType: e.target.value })}
                     >
                       <option value="">Select Season</option>
-                      <option value="Noman Damana (Rain-fed)">Noman Damana (Rain-fed)</option>
-                      <option value="Noman Rani (Irrigation)">Noman Rani (Irrigation)</option>
+                      <option value="Rain-fed Farming">Rain-fed Farming</option>
+                      <option value="Irrigation / Dry Season Farming">Irrigation / Dry Season Farming</option>
                       <option value="Both">Both</option>
                     </select>
                   </div>

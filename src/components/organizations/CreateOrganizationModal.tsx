@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { X, Check, Loader2, Eye, EyeOff, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { KATSINA_LGAS, getWardsForLga, getPollingUnitsForWard } from "@/lib/campaign-data";
+import { KOGI_LGAS, getWardsForLga, getPollingUnitsForWard } from "@/lib/campaign-data";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -35,7 +35,7 @@ export const CreateOrganizationModal = ({ isOpen, onClose }: CreateOrganizationM
     name: "",
     type: "",
     description: "",
-    state: "Katsina",
+    state: "Kogi",
     lga: "",
     ward: "",
     polling_unit: "",
@@ -123,7 +123,7 @@ export const CreateOrganizationModal = ({ isOpen, onClose }: CreateOrganizationM
         name: "",
         type: "",
         description: "",
-        state: "Katsina",
+        state: "Kogi",
         lga: "",
         ward: "",
         polling_unit: "",
@@ -204,7 +204,7 @@ export const CreateOrganizationModal = ({ isOpen, onClose }: CreateOrganizationM
               <input
                 readOnly
                 className="input-premium w-full bg-muted/50"
-                value="Katsina"
+                value="Kogi"
               />
             </div>
             <div className="space-y-2">
@@ -215,7 +215,7 @@ export const CreateOrganizationModal = ({ isOpen, onClose }: CreateOrganizationM
                 onChange={(e) => setFormData({ ...formData, lga: e.target.value, ward: "" })}
               >
                 <option value="">Select LGA</option>
-                {KATSINA_LGAS.map((lga) => (
+                {KOGI_LGAS.map((lga) => (
                   <option key={lga} value={lga}>{lga}</option>
                 ))}
               </select>

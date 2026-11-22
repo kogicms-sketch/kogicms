@@ -12,6 +12,38 @@ export interface LocalVoter {
   polling_unit_name: string;
 }
 
+export interface RawVoterRecord {
+  sn?: number;
+  name?: string;
+  full_name?: string;
+  vin: string;
+  dob_year?: number | null;
+  gender?: string | null;
+  pu_code?: string;
+  pu_name?: string;
+  ward_name?: string;
+  lga?: string;
+}
+
+export interface WardPollingUnitData {
+  pu_code: string;
+  pu_name: string;
+  pdf_file?: string;
+  total_records: number;
+  voters_extracted: number;
+  voters: RawVoterRecord[];
+}
+
+export interface WardData {
+  lga: string;
+  ward_folder: string;
+  ward_code: string;
+  ward_name: string;
+  polling_units_count: number;
+  total_voters: number;
+  polling_units: WardPollingUnitData[];
+}
+
 interface RawIndexItem {
   vin: string;
   name: string;
@@ -76,6 +108,13 @@ class LocalVoterRegistry {
   private cache: Map<string, LocalVoter[]> = new Map();
   private loadingPromises: Map<string, Promise<LocalVoter[]>> = new Map();
   private summaries: Map<string, LgaSummary> = new Map();
+  private wardCache: Map<string, WardData> = new Map();
+  private wardLoadingPromises: Map<string, Promise<WardData | null>> = new Map();
+
+  // Helper to normalize strings for matching
+  public normalizeKey(s: string): string {
+    return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
 
   // Normalize LGA name to folder key, e.g. "Adavi" -> "01_ADAVI"
   public getLgaFolder(lgaName: string): string {
@@ -231,6 +270,192 @@ class LocalVoterRegistry {
       total: filtered.length,
       results: filtered.slice(0, limit),
     };
+  }
+
+  // Load ward data directly from /voters_data/${lgaFolder}/wards/${wardFolder}.json
+  public async getWardData(lgaName: string, wardName: string): Promise<WardData | null> {
+    const folder = this.getLgaFolder(lgaName);
+    const normWard = this.normalizeKey(wardName);
+    const cacheKey = `${folder}:${normWard}`;
+
+    if (this.wardCache.has(cacheKey)) {
+      return this.wardCache.get(cacheKey)!;
+    }
+
+    if (this.wardLoadingPromises.has(cacheKey)) {
+      return this.wardLoadingPromises.get(cacheKey)!;
+    }
+
+    const promise = (async () => {
+      try {
+        const summary = await this.getSummary(lgaName);
+        if (!summary || !summary.wards) return null;
+
+        // Find matching ward in summary
+        const wardMeta = summary.wards.find(
+          (w) => this.normalizeKey(w.ward_name) === normWard || this.normalizeKey(w.ward_folder).includes(normWard)
+        );
+
+        let targetPath = "";
+        if (wardMeta?.file_path) {
+          targetPath = wardMeta.file_path.startsWith("/") ? wardMeta.file_path : `/${wardMeta.file_path}`;
+          if (!targetPath.startsWith("/voters_data/")) {
+            targetPath = `/voters_data/${folder}/${targetPath.replace(/^\//, "")}`;
+          }
+        } else if (wardMeta?.ward_folder) {
+          targetPath = `/voters_data/${folder}/wards/${wardMeta.ward_folder}.json`;
+        } else {
+          return null;
+        }
+
+        const data = await this.fetchJson<WardData>(targetPath);
+        if (data) {
+          this.wardCache.set(cacheKey, data);
+          return data;
+        }
+        return null;
+      } catch (err) {
+        console.warn(`Failed to load ward data for ${lgaName} / ${wardName}:`, err);
+        return null;
+      } finally {
+        this.wardLoadingPromises.delete(cacheKey);
+      }
+    })();
+
+    this.wardLoadingPromises.set(cacheKey, promise);
+    return promise;
+  }
+
+  // Get voters for a specific polling unit
+  public async getPollingUnitVoters(
+    lgaName: string,
+    wardName: string,
+    puNameOrCode: string
+  ): Promise<LocalVoter[]> {
+    const wardData = await this.getWardData(lgaName, wardName);
+    if (!wardData || !wardData.polling_units) return [];
+
+    const normTarget = this.normalizeKey(puNameOrCode);
+    const targetUpper = puNameOrCode.trim().toUpperCase();
+
+    // Match PU by code or name
+    const matchedPu = wardData.polling_units.find((pu) => {
+      const puCodeUpper = (pu.pu_code || "").trim().toUpperCase();
+      if (puCodeUpper === targetUpper || puCodeUpper.includes(targetUpper) || targetUpper.includes(puCodeUpper)) {
+        return true;
+      }
+      const normPuName = this.normalizeKey(pu.pu_name);
+      return normPuName === normTarget || normPuName.includes(normTarget) || normTarget.includes(normPuName);
+    });
+
+    if (!matchedPu || !matchedPu.voters) return [];
+
+    return matchedPu.voters.map((v) => ({
+      vin: v.vin,
+      full_name: v.name || v.full_name || "",
+      gender: v.gender || "",
+      dob_year: v.dob_year ?? null,
+      lga: v.lga || wardData.lga || lgaName,
+      ward: v.ward_name || wardData.ward_name || wardName,
+      polling_unit_code: v.pu_code || matchedPu.pu_code,
+      polling_unit_name: v.pu_name || matchedPu.pu_name,
+    }));
+  }
+
+  // Search all voters in a ward by name or VIN
+  public async searchWardVoters(
+    lgaName: string,
+    wardName: string,
+    query: string,
+    limit: number = 200
+  ): Promise<LocalVoter[]> {
+    const wardData = await this.getWardData(lgaName, wardName);
+    if (!wardData || !wardData.polling_units) return [];
+
+    const trimmed = query.trim().toUpperCase();
+    if (!trimmed) return [];
+
+    const results: LocalVoter[] = [];
+    const tokens = trimmed.split(/\s+/).filter(Boolean);
+
+    for (const pu of wardData.polling_units) {
+      if (!pu.voters) continue;
+      for (const v of pu.voters) {
+        const vName = (v.name || v.full_name || "").toUpperCase();
+        const vVin = (v.vin || "").toUpperCase();
+
+        const matchesVin = vVin.includes(trimmed);
+        const matchesName = tokens.every((token) => vName.includes(token));
+
+        if (matchesVin || matchesName) {
+          results.push({
+            vin: v.vin,
+            full_name: v.name || v.full_name || "",
+            gender: v.gender || "",
+            dob_year: v.dob_year ?? null,
+            lga: v.lga || wardData.lga || lgaName,
+            ward: v.ward_name || wardData.ward_name || wardName,
+            polling_unit_code: v.pu_code || pu.pu_code,
+            polling_unit_name: v.pu_name || pu.pu_name,
+          });
+
+          if (results.length >= limit) return results;
+        }
+      }
+    }
+
+    return results;
+  }
+
+  // Find voter in ward by exact or partial VIN
+  public async findWardVoterByVin(
+    lgaName: string,
+    wardName: string,
+    vin: string
+  ): Promise<LocalVoter | null> {
+    const trimmed = vin.trim().toUpperCase();
+    if (!trimmed) return null;
+
+    const wardData = await this.getWardData(lgaName, wardName);
+    if (!wardData || !wardData.polling_units) return null;
+
+    // Exact match first
+    for (const pu of wardData.polling_units) {
+      if (!pu.voters) continue;
+      const exact = pu.voters.find((v) => (v.vin || "").toUpperCase() === trimmed);
+      if (exact) {
+        return {
+          vin: exact.vin,
+          full_name: exact.name || exact.full_name || "",
+          gender: exact.gender || "",
+          dob_year: exact.dob_year ?? null,
+          lga: exact.lga || wardData.lga || lgaName,
+          ward: exact.ward_name || wardData.ward_name || wardName,
+          polling_unit_code: exact.pu_code || pu.pu_code,
+          polling_unit_name: exact.pu_name || pu.pu_name,
+        };
+      }
+    }
+
+    // Partial match fallback
+    for (const pu of wardData.polling_units) {
+      if (!pu.voters) continue;
+      const partial = pu.voters.find((v) => (v.vin || "").toUpperCase().includes(trimmed));
+      if (partial) {
+        return {
+          vin: partial.vin,
+          full_name: partial.name || partial.full_name || "",
+          gender: partial.gender || "",
+          dob_year: partial.dob_year ?? null,
+          lga: partial.lga || wardData.lga || lgaName,
+          ward: partial.ward_name || wardData.ward_name || wardName,
+          polling_unit_code: partial.pu_code || pu.pu_code,
+          polling_unit_name: partial.pu_name || pu.pu_name,
+        };
+      }
+    }
+
+    return null;
   }
 }
 

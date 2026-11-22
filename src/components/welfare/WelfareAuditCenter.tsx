@@ -94,7 +94,7 @@ export const WelfareAuditCenter = () => {
         <div>
           <h2 className="text-xl font-bold flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-green-600" />
-            Audit & Quality Assurance Center (Aikin Gaskiya)
+            Audit & Quality Assurance Center (Integrity & Due Diligence)
           </h2>
           <p className="text-xs text-muted-foreground mt-1">
             Conduct random call audits on disbursed welfare packages to verify direct physical handover.

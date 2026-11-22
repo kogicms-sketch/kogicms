@@ -1,5 +1,5 @@
-export interface PartyResult {
-    partyCode: string; // Party A, Party B, Party C
+export interface DigitalResult {
+    partyCode: string;
     score: number;
 }
 
@@ -9,9 +9,9 @@ export interface ResultSheet {
     pollingUnitName: string;
     ward: string;
     lga: string;
-    imageUrl: string; // URL to EC8A
-    digitalResults: PartyResult[];
-    status: 'pending' | 'verified' | 'flagged' | 'rejected';
+    imageUrl: string;
+    digitalResults: DigitalResult[];
+    status: 'pending' | 'verified' | 'flagged';
     uploadedAt: string;
     uploadedBy: string;
     flagReason?: string;
@@ -20,16 +20,16 @@ export interface ResultSheet {
 export const MOCK_RESULTS: ResultSheet[] = [
     {
         id: 'RES-001',
-        pollingUnitId: 'PU-011-04-001',
-        pollingUnitName: 'Kofar Gidan Mai Unguwa',
-        ward: 'Bakori A',
-        lga: 'Bakori',
+        pollingUnitId: '22-01-01-001',
+        pollingUnitName: 'LGEA Primary School, Kuroko',
+        ward: 'Kuroko I',
+        lga: 'Adavi',
         imageUrl: '/samples/ec8a-clean.png',
         digitalResults: [
-            { partyCode: 'APC', score: 154 },
-            { partyCode: 'PDP', score: 120 },
-            { partyCode: 'LP', score: 85 },
-            { partyCode: 'NNPP', score: 40 }
+            { partyCode: 'APM', score: 254 },
+            { partyCode: 'APC', score: 120 },
+            { partyCode: 'PDP', score: 85 },
+            { partyCode: 'LP', score: 40 }
         ],
         status: 'pending',
         uploadedAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
@@ -37,37 +37,37 @@ export const MOCK_RESULTS: ResultSheet[] = [
     },
     {
         id: 'RES-002',
-        pollingUnitId: 'PU-011-04-002',
-        pollingUnitName: 'Primary School Bakori',
-        ward: 'Bakori A',
-        lga: 'Bakori',
+        pollingUnitId: '22-17-01-002',
+        pollingUnitName: 'Community Centre, Okene Central',
+        ward: 'Okene Central',
+        lga: 'Okene',
         imageUrl: '/samples/ec8a-clean.png',
         digitalResults: [
-            { partyCode: 'APC', score: 98 },
-            { partyCode: 'PDP', score: 205 },
-            { partyCode: 'LP', score: 4 },
-            { partyCode: 'NNPP', score: 12 }
+            { partyCode: 'APM', score: 310 },
+            { partyCode: 'APC', score: 145 },
+            { partyCode: 'PDP', score: 62 },
+            { partyCode: 'LP', score: 18 }
         ],
         status: 'verified',
         uploadedAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-        uploadedBy: 'PO: Musa Ibrahim'
+        uploadedBy: 'PO: Ibrahim Musa'
     },
     {
         id: 'RES-003',
-        pollingUnitId: 'PU-034-01-009',
-        pollingUnitName: 'Kofar Fada',
-        ward: 'Katsina Ward A',
-        lga: 'Katsina',
+        pollingUnitId: '22-12-01-003',
+        pollingUnitName: 'Crowther Memorial School Ground',
+        ward: 'Lokoja A',
+        lga: 'Lokoja',
         imageUrl: '/samples/ec8a-messy.png',
         digitalResults: [
-            { partyCode: 'APC', score: 442 },
-            { partyCode: 'PDP', score: 340 },
-            { partyCode: 'LP', score: 216 },
-            { partyCode: 'NNPP', score: 492 }
+            { partyCode: 'APM', score: 442 },
+            { partyCode: 'APC', score: 340 },
+            { partyCode: 'PDP', score: 216 },
+            { partyCode: 'LP', score: 92 }
         ],
         status: 'flagged',
         flagReason: 'Discrepancy in total votes cast vs accredited voters',
         uploadedAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-        uploadedBy: 'PO: Sani Yusuf'
+        uploadedBy: 'PO: David Yusuf'
     }
 ];

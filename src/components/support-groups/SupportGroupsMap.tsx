@@ -248,7 +248,7 @@ export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
               Geographical Coverage Map
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground mt-0.5">
-              Campaign intelligence map showing LGA mobilization & activity statuses across Katsina State
+              Campaign intelligence map showing LGA mobilization & activity statuses across Kogi State
             </CardDescription>
           </div>
           {statsCounts.blind_spot > 0 && (

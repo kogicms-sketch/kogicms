@@ -57,7 +57,7 @@ const Welfare = () => {
             {isSuperAdmin && (
               <TabsTrigger value="audit" className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4" />
-                Aikin Gaskiya Audit Center
+                Integrity & Welfare Audit Center
               </TabsTrigger>
             )}
           </TabsList>

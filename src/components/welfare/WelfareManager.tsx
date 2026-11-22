@@ -910,7 +910,7 @@ export const WelfareManager = () => {
                 <input
                   required
                   className="input-premium w-full text-sm"
-                  placeholder="e.g., Katsina Central Student Scholarship Phase 1"
+                  placeholder="e.g., Kogi Central Student Scholarship Phase 1"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                 />

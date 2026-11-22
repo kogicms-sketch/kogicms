@@ -240,7 +240,7 @@ const ChairmanDashboard = () => {
                                     className="bg-white/15 hover:bg-white/25 text-white border-white/30 text-xs sm:text-sm gap-2 backdrop-blur shadow-sm"
                                 >
                                     <KeyRound className="w-4 h-4 text-emerald-300" />
-                                    Sauya Kalmar Sirri (Change Password)
+                                    Change Password
                                 </Button>
                             </div>
                         </div>
@@ -270,7 +270,7 @@ const ChairmanDashboard = () => {
                                             Expected Turnout & Campaign Mobilization
                                         </CardTitle>
                                         <p className="text-xs text-muted-foreground">
-                                            Masu zaɓen da aka yi wa rajista a wannan campaign
+                                            Registered voters mobilized in this campaign
                                         </p>
                                     </div>
                                 </div>
@@ -338,10 +338,10 @@ const ChairmanDashboard = () => {
                                 </div>
                                 <div>
                                     <CardTitle className="text-base font-bold text-gray-800">
-                                        Rarrabuwar Jinsi (Gender Breakdown)
+                                        Voter Demographics & Gender Breakdown
                                     </CardTitle>
                                     <p className="text-xs text-muted-foreground">
-                                        Adadin maza da mata masu zaɓe a {chairman.lga} LGA
+                                        Distribution of male and female registered voters in {chairman.lga} LGA
                                     </p>
                                 </div>
                             </div>
@@ -351,7 +351,7 @@ const ChairmanDashboard = () => {
                                 <div className="bg-blue-50/70 p-3.5 rounded-xl border border-blue-100 flex items-center justify-between">
                                     <div>
                                         <span className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
-                                            👨 Maza (Male Voters)
+                                            👨 Male Voters
                                         </span>
                                         <div className="text-xl sm:text-2xl font-extrabold text-blue-900 mt-1">
                                             {stats?.maleVoters?.toLocaleString() || 0}
@@ -365,7 +365,7 @@ const ChairmanDashboard = () => {
                                 <div className="bg-rose-50/70 p-3.5 rounded-xl border border-rose-100 flex items-center justify-between">
                                     <div>
                                         <span className="text-xs font-semibold text-rose-800 flex items-center gap-1.5">
-                                            👩 Mata (Female Voters)
+                                            👩 Female Voters
                                         </span>
                                         <div className="text-xl sm:text-2xl font-extrabold text-rose-900 mt-1">
                                             {stats?.femaleVoters?.toLocaleString() || 0}
@@ -380,8 +380,8 @@ const ChairmanDashboard = () => {
                             {/* Split Bar */}
                             <div>
                                 <div className="flex justify-between text-xs text-gray-500 mb-1.5 font-medium">
-                                    <span className="text-blue-700 font-semibold">Maza: {stats?.malePct || "50%"}</span>
-                                    <span className="text-rose-700 font-semibold">Mata: {stats?.femalePct || "50%"}</span>
+                                    <span className="text-blue-700 font-semibold">Male: {stats?.malePct || "50%"}</span>
+                                    <span className="text-rose-700 font-semibold">Female: {stats?.femalePct || "50%"}</span>
                                 </div>
                                 <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden flex">
                                     <div

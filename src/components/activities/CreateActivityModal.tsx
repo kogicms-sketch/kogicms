@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MapPin, Loader2 } from "lucide-react";
-import { KATSINA_LGAS, getWardsForLga } from "@/lib/campaign-data";
+import { KOGI_LGAS, getWardsForLga } from "@/lib/campaign-data";
 import { useCreateActivity } from "@/hooks/useActivities";
 import { useOrganizations } from "@/hooks/useOrganizations";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,7 +48,7 @@ export function CreateActivityModal({ children }: { children?: React.ReactNode }
     description: "",
     organizationId: "",
     location: "",
-    state: "Katsina",
+    state: "Kogi",
     lga: "",
     ward: "",
     date: "",
@@ -102,7 +102,7 @@ export function CreateActivityModal({ children }: { children?: React.ReactNode }
       description: "",
       organizationId: "",
       location: "",
-      state: "Katsina",
+      state: "Kogi",
       lga: "",
       ward: "",
       date: "",
@@ -201,7 +201,7 @@ export function CreateActivityModal({ children }: { children?: React.ReactNode }
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>State</Label>
-              <Input value="Katsina State" disabled className="bg-muted" />
+              <Input value="Kogi State" disabled className="bg-muted" />
             </div>
 
             <div className="space-y-2">
@@ -214,7 +214,7 @@ export function CreateActivityModal({ children }: { children?: React.ReactNode }
                   <SelectValue placeholder="Select LGA" />
                 </SelectTrigger>
                 <SelectContent>
-                  {KATSINA_LGAS.map((lga) => (
+                  {KOGI_LGAS.map((lga) => (
                     <SelectItem key={lga} value={lga}>
                       {lga}
                     </SelectItem>
