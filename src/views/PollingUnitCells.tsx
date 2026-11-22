@@ -29,7 +29,7 @@ import {
 } from "@/hooks/usePollingUnitCells";
 import { useAuthorizedLgas } from "@/hooks/useAuthorizedLgas";
 import { useProfile } from "@/hooks/useSettings";
-import { KATSINA_LGAS, ALL_WARDS } from "@/data/aggregated_lga_data";
+import { KOGI_LGAS, ALL_WARDS } from "@/data/aggregated_lga_data";
 import {
   Select,
   SelectContent,
@@ -81,7 +81,7 @@ const PollingUnitCells = () => {
   });
 
   const isSuperAdmin = authorizedLgas?.includes("ALL");
-  const filteredLgas = isSuperAdmin ? KATSINA_LGAS : (authorizedLgas || []);
+  const filteredLgas = isSuperAdmin ? KOGI_LGAS : (authorizedLgas || []);
 
   const isLoading = cellsLoading || statsLoading || jurisdictionLoading;
 

@@ -115,7 +115,7 @@ const KATSINA_MINISTRIES = [
   "Ministry of Commerce, Industry and Tourism",
   "Ministry of Lands and Physical Planning",
   "Ministry of Religious Affairs",
-  "Katsina State Internal Revenue Service",
+  "Kogi State Internal Revenue Service",
   "State Emergency Management Agency (SEMA)",
   "Other Ministry / Parastatal"
 ];
@@ -178,7 +178,7 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
       if (STUDENT_INSTITUTIONS.includes(schoolName)) {
         studentInstitution = schoolName;
       } else {
-        studentInstitution = "Other Higher Institution Outside Katsina";
+        studentInstitution = "Other Higher Institution Outside Kogi";
         otherInstitution = schoolName;
       }
     } else if (occ === "Business Owner") {
@@ -414,7 +414,7 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
       if (finalOccupation === "Trader") {
         finalSchoolName = formData.subTrader === "Other Trader" ? formData.otherTrader : formData.subTrader;
       } else if (finalOccupation === "Student") {
-        finalSchoolName = formData.studentInstitution === "Other Higher Institution Outside Katsina" ? formData.otherInstitution : formData.studentInstitution;
+        finalSchoolName = formData.studentInstitution === "Other Higher Institution Outside Kogi" ? formData.otherInstitution : formData.studentInstitution;
         finalSchoolLevel = "Tertiary";
       } else if (finalOccupation === "Business Owner") {
         finalSchoolName = formData.businessSector === "Other / Unknown Business" ? formData.otherBusiness : formData.businessSector;
@@ -635,7 +635,7 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
                   placeholder="Search or select school (e.g. ABU, BUK, FUDMA, UNILAG)..."
                 />
               </div>
-              {formData.studentInstitution === "Other Higher Institution Outside Katsina" && (
+              {formData.studentInstitution === "Other Higher Institution Outside Kogi" && (
                 <div className="space-y-2 col-span-2 animate-fade-in">
                   <label className="text-sm font-medium">Specify Institution Name</label>
                   <input
@@ -824,7 +824,7 @@ export const EditMemberModal = ({ isOpen, onClose, member }: EditMemberModalProp
               </div>
               {formData.civilServantJurisdiction === "State Ministry" && (
                 <div className="space-y-2 col-span-2 animate-fade-in">
-                  <label className="text-sm font-medium">Katsina State Ministry</label>
+                  <label className="text-sm font-medium">Kogi State Ministry</label>
                   <select
                     required
                     className="input-premium w-full bg-card"

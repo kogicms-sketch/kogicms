@@ -210,6 +210,13 @@ export const navItems: NavItem[] = [
     ],
   },
   {
+    label: "INEC Voter Register",
+    icon: ShieldCheck,
+    path: "/voters",
+    group: "Main Menu",
+    inBottomNav: true,
+  },
+  {
     label: "Polling Unit Cells",
     icon: Target,
     path: "/polling-units",

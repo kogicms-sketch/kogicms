@@ -131,7 +131,7 @@ const MemberProfile = () => {
 
     const campaignName = partyId === "apc" 
         ? CAMPAIGN_NAME 
-        : `${member?.lga || "Katsina State"} Campaign`;
+        : `${member?.lga || "Kogi State"} Campaign`;
 
     // Debug log
     console.log("Member query result:", { member, isLoading, memberError, id });

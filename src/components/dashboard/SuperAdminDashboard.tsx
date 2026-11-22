@@ -309,7 +309,7 @@ const SuperAdminDashboard = () => {
                     </div>
                     {/* Zone Filtering Toggles */}
                     <div className="flex flex-wrap gap-1.5 bg-muted p-1 rounded-lg self-start sm:self-center">
-                        {["All", "Katsina Central", "Katsina North", "Katsina South"].map(zone => (
+                        {["All", "Kogi Central", "Kogi East", "Kogi West"].map(zone => (
                             <button
                                 key={zone}
                                 onClick={() => setSelectedZone(zone)}
@@ -319,7 +319,7 @@ const SuperAdminDashboard = () => {
                                         : "text-muted-foreground hover:text-foreground"
                                 }`}
                             >
-                                {zone.replace("Katsina ", "")}
+                                {zone.replace(/Kogi |Katsina /g, "")}
                             </button>
                         ))}
                     </div>
@@ -349,7 +349,7 @@ const SuperAdminDashboard = () => {
                                     >
                                         <div className="flex flex-col h-full justify-between gap-3">
                                             <div>
-                                                <span className="text-[9px] uppercase tracking-wider font-semibold opacity-70 block">{lgaItem.zone.replace("Katsina ", "")}</span>
+                                                <span className="text-[9px] uppercase tracking-wider font-semibold opacity-70 block">{lgaItem.zone.replace(/Kogi |Katsina /g, "")}</span>
                                                 <h4 className="text-sm font-bold truncate mt-0.5">{lgaItem.lga}</h4>
                                             </div>
                                             <div>

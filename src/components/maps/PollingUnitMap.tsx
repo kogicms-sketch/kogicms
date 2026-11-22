@@ -85,8 +85,8 @@ export const PollingUnitMap = ({
 }: PollingUnitMapProps) => {
   const [selectedUnit, setSelectedUnit] = useState<PollingUnitCell | null>(null);
 
-  // Katsina State approximate center
-  const katsinaCenter: [number, number] = [12.9908, 7.5965];
+  // Kogi State approximate center
+  const katsinaCenter: [number, number] = [7.8023, 6.7430];
 
   // Process units to add coordinates if missing
   const mappedUnits = useMemo(() => {

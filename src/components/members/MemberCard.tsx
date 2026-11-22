@@ -68,7 +68,7 @@ const MemberCard = ({ member, onClick }: MemberCardProps) => {
               )}
               <span className="flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-muted-foreground/80" />
-                <span className="font-medium">{member.state || member.lga || "Katsina"}</span>
+                <span className="font-medium">{member.state || member.lga || "Kogi"}</span>
               </span>
             </div>
           </div>

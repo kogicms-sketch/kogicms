@@ -283,7 +283,7 @@ export default function StudentDashboard() {
     > = {};
 
     studentMembers.forEach((m) => {
-      const lgaName = (m.lga || "Katsina").trim();
+      const lgaName = (m.lga || "Kogi").trim();
       if (!lgaMap[lgaName]) {
         lgaMap[lgaName] = { lga: lgaName, total: 0, verified: 0, males: 0, females: 0 };
       }
@@ -313,7 +313,7 @@ export default function StudentDashboard() {
   return (
     <DashboardLayout
       title="Student Campaign & Youth Affairs Dashboard"
-      subtitle="Exclusive real-time student monitoring portal tracking student registrations, top 10 tertiary institutions, gender distribution, and campus mobilization in Katsina State"
+      subtitle="Exclusive real-time student monitoring portal tracking student registrations, top 10 tertiary institutions, gender distribution, and campus mobilization in Kogi State"
     >
       <div className="space-y-6 pb-12">
         {/* Banner Card */}
@@ -332,14 +332,14 @@ export default function StudentDashboard() {
                   Exclusive Student Data Portal
                 </Badge>
                 <Badge variant="outline" className="text-emerald-200 border-emerald-400/30 text-xs">
-                  Katsina Tertiary & Secondary Students Network
+                  Kogi Tertiary & Secondary Students Network
                 </Badge>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white leading-tight">
                 Dikko Radda Student Affairs & Campus Monitor
               </h1>
               <p className="text-emerald-100/90 text-sm leading-relaxed">
-                Strictly filtered real-time database analytics monitoring ONLY registered student members across Katsina State institutions, campus chapters, and student voter mobilization.
+                Strictly filtered real-time database analytics monitoring ONLY registered student members across Kogi State institutions, campus chapters, and student voter mobilization.
               </p>
             </div>
 
@@ -467,7 +467,7 @@ export default function StudentDashboard() {
                 Student Gender Demographics (Male Students vs Female Students)
               </CardTitle>
               <CardDescription className="text-xs">
-                Real-time breakdown of registered male and female students across Katsina institutions
+                Real-time breakdown of registered male and female students across Kogi institutions
               </CardDescription>
             </div>
             <div className="flex items-center gap-3">
@@ -703,7 +703,7 @@ export default function StudentDashboard() {
                           {org.name}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">
-                          {org.lga || "Katsina State"}
+                          {org.lga || "Kogi State"}
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300 text-[10px] border-emerald-300">
@@ -745,7 +745,7 @@ export default function StudentDashboard() {
                   <div key={act.id} className="p-3 rounded-xl border bg-muted/20 space-y-1">
                     <h4 className="font-bold text-xs text-foreground">{act.title || "Campus Event"}</h4>
                     <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-emerald-600 inline" /> {act.lga || "Katsina"} · {act.ward || "Statewide"}
+                      <MapPin className="w-3 h-3 text-emerald-600 inline" /> {act.lga || "Kogi"} · {act.ward || "Statewide"}
                     </p>
                   </div>
                 ))
@@ -773,7 +773,7 @@ export default function StudentDashboard() {
                 LGA Student Member Breakdown
               </CardTitle>
               <CardDescription className="text-xs">
-                Real student member count per Local Government Area in Katsina State
+                Real student member count per Local Government Area in Kogi State
               </CardDescription>
             </div>
 

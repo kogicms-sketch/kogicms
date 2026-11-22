@@ -2,16 +2,33 @@ import { ALL_WARDS, ALL_POLLING_UNITS } from "../data/aggregated_lga_data";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { localRepository } from "@/services/LocalRepository";
 
-export const CAMPAIGN_NAME = "Dikko Radda Campaign";
-export const CAMPAIGN_STATE = "Katsina State";
+export const CAMPAIGN_NAME = "Kogi State Campaign";
+export const CAMPAIGN_STATE = "Kogi State";
 
-export const KATSINA_LGAS = [
-  "Bakori", "Batagarawa", "Batsari", "Baure", "Bindawa", "Charanchi", "Dandume",
-  "Danja", "Dan Musa", "Daura", "Dutsi", "Dutsin Ma", "Faskari", "Funtua",
-  "Ingawa", "Jibia", "Kafur", "Kaita", "Kankara", "Kankia", "Katsina",
-  "Kurfi", "Kusada", "Mai'Adua", "Malumfashi", "Mani", "Mashi", "Matazu",
-  "Musawa", "Rimi", "Sabuwa", "Safana", "Sandamu", "Zango"
+export const KOGI_LGAS = [
+  "Adavi",
+  "Ajaokuta",
+  "Ankpa",
+  "Bassa",
+  "Dekina",
+  "Ibaji",
+  "Idah",
+  "Igalamela-Odolu",
+  "Ijumu",
+  "Kabba/Bunu",
+  "Kogi (Koton Karfe)",
+  "Lokoja",
+  "Mopa-Muro",
+  "Ofu",
+  "Ogori/Magongo",
+  "Okehi",
+  "Okene",
+  "Olamaboro",
+  "Omala",
+  "Yagba East",
+  "Yagba West"
 ];
+export const KATSINA_LGAS = KOGI_LGAS;
 
 // Helper to get Wards for a specific LGA
 export const getWardsForLga = (lgaName: string): string[] => {
@@ -66,42 +83,110 @@ export interface LGAConstituencyInfo {
 }
 
 export const LGA_CONSTITUENCY_MAP: Record<string, LGAConstituencyInfo> = {
-  "Bakori": { senatorial_zone: "Katsina South", federal_constituency: "Bakori/Danja" },
-  "Batagarawa": { senatorial_zone: "Katsina Central", federal_constituency: "Batagarawa/Charanchi/Rimi" },
-  "Batsari": { senatorial_zone: "Katsina Central", federal_constituency: "Batsari/Safana/Danmusa" },
-  "Baure": { senatorial_zone: "Katsina North", federal_constituency: "Zango/Baure" },
-  "Bindawa": { senatorial_zone: "Katsina North", federal_constituency: "Bindawa/Mani" },
-  "Charanchi": { senatorial_zone: "Katsina Central", federal_constituency: "Batagarawa/Charanchi/Rimi" },
-  "Dan Musa": { senatorial_zone: "Katsina Central", federal_constituency: "Batsari/Safana/Danmusa" },
-  "DanMusa": { senatorial_zone: "Katsina Central", federal_constituency: "Batsari/Safana/Danmusa" },
-  "Dandume": { senatorial_zone: "Katsina South", federal_constituency: "Funtua/Dandume" },
-  "Danja": { senatorial_zone: "Katsina South", federal_constituency: "Bakori/Danja" },
-  "Daura": { senatorial_zone: "Katsina North", federal_constituency: "Daura/Sandamu/Mai'Adua" },
-  "Dutsi": { senatorial_zone: "Katsina North", federal_constituency: "Mashi/Dutsi" },
-  "Dutsin Ma": { senatorial_zone: "Katsina Central", federal_constituency: "Dutsin-Ma/Kurfi" },
-  "Dutsin-Ma": { senatorial_zone: "Katsina Central", federal_constituency: "Dutsin-Ma/Kurfi" },
-  "Faskari": { senatorial_zone: "Katsina South", federal_constituency: "Faskari/Kankara/Sabuwa" },
-  "Funtua": { senatorial_zone: "Katsina South", federal_constituency: "Funtua/Dandume" },
-  "Ingawa": { senatorial_zone: "Katsina North", federal_constituency: "Ingawa/Kankia/Kusada" },
-  "Jibia": { senatorial_zone: "Katsina Central", federal_constituency: "Jibia/Kaita" },
-  "Kafur": { senatorial_zone: "Katsina South", federal_constituency: "Malumfashi/Kafur" },
-  "Kaita": { senatorial_zone: "Katsina Central", federal_constituency: "Jibia/Kaita" },
-  "Kankara": { senatorial_zone: "Katsina South", federal_constituency: "Faskari/Kankara/Sabuwa" },
-  "Kankia": { senatorial_zone: "Katsina North", federal_constituency: "Ingawa/Kankia/Kusada" },
-  "Katsina": { senatorial_zone: "Katsina Central", federal_constituency: "Katsina" },
-  "Kurfi": { senatorial_zone: "Katsina Central", federal_constituency: "Dutsin-Ma/Kurfi" },
-  "Kusada": { senatorial_zone: "Katsina North", federal_constituency: "Ingawa/Kankia/Kusada" },
-  "Mai'Adua": { senatorial_zone: "Katsina North", federal_constituency: "Daura/Sandamu/Mai'Adua" },
-  "Malumfashi": { senatorial_zone: "Katsina South", federal_constituency: "Malumfashi/Kafur" },
-  "Mani": { senatorial_zone: "Katsina North", federal_constituency: "Bindawa/Mani" },
-  "Mashi": { senatorial_zone: "Katsina North", federal_constituency: "Mashi/Dutsi" },
-  "Matazu": { senatorial_zone: "Katsina South", federal_constituency: "Matazu/Musawa" },
-  "Musawa": { senatorial_zone: "Katsina South", federal_constituency: "Matazu/Musawa" },
-  "Rimi": { senatorial_zone: "Katsina Central", federal_constituency: "Batagarawa/Charanchi/Rimi" },
-  "Sabuwa": { senatorial_zone: "Katsina South", federal_constituency: "Faskari/Kankara/Sabuwa" },
-  "Safana": { senatorial_zone: "Katsina Central", federal_constituency: "Batsari/Safana/Danmusa" },
-  "Sandamu": { senatorial_zone: "Katsina North", federal_constituency: "Daura/Sandamu/Mai'Adua" },
-  "Zango": { senatorial_zone: "Katsina North", federal_constituency: "Zango/Baure" }
+  "Adavi": {
+    "senatorial_zone": "Kogi Central",
+    "federal_constituency": "Adavi/Okehi"
+  },
+  "Ajaokuta": {
+    "senatorial_zone": "Kogi Central",
+    "federal_constituency": "Ajaokuta"
+  },
+  "Ankpa": {
+    "senatorial_zone": "Kogi East",
+    "federal_constituency": "Ankpa/Omala/Olamaboro"
+  },
+  "Bassa": {
+    "senatorial_zone": "Kogi East",
+    "federal_constituency": "Bassa/Dekina"
+  },
+  "Dekina": {
+    "senatorial_zone": "Kogi East",
+    "federal_constituency": "Bassa/Dekina"
+  },
+  "Ibaji": {
+    "senatorial_zone": "Kogi East",
+    "federal_constituency": "Idah/Ibaji/Igalamela-Odolu/Ofu"
+  },
+  "Idah": {
+    "senatorial_zone": "Kogi East",
+    "federal_constituency": "Idah/Ibaji/Igalamela-Odolu/Ofu"
+  },
+  "Igalamela-Odolu": {
+    "senatorial_zone": "Kogi East",
+    "federal_constituency": "Idah/Ibaji/Igalamela-Odolu/Ofu"
+  },
+  "Igalamela Odolu": {
+    "senatorial_zone": "Kogi East",
+    "federal_constituency": "Idah/Ibaji/Igalamela-Odolu/Ofu"
+  },
+  "Ijumu": {
+    "senatorial_zone": "Kogi West",
+    "federal_constituency": "Kabba/Bunu/Ijumu"
+  },
+  "Kabba/Bunu": {
+    "senatorial_zone": "Kogi West",
+    "federal_constituency": "Kabba/Bunu/Ijumu"
+  },
+  "Kabba Bunu": {
+    "senatorial_zone": "Kogi West",
+    "federal_constituency": "Kabba/Bunu/Ijumu"
+  },
+  "Kogi (Koton Karfe)": {
+    "senatorial_zone": "Kogi West",
+    "federal_constituency": "Lokoja/Kogi (KK)"
+  },
+  "Kogi": {
+    "senatorial_zone": "Kogi West",
+    "federal_constituency": "Lokoja/Kogi (KK)"
+  },
+  "Lokoja": {
+    "senatorial_zone": "Kogi West",
+    "federal_constituency": "Lokoja/Kogi (KK)"
+  },
+  "Mopa-Muro": {
+    "senatorial_zone": "Kogi West",
+    "federal_constituency": "Yagba East/Yagba West/Mopamuro"
+  },
+  "Mopa Moro": {
+    "senatorial_zone": "Kogi West",
+    "federal_constituency": "Yagba East/Yagba West/Mopamuro"
+  },
+  "Ofu": {
+    "senatorial_zone": "Kogi East",
+    "federal_constituency": "Idah/Ibaji/Igalamela-Odolu/Ofu"
+  },
+  "Ogori/Magongo": {
+    "senatorial_zone": "Kogi Central",
+    "federal_constituency": "Okene/Ogori-Magongo"
+  },
+  "Ogori Mangogo": {
+    "senatorial_zone": "Kogi Central",
+    "federal_constituency": "Okene/Ogori-Magongo"
+  },
+  "Okehi": {
+    "senatorial_zone": "Kogi Central",
+    "federal_constituency": "Adavi/Okehi"
+  },
+  "Okene": {
+    "senatorial_zone": "Kogi Central",
+    "federal_constituency": "Okene/Ogori-Magongo"
+  },
+  "Olamaboro": {
+    "senatorial_zone": "Kogi East",
+    "federal_constituency": "Ankpa/Omala/Olamaboro"
+  },
+  "Omala": {
+    "senatorial_zone": "Kogi East",
+    "federal_constituency": "Ankpa/Omala/Olamaboro"
+  },
+  "Yagba East": {
+    "senatorial_zone": "Kogi West",
+    "federal_constituency": "Yagba East/Yagba West/Mopamuro"
+  },
+  "Yagba West": {
+    "senatorial_zone": "Kogi West",
+    "federal_constituency": "Yagba East/Yagba West/Mopamuro"
+  }
 };
 
 export const getConstituencyForLga = (lgaName?: string | null): LGAConstituencyInfo | null => {
@@ -120,7 +205,7 @@ export const getConstituencyForLga = (lgaName?: string | null): LGAConstituencyI
 
 export const getStandardPuCode = (lgaName: string, puCode: string): string => {
   if (!puCode) return "";
-  if (puCode.startsWith("20-")) {
+  if (puCode.startsWith("22-") || puCode.startsWith("20-")) {
     return puCode;
   }
   const match = puCode.match(/W(\d+)-(\d+)/i);
@@ -128,16 +213,20 @@ export const getStandardPuCode = (lgaName: string, puCode: string): string => {
   const wardNum = match[1].padStart(2, "0");
   const puNum = match[2].padStart(3, "0");
   const norm = lgaName.toLowerCase().replace(/[^a-z]/g, "");
-  const list = [
-    "bakori", "batagarawa", "batsari", "baure", "bindawa", "charanchi", "dandume",
-    "danja", "danmusa", "daura", "dutsi", "dutsinma", "faskari", "funtua",
-    "ingawa", "jibia", "kafur", "kaita", "kankara", "kankia", "katsina",
-    "kurfi", "kusada", "maiadua", "malumfashi", "mani", "mashi", "matazu",
-    "musawa", "rimi", "sabuwa", "safana", "sandamu", "zango"
+    const list = [
+    "adavi", "ajaokuta", "ankpa", "bassa", "dekina", "ibaji", "idah",
+    "igalamelaodolu", "ijumu", "kabbabunu", "kogikotonkarfe", "lokoja",
+    "mopamuro", "ofu", "ogorimagongo", "okehi", "okene", "olamaboro",
+    "omala", "yagbaeast", "yagbawest"
   ];
-  const idx = list.indexOf(norm);
-  const lgaCode = idx !== -1 ? (idx + 1).toString().padStart(2, "0") : "21";
-  return `20-${lgaCode}-${wardNum}-${puNum}`;
+  let idx = list.indexOf(norm);
+  if (idx === -1) {
+    if (norm === "kogi" || norm === "kogikk") idx = list.indexOf("kogikotonkarfe");
+    else if (norm === "mopamoro") idx = list.indexOf("mopamuro");
+    else if (norm === "ogorimangogo") idx = list.indexOf("ogorimagongo");
+  }
+  const lgaCode = idx !== -1 ? (idx + 1).toString().padStart(2, "0") : "01";
+  return `22-${lgaCode}-${wardNum}-${puNum}`;
 };
 
 // Helper to wrap promises in a timeout to prevent hanging states

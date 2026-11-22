@@ -32,7 +32,7 @@ export const PrintableIDCard = forwardRef<HTMLDivElement, PrintableIDCardProps>(
         const { partyId } = useParty();
         const campaignName = partyId === "apc" 
             ? CAMPAIGN_NAME 
-            : `${member.lga || "Katsina State"} Campaign`;
+            : `${member.lga || "Kogi State"} Campaign`;
         const initials = member.full_name
             .split(" ")
             .map((n) => n[0])
@@ -87,7 +87,7 @@ export const PrintableIDCard = forwardRef<HTMLDivElement, PrintableIDCardProps>(
                         alignItems: "center",
                         gap: "12px",
                     }}>
-                        {/* Dikko Radda Portrait */}
+                        {/* Kogi CMS Portrait */}
                         <div style={{
                             width: "56px",
                             height: "56px",
@@ -228,7 +228,7 @@ export const PrintableIDCard = forwardRef<HTMLDivElement, PrintableIDCardProps>(
                             <DetailItem label="MEMBER ID" value={membershipId} mono />
                             <DetailItem label="GENDER" value={member.gender ? member.gender.toUpperCase() : "N/A"} />
                             <DetailItem label="DATE OF BIRTH" value={formattedDob} />
-                            <DetailItem label="STATE" value={member.state || "Katsina"} />
+                            <DetailItem label="STATE" value={member.state || "Kogi"} />
                             <DetailItem label="LGA" value={member.lga || "N/A"} />
                             <DetailItem label="WARD" value={member.ward || "N/A"} />
                             {member.polling_unit && (
@@ -251,7 +251,7 @@ export const PrintableIDCard = forwardRef<HTMLDivElement, PrintableIDCardProps>(
                             ISSUED: {formattedJoinDate}
                         </span>
                         <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "9px", letterSpacing: "1px" }}>
-                            KATSINA STATE, NIGERIA
+                            KOGI STATE, NIGERIA
                         </span>
                     </div>
 

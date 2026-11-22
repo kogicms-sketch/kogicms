@@ -79,16 +79,20 @@ const getStandardPuCode = (lgaName: string, puCode: string): string => {
     const wardNum = match[1].padStart(2, "0");
     const puNum = match[2].padStart(3, "0");
     const norm = lgaName.toLowerCase().replace(/[^a-z]/g, "");
-    const list = [
-        "bakori", "batagarawa", "batsari", "baure", "bindawa", "charanchi", "dandume",
-        "danja", "danmusa", "daura", "dutsi", "dutsinma", "faskari", "funtua",
-        "ingawa", "jibia", "kafur", "kaita", "kankara", "kankia", "katsina",
-        "kurfi", "kusada", "maiadua", "malumfashi", "mani", "mashi", "matazu",
-        "musawa", "rimi", "sabuwa", "safana", "sandamu", "zango"
-    ];
-    const idx = list.indexOf(norm);
-    const lgaCode = idx !== -1 ? (idx + 1).toString().padStart(2, "0") : "21";
-    return `20-${lgaCode}-${wardNum}-${puNum}`;
+      const list = [
+    "adavi", "ajaokuta", "ankpa", "bassa", "dekina", "ibaji", "idah",
+    "igalamelaodolu", "ijumu", "kabbabunu", "kogikotonkarfe", "lokoja",
+    "mopamuro", "ofu", "ogorimagongo", "okehi", "okene", "olamaboro",
+    "omala", "yagbaeast", "yagbawest"
+  ];
+  let idx = list.indexOf(norm);
+  if (idx === -1) {
+    if (norm === "kogi" || norm === "kogikk") idx = list.indexOf("kogikotonkarfe");
+    else if (norm === "mopamoro") idx = list.indexOf("mopamuro");
+    else if (norm === "ogorimangogo") idx = list.indexOf("ogorimagongo");
+  }
+  const lgaCode = idx !== -1 ? (idx + 1).toString().padStart(2, "0") : "01";
+  return `22-${lgaCode}-${wardNum}-${puNum}`;
 };
 
 const fetchRealVoters = async (lgaName: string, wardName: string, puCode: string): Promise<number | null> => {
@@ -1015,7 +1019,7 @@ const PollingUnitDetail = () => {
                                             </div>
                                             <div>
                                                 <p className="font-medium">
-                                                    {isApc ? unit.lga_chairman : `${unit.lga || "Katsina"} LGA Chairman`}
+                                                    {isApc ? unit.lga_chairman : `${unit.lga || "Kogi"} LGA Chairman`}
                                                 </p>
                                                 <p className="text-sm text-muted-foreground">{unit.lga} LGA</p>
                                             </div>

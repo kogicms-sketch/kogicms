@@ -30,45 +30,37 @@ export interface SuperAdminDemographicsData {
 }
 
 const LGA_TO_ZONE: Record<string, string> = {
-  // Katsina Central
-  "Katsina": "Katsina Central",
-  "Batagarawa": "Katsina Central",
-  "Rimi": "Katsina Central",
-  "Charanchi": "Katsina Central",
-  "Kurfi": "Katsina Central",
-  "Dutsin Ma": "Katsina Central",
-  "Kaita": "Katsina Central",
-  "Jibia": "Katsina Central",
-  "Dan Musa": "Katsina Central",
-  "Safana": "Katsina Central",
-  "Batsari": "Katsina Central",
-  
-  // Katsina North
-  "Daura": "Katsina North",
-  "Mai'Adua": "Katsina North",
-  "Zango": "Katsina North",
-  "Sandamu": "Katsina North",
-  "Baure": "Katsina North",
-  "Mashi": "Katsina North",
-  "Mani": "Katsina North",
-  "Dutsi": "Katsina North",
-  "Kusada": "Katsina North",
-  "Kankia": "Katsina North",
-  "Ingawa": "Katsina North",
-  "Bindawa": "Katsina North",
-  
-  // Katsina South
-  "Funtua": "Katsina South",
-  "Faskari": "Katsina South",
-  "Sabuwa": "Katsina South",
-  "Dandume": "Katsina South",
-  "Bakori": "Katsina South",
-  "Danja": "Katsina South",
-  "Kafur": "Katsina South",
-  "Malumfashi": "Katsina South",
-  "Musawa": "Katsina South",
-  "Matazu": "Katsina South",
-  "Kankara": "Katsina South",
+  // Kogi Central
+  "Adavi": "Kogi Central",
+  "Ajaokuta": "Kogi Central",
+  "Okehi": "Kogi Central",
+  "Okene": "Kogi Central",
+  "Ogori/Magongo": "Kogi Central",
+  "Ogori Magongo": "Kogi Central",
+
+  // Kogi East
+  "Ankpa": "Kogi East",
+  "Bassa": "Kogi East",
+  "Dekina": "Kogi East",
+  "Ibaji": "Kogi East",
+  "Idah": "Kogi East",
+  "Igalamela-Odolu": "Kogi East",
+  "Igalamela Odolu": "Kogi East",
+  "Ofu": "Kogi East",
+  "Olamaboro": "Kogi East",
+  "Omala": "Kogi East",
+
+  // Kogi West
+  "Ijumu": "Kogi West",
+  "Kabba/Bunu": "Kogi West",
+  "Kabba Bunu": "Kogi West",
+  "Kogi (Koton Karfe)": "Kogi West",
+  "Kogi": "Kogi West",
+  "Lokoja": "Kogi West",
+  "Mopa-Muro": "Kogi West",
+  "Mopa Moro": "Kogi West",
+  "Yagba East": "Kogi West",
+  "Yagba West": "Kogi West",
 };
 
 export const useSuperAdminDemographics = () => {
@@ -168,16 +160,16 @@ export const useSuperAdminDemographics = () => {
       }
 
       // 2. Zone weights (Youth vs Senior)
-      const zoneStats: Record<string, { youth: number; senior: number }> = {
-        "Katsina Central": { youth: 0, senior: 0 },
-        "Katsina North": { youth: 0, senior: 0 },
-        "Katsina South": { youth: 0, senior: 0 },
+            const zoneStats: Record<string, { youth: number; senior: number }> = {
+        "Kogi Central": { youth: 0, senior: 0 },
+        "Kogi East": { youth: 0, senior: 0 },
+        "Kogi West": { youth: 0, senior: 0 },
       };
 
       const currentYear = new Date().getFullYear();
 
       activeMembers.forEach(m => {
-        const zone = LGA_TO_ZONE[m.lga] || "Katsina Central";
+        const zone = LGA_TO_ZONE[m.lga] || "Kogi Central";
         if (m.date_of_birth) {
           const age = currentYear - new Date(m.date_of_birth).getFullYear();
           if (age >= 20 && age <= 35) {

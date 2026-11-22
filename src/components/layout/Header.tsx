@@ -94,7 +94,7 @@ const Header = ({ title, subtitle }: HeaderProps) => {
   const getUserName = () => {
     const rawName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
     if (partyId === "apc") return rawName;
-    return `${userLga || "Katsina State"}`;
+    return `${userLga || "Kogi State"}`;
   };
 
   const getInitials = () => {

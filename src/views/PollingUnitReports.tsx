@@ -41,8 +41,8 @@ export const PollingUnitReports = () => {
   const [logs, setLogs] = useState<LocationLog[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
-  // Katsina approximate center
-  const katsinaCenter: [number, number] = [12.9908, 7.5965];
+  // Kogi approximate center
+  const katsinaCenter: [number, number] = [7.8023, 6.7430];
 
   const fetchLocations = async () => {
     setLoading(true);
@@ -195,7 +195,7 @@ export const PollingUnitReports = () => {
 
         {/* Agent Performance Leaderboard Report & Export */}
         <AgentPerformanceReport
-          lga={councillor?.lga || chairman?.lga || "Katsina"}
+          lga={councillor?.lga || chairman?.lga || "Kogi"}
           ward={councillor?.ward || "Wakilin Kudu I"}
         />
       </div>

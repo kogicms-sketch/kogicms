@@ -14,8 +14,8 @@ import { SchoolSelect } from "@/components/common/SchoolSelect";
 import { STUDENT_INSTITUTIONS } from "@/data/student_institutions";
 import { NIGERIAN_BANKS } from "@/data/nigerian_banks";
 
-const CAMPAIGN_SUPABASE_URL = "https://qkjscvmrqkxbzflowrox.supabase.co";
-const CAMPAIGN_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFranNjdm1ycWt4YnpmbG93cm94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NjQzNDYsImV4cCI6MjA4NjE0MDM0Nn0.gJXP249ofTNu29NsIvskRtb7b5ZaZlPI5lRb9KwQV34";
+const CAMPAIGN_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://glaqcvjfziuvpjbslvpw.supabase.co";
+const CAMPAIGN_SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsYXFjdmpmeml1dnBqYnNsdnB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUyMDY0NzEsImV4cCI6MjExMDc4MjQ3MX0.P8rZed_CPabZ3eYjaSvW65Y-dh-iRUP1Gq16pJ_voM4";
 
 const publicSupabase = createClient(CAMPAIGN_SUPABASE_URL, CAMPAIGN_SUPABASE_PUBLISHABLE_KEY, {
   auth: {
@@ -178,7 +178,7 @@ const KATSINA_MINISTRIES = [
   "Ministry of Commerce, Industry and Tourism",
   "Ministry of Lands and Physical Planning",
   "Ministry of Religious Affairs",
-  "Katsina State Internal Revenue Service",
+  "Kogi State Internal Revenue Service",
   "State Emergency Management Agency (SEMA)",
   "Other Ministry / Parastatal"
 ];
@@ -671,7 +671,7 @@ export default function PublicRegistrationForm() {
         if (form.subTrader === "Other Trader" && !form.otherTrader.trim()) errs.otherTrader = "Required";
       } else if (form.occupation === "Student") {
         if (!form.studentInstitution) errs.studentInstitution = "Required";
-        if (form.studentInstitution === "Other Higher Institution Outside Katsina" && !form.otherInstitution.trim()) errs.otherInstitution = "Required";
+        if (form.studentInstitution === "Other Higher Institution Outside Kogi" && !form.otherInstitution.trim()) errs.otherInstitution = "Required";
       } else if (form.occupation === "Business Owner") {
         if (!form.businessSector) errs.businessSector = "Required";
         if (form.businessSector === "Other / Unknown Business" && !form.otherBusiness.trim()) errs.otherBusiness = "Required";
@@ -720,7 +720,7 @@ export default function PublicRegistrationForm() {
       if (finalOccupation === "Trader") {
         finalSchoolName = form.subTrader === "Other Trader" ? form.otherTrader : form.subTrader;
       } else if (finalOccupation === "Student") {
-        finalSchoolName = form.studentInstitution === "Other Higher Institution Outside Katsina" ? form.otherInstitution : form.studentInstitution;
+        finalSchoolName = form.studentInstitution === "Other Higher Institution Outside Kogi" ? form.otherInstitution : form.studentInstitution;
         finalSchoolLevel = "Tertiary";
       } else if (finalOccupation === "Business Owner") {
         finalSchoolName = form.businessSector === "Other / Unknown Business" ? form.otherBusiness : form.businessSector;
@@ -855,7 +855,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                 date_of_birth: form.dateOfBirth || null,
                 voters_card_id: vinToUse,
                 pvc_status: form.pvcStatus || 'collected',
-                state: "Katsina",
+                state: "Kogi",
                 lga: form.lga || null,
                 ward: form.ward || null,
                 polling_unit: finalPollingUnitName,
@@ -959,7 +959,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
     if (form.occupation === "Trader") {
       return ["Trade Name", form.subTrader === "Other Trader" ? form.otherTrader : form.subTrader];
     } else if (form.occupation === "Student") {
-      return ["Institution", form.studentInstitution === "Other Higher Institution Outside Katsina" ? form.otherInstitution : form.studentInstitution];
+      return ["Institution", form.studentInstitution === "Other Higher Institution Outside Kogi" ? form.otherInstitution : form.studentInstitution];
     } else if (form.occupation === "Business Owner") {
       return ["Business Sector", form.businessSector === "Other / Unknown Business" ? form.otherBusiness : form.businessSector];
     } else if (form.occupation === "Teacher") {
@@ -987,7 +987,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
           Dikko Radda Campaign
         </h1>
         <p style={{ fontSize: 13, color: "#6b7280", margin: 0 }}>
-          Katsina State — Member Self-Registration Portal
+          Kogi State — Member Self-Registration Portal
         </p>
         <div style={{ marginTop: 8, display: "inline-block", background: "linear-gradient(135deg,#fffbea,#fff8dc)", border: "1.5px solid #b8860b", borderRadius: 6, padding: "3px 12px" }}>
           <span style={{ fontSize: 11, color: "#7a5800", fontWeight: 700 }}>Proudly Sponsored by <strong>ABA &amp; SONS</strong></span>
@@ -1489,7 +1489,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                         placeholder="Search or select school (e.g. ABU, BUK, FUDMA, UNILAG)..."
                       />
                     </Field>
-                    {form.studentInstitution === "Other Higher Institution Outside Katsina" && (
+                    {form.studentInstitution === "Other Higher Institution Outside Kogi" && (
                       <Field label="Specify Institution Name" required error={errors.otherInstitution}>
                         <input style={inputStyle} placeholder="e.g. Ahmadu Bello University, Zaria" value={form.otherInstitution} onChange={set("otherInstitution")} />
                       </Field>
@@ -1592,7 +1592,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                       </select>
                     </Field>
                     {form.civilServantJurisdiction === "State Ministry" && (
-                      <Field label="Katsina State Ministry" required error={errors.civilServantMinistry}>
+                      <Field label="Kogi State Ministry" required error={errors.civilServantMinistry}>
                         <select style={selectStyle} value={form.civilServantMinistry} onChange={set("civilServantMinistry")}>
                           <option value="">Select Ministry</option>
                           {KATSINA_MINISTRIES.map(m => <option key={m} value={m}>{m}</option>)}
@@ -1734,7 +1734,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
 
       {/* Footer */}
       <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 20, textAlign: "center" }}>
-        © 2026 Dikko Radda Campaign Management System · Katsina State
+        © 2026 Kogi Campaign Management System · Kogi State
       </p>
 
       <style>{`

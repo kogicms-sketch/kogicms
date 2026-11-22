@@ -71,7 +71,7 @@ export const VoterIdCard = forwardRef<HTMLDivElement, VoterIdCardProps>(
     const occupation = OCCUPATIONS[seed % OCCUPATIONS.length];
     const dob = voter.dob_year ? `01-01-${voter.dob_year}` : "01-01-1960";
     const gender = (voter.gender || "").toUpperCase().startsWith("F") ? "FEMALE" : "MALE";
-    const lga = (voter.lga || "KATSINA").toUpperCase();
+    const lga = (voter.lga || "KOGI").toUpperCase();
     const ward = (voter.ward || "—").toUpperCase();
     // Address shows the first segment of the polling unit name. We split only
     // on " - " and "," — NOT on "/", so abbreviations that contain a slash

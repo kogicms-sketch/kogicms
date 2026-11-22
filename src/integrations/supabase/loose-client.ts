@@ -1,14 +1,12 @@
-// Wrapper around the generated client. This remixed project points Lovable Cloud
-// at an empty backend, while the existing campaign users/data are in the legacy
-// campaign backend. Keep all app imports on this loose client so auth and table
-// calls use the backend that contains the real accounts, while avoiding `never`
-// table typings from the generated schema.
+// Wrapper around the generated client.
 import { createClient } from "@supabase/supabase-js";
 
-const CAMPAIGN_SUPABASE_URL = "https://qkjscvmrqkxbzflowrox.supabase.co";
-const CAMPAIGN_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFranNjdm1ycWt4YnpmbG93cm94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NjQzNDYsImV4cCI6MjA4NjE0MDM0Nn0.gJXP249ofTNu29NsIvskRtb7b5ZaZlPI5lRb9KwQV34";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://glaqcvjfziuvpjbslvpw.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsYXFjdmpmeml1dnBqYnNsdnB3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUyMDY0NzEsImV4cCI6MjExMDc4MjQ3MX0.P8rZed_CPabZ3eYjaSvW65Y-dh-iRUP1Gq16pJ_voM4";
 
-export const supabase: any = createClient(CAMPAIGN_SUPABASE_URL, CAMPAIGN_SUPABASE_PUBLISHABLE_KEY, {
+export const supabase: any = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     persistSession: true,

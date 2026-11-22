@@ -1,17 +1,17 @@
-// Comprehensive List of Higher Institutions & Schools across Nigeria for Dikko CMS Student Portal
+// Comprehensive List of Higher Institutions & Schools across Nigeria for Kogi CMS Student Portal
 
 export const STUDENT_INSTITUTIONS = [
-  // --- Katsina State & Primary Regional Higher Institutions ---
-  "Umaru Musa Yar'Adua University, Katsina (UMYUK)",
-  "Federal University Dutsin-Ma, Katsina (FUDMA)",
-  "Hassan Usman Katsina Polytechnic (HUK POLY), Katsina",
-  "Isa Kaita College of Education, Dutsin-Ma (IKCOE)",
-  "Federal College of Education, Katsina",
-  "Katsina State Institute of Technology and Management (KSITM), Katsina",
-  "Al-Qalam University, Katsina",
-  "Federal University of Transportation, Daura, Katsina",
-  "Federal Polytechnic, Daura, Katsina",
-  "Government Science & Technical Colleges (Secondary Level)",
+    // --- Kogi State Higher Institutions ---
+  "Prince Abubakar Audu University (PAAU/KSU), Anyigba",
+  "Federal University Lokoja (FULOKOJA), Lokoja",
+  "Confluence University of Science and Technology (CUSTECH), Osara",
+  "Kogi State Polytechnic, Lokoja",
+  "Federal Polytechnic, Idah",
+  "Kogi State College of Education, Ankpa",
+  "Kogi State College of Education (Technical), Kabba",
+  "Kogi State College of Nursing and Midwifery, Obangede",
+  "Kogi State College of Health Sciences and Technology, Idah",
+  "Salem University, Lokoja",
 
   // --- Federal Universities & Upgraded Federal Institutions ---
   "Abubakar Tafawa Balewa University, Bauchi (ATBU)",

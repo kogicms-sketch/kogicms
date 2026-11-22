@@ -34,14 +34,14 @@ interface DigitalMembershipCardProps {
 
 export const DigitalMembershipCard = ({
   member,
-  campaignName = "Dikko Radda Campaign",
+  campaignName = "Kogi CMS Campaign",
   onCardGenerated,
 }: DigitalMembershipCardProps) => {
   const { partyId } = useParty();
   const isApc = partyId === "apc";
   const resolvedCampaignName = isApc 
     ? campaignName 
-    : `${member.lga || "Katsina State"} Campaign`;
+    : `${member.lga || "Kogi State"} Campaign`;
 
   const cardRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -135,8 +135,8 @@ export const DigitalMembershipCard = ({
       `Member ID: ${member.membership_id}\n` +
       `Position: ${getPositionLabel(member.political_position || "member")}\n\n` +
       (isApc 
-        ? `Join the movement for a better Katsina! #DR2027 #DikkoRadda`
-        : `Join the movement for a better Katsina! #${(member.lga || "Katsina").replace(/\s+/g, "")}Campaign`)
+        ? `Join the movement for a better Kogi! #KOGI2027 #KogiCMS`
+        : `Join the movement for a better Kogi! #${(member.lga || "Kogi").replace(/\s+/g, "")}Campaign`)
     );
     window.open(`https://wa.me/?text=${message}`, "_blank");
   };
@@ -152,10 +152,10 @@ export const DigitalMembershipCard = ({
   const shareToTwitter = () => {
     const text = encodeURIComponent(
       `🇳🇬 Proud to be part of ${resolvedCampaignName}! ` +
-      `Together we're building a better Katsina. ` +
+      `Together we're building a better Kogi. ` +
       (isApc 
-        ? `#DR2027 #DikkoRadda #KatsinaFirst`
-        : `#${(member.lga || "Katsina").replace(/\s+/g, "")}Campaign #KatsinaFirst`)
+        ? `#KOGI2027 #KogiCMS #KogiFirst`
+        : `#${(member.lga || "Kogi").replace(/\s+/g, "")}Campaign #KogiFirst`)
     );
     window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank");
   };
