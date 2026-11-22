@@ -7,6 +7,9 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
+  experimental: {
+    agentUpgrade: 'security',
+  },
 };
 
 module.exports = nextConfig;

@@ -112,42 +112,43 @@ const BUSINESS_SECTORS = [
   "Other / Unknown Business"
 ];
 
-const KATSINA_MINISTRIES = [
-  "Ministry of Agriculture and Natural Resources",
-  "Ministry of Education",
+const KOGI_MINISTRIES = [
+  "Ministry of Agriculture and Food Security",
+  "Ministry of Education, Science and Technology",
   "Ministry of Health",
-  "Ministry of Finance",
-  "Ministry of Works, Housing and Transport",
+  "Ministry of Finance, Budget and Economic Planning",
+  "Ministry of Works and Housing",
   "Ministry of Justice",
   "Ministry of Local Government and Chieftaincy Affairs",
-  "Ministry of Information, Culture and Home Affairs",
-  "Ministry of Environment",
+  "Ministry of Information and Communications",
+  "Ministry of Environment and Ecological Management",
   "Ministry of Women Affairs and Social Development",
   "Ministry of Youth and Sports Development",
   "Ministry of Water Resources",
-  "Ministry of Commerce, Industry and Tourism",
-  "Ministry of Lands and Physical Planning",
-  "Ministry of Religious Affairs",
-  "Kogi State Internal Revenue Service",
+  "Ministry of Commerce and Industry",
+  "Ministry of Lands, Housing and Urban Development",
+  "Kogi State Internal Revenue Service (KGIRS)",
   "State Emergency Management Agency (SEMA)",
   "Other Ministry / Parastatal"
 ];
+const KATSINA_MINISTRIES = KOGI_MINISTRIES;
 
-const KATSINA_SECONDARY_SCHOOLS = [
-  "Government College, Katsina",
-  "Government Pilot Secondary School, Katsina",
-  "Government Girls College, Katsina",
-  "Government Girls Unity Secondary School, Daura",
-  "Government Science Secondary School, Funtua",
-  "Government Science Secondary School, Katsina",
-  "Government Secondary School, Dutsin-Ma",
-  "Government Secondary School, Malumfashi",
-  "Government Secondary School, Mani",
-  "Government Secondary School, Kankia",
-  "Government Day Secondary School, Katsina",
-  "Family Support Program (FSP) Secondary School, Katsina",
+const KOGI_SECONDARY_SCHOOLS = [
+  "Abdul Aziz Atta Memorial College, Okene (AAAMCO)",
+  "Government Science Secondary School, Lokoja",
+  "St. Augustine's College, Kabba",
+  "Titcombe College, Egbe",
+  "Crowther Memorial College, Lokoja",
+  "Ebira Community Secondary School, Ogaminana",
+  "Ochaja Boys Secondary School, Ochaja",
+  "Demonstration Secondary School, Ankpa",
+  "Government Girls Secondary School, Oboroke",
+  "Dekina Secondary Commercial College, Dekina",
+  "Holy Rosary College, Idah",
+  "Government Science Secondary School, Dekina",
   "Other Secondary School"
 ];
+const KATSINA_SECONDARY_SCHOOLS = KOGI_SECONDARY_SCHOOLS;
 
 
 export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModalProps) => {
