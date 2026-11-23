@@ -488,7 +488,7 @@ const PollingUnitDetail = () => {
                 console.error("Error fetching polling unit agent:", agentError);
             }
 
-            const puAgent = agentData ? {
+            let puAgent = agentData ? {
                 id: agentData.id,
                 name: agentData.agent_name || 'Unknown',
                 phone: agentData.phone || '',
@@ -496,6 +496,27 @@ const PollingUnitDetail = () => {
                 password: agentData.password || '',
                 user_id: agentData.user_id
             } : null;
+
+            if (!puAgent && typeof window !== "undefined") {
+                try {
+                    const assignedLocal = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
+                    const found =
+                        assignedLocal[id] ||
+                        assignedLocal[realId] ||
+                        assignedLocal[unit?.pu_code] ||
+                        assignedLocal[unit?.polling_unit_name?.toLowerCase()?.trim()];
+                    if (found) {
+                        puAgent = {
+                            id: found.id || realId,
+                            name: found.agent_name,
+                            phone: found.phone || '',
+                            email: found.email || '',
+                            password: found.password || '',
+                            user_id: found.user_id || null
+                        };
+                    }
+                } catch (e) {}
+            }
 
             return {
                 lgaChairman,

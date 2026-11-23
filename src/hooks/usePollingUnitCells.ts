@@ -170,6 +170,27 @@ export const usePollingUnitCells = (filters?: {
         customCellMap.set(key, c);
       });
 
+      if (typeof window !== "undefined") {
+        try {
+          const assignedLocal = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
+          Object.entries(assignedLocal).forEach(([puId, agentInfo]: [string, any]) => {
+            const agentPatch = {
+              polling_unit_agent_name: agentInfo.agent_name,
+              polling_unit_agent_phone: agentInfo.phone,
+              canvasser_name: agentInfo.agent_name,
+              canvasser_phone: agentInfo.phone,
+              status: "active",
+            };
+            customCellMap.set(puId, { ...customCellMap.get(puId), ...agentPatch });
+            if (agentInfo.pu_id) {
+              customCellMap.set(agentInfo.pu_id, { ...customCellMap.get(agentInfo.pu_id), ...agentPatch });
+            }
+            const key = `${(agentInfo.lga || "").toLowerCase()}|${(agentInfo.ward || "").toLowerCase()}|${(agentInfo.pu_name || "").toLowerCase()}`;
+            customCellMap.set(key, { ...customCellMap.get(key), ...agentPatch });
+          });
+        } catch (e) {}
+      }
+
       // 5. Build full enriched polling unit cell list
       let cells = baseUnits.map((pu) => {
         const fullKey = `${pu.lga.toLowerCase()}|${pu.wardName.toLowerCase()}|${pu.name.toLowerCase()}`;
