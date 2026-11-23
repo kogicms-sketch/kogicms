@@ -25,6 +25,7 @@ import {
   Vote,
   TrendingUp,
   ChevronRight,
+  ArrowRight,
   Navigation,
   UserPlus,
   Search,
@@ -57,12 +58,39 @@ export default function CouncillorDashboard() {
   const { party } = useParty();
   const { data: councillor, isLoading: councillorLoading } = useCouncillor();
 
-  // LGA and Ward state with fallback to Councillor profile
-  const [selectedLga, setSelectedLga] = useState<string>("");
-  const [selectedWard, setSelectedWard] = useState<string>("");
+  // LGA and Ward state with fallback to Councillor profile and localStorage
+  const [selectedLga, setSelectedLga] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("councillor_lga") || "";
+    }
+    return "";
+  });
+  const [selectedWard, setSelectedWard] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("councillor_ward") || "";
+    }
+    return "";
+  });
 
   const activeLga = selectedLga || councillor?.lga || "Lokoja";
-  const activeWard = selectedWard || councillor?.ward || "Lokoja - A";
+  const activeWard = selectedWard || councillor?.ward || "Eggan";
+
+  // Persist ward and LGA selections to localStorage so Polling Unit Cells locks to it
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("councillor_lga", activeLga);
+      localStorage.setItem("councillor_ward", activeWard);
+      try {
+        const cached = localStorage.getItem("councillor_profile");
+        const parsed = cached ? JSON.parse(cached) : {};
+        localStorage.setItem("councillor_profile", JSON.stringify({
+          ...parsed,
+          lga: activeLga,
+          ward: activeWard
+        }));
+      } catch (e) {}
+    }
+  }, [activeLga, activeWard]);
 
   // Available wards in active LGA
   const availableWards = useMemo(() => {
@@ -765,36 +793,45 @@ export default function CouncillorDashboard() {
                                 </Badge>
                               </TableCell>
                               <TableCell className="pr-4 sm:pr-6 text-right">
-                                {pu.agent ? (
-                                  <div className="flex items-center justify-end gap-2">
-                                    <Badge className="bg-emerald-600 text-white text-[11px] font-semibold gap-1">
-                                      <CheckCircle2 className="w-3 h-3" /> Assigned
-                                    </Badge>
+                                <div className="flex items-center justify-end gap-2">
+                                  <Link
+                                    href={`/polling-units/detail?id=${pu.id}`}
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2 py-1 rounded-md transition-colors shrink-0"
+                                  >
+                                    <span>PU Dashboard</span>
+                                    <ArrowRight className="w-3 h-3 text-emerald-600" />
+                                  </Link>
+                                  {pu.agent ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <Badge className="bg-emerald-600 text-white text-[11px] font-semibold gap-1">
+                                        <CheckCircle2 className="w-3 h-3" /> Assigned
+                                      </Badge>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setSelectedPuForAssignment(pu);
+                                          setIsAssignModalOpen(true);
+                                        }}
+                                        className="h-7 text-xs text-emerald-700 hover:text-emerald-800"
+                                      >
+                                        Edit
+                                      </Button>
+                                    </div>
+                                  ) : (
                                     <Button
                                       size="sm"
-                                      variant="ghost"
+                                      variant="outline"
                                       onClick={() => {
                                         setSelectedPuForAssignment(pu);
                                         setIsAssignModalOpen(true);
                                       }}
-                                      className="h-7 text-xs text-emerald-700 hover:text-emerald-800"
+                                      className="h-7 text-xs font-semibold border-emerald-300 text-emerald-700 hover:bg-emerald-50 gap-1"
                                     >
-                                      Edit
+                                      <UserPlus className="w-3 h-3" /> Assign Agent
                                     </Button>
-                                  </div>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => {
-                                      setSelectedPuForAssignment(pu);
-                                      setIsAssignModalOpen(true);
-                                    }}
-                                    className="h-7 text-xs font-semibold border-emerald-300 text-emerald-700 hover:bg-emerald-50 gap-1"
-                                  >
-                                    <UserPlus className="w-3 h-3" /> Assign Agent
-                                  </Button>
-                                )}
+                                  )}
+                                </div>
                               </TableCell>
                             </TableRow>
                           );

@@ -83,23 +83,36 @@ export const usePollingUnitCells = (filters?: {
       let targetLga = filters?.lga;
       let targetWard = filters?.ward;
 
+      if (!targetWard && typeof window !== "undefined") {
+        targetWard = localStorage.getItem("councillor_ward") || undefined;
+      }
+      if (!targetLga && typeof window !== "undefined") {
+        targetLga = localStorage.getItem("councillor_lga") || undefined;
+      }
+
       if (profile) {
         if (profile.role === "councillor") {
-          targetLga = profile.lga || undefined;
-          targetWard = profile.ward || undefined;
+          targetLga = targetLga || profile.lga || undefined;
+          targetWard = targetWard || profile.ward || undefined;
         } else if (profile.role === "lga_chairman" || profile.role === "house_assembly_member") {
-          targetLga = profile.lga || undefined;
+          targetLga = targetLga || profile.lga || undefined;
         }
       }
 
       // 1. Base polling units from local INEC register (3,512 PUs across Kogi State)
       let baseUnits = ALL_POLLING_UNITS;
 
+      const norm = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
       if (targetLga && targetLga !== "all" && targetLga !== "ALL") {
-        baseUnits = baseUnits.filter(pu => pu.lga.toLowerCase() === targetLga!.toLowerCase());
+        baseUnits = baseUnits.filter(pu => norm(pu.lga) === norm(targetLga) || norm(pu.lga).includes(norm(targetLga)));
       }
-      if (targetWard && targetWard !== "all") {
-        baseUnits = baseUnits.filter(pu => pu.wardName.toLowerCase() === targetWard!.toLowerCase());
+      if (targetWard && targetWard !== "all" && targetWard !== "ALL") {
+        const needle = norm(targetWard);
+        baseUnits = baseUnits.filter(pu => {
+          const puW = norm(pu.wardName);
+          return puW === needle || puW.includes(needle) || needle.includes(puW);
+        });
       }
 
       // 2. Fetch campaign members (from IndexedDB local cache & Supabase)
@@ -499,19 +512,26 @@ export const usePollingUnitStats = (filters?: {
     queryKey: ["polling-unit-stats", filters, profile?.id],
     staleTime: 1000 * 60 * 5, // 5 mins cache
     gcTime: 1000 * 60 * 30,
-    enabled: !!profile,
+    // enabled: run immediately with fallback
     queryFn: async () => {
       let targetLga = filters?.lga;
-      let targetWard = filters?.ward;
+        let targetWard = filters?.ward;
 
-      if (profile) {
-        if (profile.role === "councillor") {
-          targetLga = profile.lga || undefined;
-          targetWard = profile.ward || undefined;
-        } else if (profile.role === "lga_chairman" || profile.role === "house_assembly_member") {
-          targetLga = profile.lga || undefined;
+        if (!targetWard && typeof window !== "undefined") {
+          targetWard = localStorage.getItem("councillor_ward") || undefined;
         }
-      }
+        if (!targetLga && typeof window !== "undefined") {
+          targetLga = localStorage.getItem("councillor_lga") || undefined;
+        }
+
+        if (profile) {
+          if (profile.role === "councillor") {
+            targetLga = targetLga || profile.lga || undefined;
+            targetWard = targetWard || profile.ward || undefined;
+          } else if (profile.role === "lga_chairman" || profile.role === "house_assembly_member") {
+            targetLga = targetLga || profile.lga || undefined;
+          }
+        }
 
       let cellsQuery = db
         .from("polling_unit_cells")
@@ -607,6 +627,29 @@ export const usePollingUnitStats = (filters?: {
         ready: 0,
         complete: 0
       };
+
+      if (!pollingUnits || pollingUnits.length === 0) {
+        const norm = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        let fallbackUnits = ALL_POLLING_UNITS;
+        if (targetLga && targetLga !== "all" && targetLga !== "ALL") {
+          fallbackUnits = fallbackUnits.filter(pu => norm(pu.lga) === norm(targetLga) || norm(pu.lga).includes(norm(targetLga)));
+        }
+        if (targetWard && targetWard !== "all" && targetWard !== "ALL") {
+          const needle = norm(targetWard);
+          fallbackUnits = fallbackUnits.filter(pu => {
+            const puW = norm(pu.wardName);
+            return puW === needle || puW.includes(needle) || needle.includes(puW);
+          });
+        }
+        pollingUnits = fallbackUnits.map(pu => ({
+          lga_name: pu.lga,
+          ward_name: pu.wardName,
+          name: pu.name,
+          code: pu.code,
+          target_voters: 50,
+          registered_voters: pu.registeredVoters || 0
+        }));
+      }
 
       // Loop through polling units (already filtered by RLS)
       (pollingUnits || []).forEach(pollingUnit => {
