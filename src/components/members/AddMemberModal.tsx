@@ -214,7 +214,7 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
   const [showManualPvcOption, setShowManualPvcOption] = useState(false);
   const [searching, setSearching] = useState(false);
 
-  // Fetch voters for the selected Polling Unit from local INEC dataset
+  // Fetch voters for the selected Polling Unit from local INEC dataset (instant sub-second frontend rendering)
   useEffect(() => {
     let isMounted = true;
     const fetchPuVoters = async () => {
@@ -232,40 +232,30 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
         );
         const puIdentifier = puObj?.code || formData.polling_unit;
 
-        // 1. Load INEC voters from local extracted files (offline, zero Supabase network latency)
+        // 1. Load INEC voters from local extracted files (offline & client-side instant retrieval)
         const rawLocalVoters = await localVoterService.getPollingUnitVoters(
           formData.lga,
           formData.ward,
           puIdentifier
         );
 
-        // 2. Fetch already registered members from Supabase to filter them out
-        // Existing registered voters transferred to active member roster
-        const registeredVins = new Set();
-        try {
-          const { data: registeredMembers } = await supabase
-            .from("members")
-            .select("voters_card_id")
-            .in("lga", Array.from(new Set([
-              formData.lga,
-              formData.lga.toUpperCase(),
-              formData.lga.toLowerCase(),
-              formData.lga.charAt(0).toUpperCase() + formData.lga.slice(1).toLowerCase()
-            ])));
-          if (registeredMembers) {
-            registeredMembers.forEach(m => {
-              if (m.voters_card_id) {
-                registeredVins.add(m.voters_card_id.trim().toUpperCase());
-              }
+        // 2. Instant local registration check from localStorage (0ms, zero network lag)
+        const localRegisteredVins = new Set<string>();
+        if (typeof window !== "undefined") {
+          try {
+            const offline = JSON.parse(localStorage.getItem("offline_members") || "[]");
+            offline.forEach((m: any) => {
+              if (m.voters_card_id) localRegisteredVins.add(m.voters_card_id.trim().toUpperCase());
             });
-          }
-        } catch (err) {
-          console.warn("Could not check registered members in Supabase:", err);
+            const cached = JSON.parse(localStorage.getItem("members_cache") || "[]");
+            cached.forEach((m: any) => {
+              if (m.voters_card_id) localRegisteredVins.add(m.voters_card_id.trim().toUpperCase());
+            });
+          } catch (_) {}
         }
 
-        // 3. Exclude registered members from INEC list
-        const availableVoters: VoterRecord[] = rawLocalVoters
-          .filter(v => !registeredVins.has((v.vin || "").trim().toUpperCase()))
+        const initialVoters: VoterRecord[] = rawLocalVoters
+          .filter(v => !localRegisteredVins.has((v.vin || "").trim().toUpperCase()))
           .map(v => ({
             id: v.vin,
             vin: v.vin,
@@ -279,20 +269,49 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
             photo_url: null,
           }));
 
+        // Render IMMEDIATELY in sub-second time
         if (isMounted) {
           setPuTotalInecCount(rawLocalVoters.length);
-          setPuRegisteredCount(rawLocalVoters.length - availableVoters.length);
-          setPuVoters(availableVoters);
+          setPuRegisteredCount(rawLocalVoters.length - initialVoters.length);
+          setPuVoters(initialVoters);
+          setPuVotersLoading(false); // STOP SPINNER IMMEDIATELY!
         }
+
+        // 3. Non-blocking background sync with Supabase (never blocks the UI or delays display)
+        (async () => {
+          try {
+            const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1200));
+            const queryPromise = supabase
+              .from("members")
+              .select("voters_card_id")
+              .in("lga", Array.from(new Set([
+                formData.lga,
+                formData.lga.toUpperCase(),
+                formData.lga.toLowerCase(),
+                formData.lga.charAt(0).toUpperCase() + formData.lga.slice(1).toLowerCase()
+              ])));
+
+            const res = (await Promise.race([queryPromise, timeoutPromise])) as any;
+            if (res?.data && isMounted) {
+              const remoteVins = new Set<string>();
+              res.data.forEach((m: any) => {
+                if (m.voters_card_id) remoteVins.add(m.voters_card_id.trim().toUpperCase());
+              });
+              if (remoteVins.size > 0) {
+                setPuVoters(prev => prev.filter(v => !remoteVins.has((v.vin || "").trim().toUpperCase())));
+                setPuRegisteredCount(prev => prev + remoteVins.size);
+              }
+            }
+          } catch (_) {
+            // Non-fatal background sync
+          }
+        })();
       } catch (err) {
         console.error("Error fetching voters for polling unit:", err);
         if (isMounted) {
           setPuVoters([]);
           setPuTotalInecCount(0);
           setPuRegisteredCount(0);
-        }
-      } finally {
-        if (isMounted) {
           setPuVotersLoading(false);
         }
       }
@@ -381,20 +400,21 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
     try {
       const trimmedVin = vinInput.trim().toUpperCase();
 
-      // 1. Check if voter already registered as a campaign member in Supabase
-      const { data: existingMember } = await supabase
-        .from("members")
-        .select("id, full_name, voters_card_id")
-        .eq("voters_card_id", trimmedVin)
-        .maybeSingle();
-
-      if (existingMember) {
-        setMatchedVoter(null);
-        setLookupError(`This voter (${existingMember.full_name}) is already registered as a member in the campaign!`);
-        return;
+      // 1. Instant local offline check (0ms, zero network lag)
+      if (typeof window !== "undefined") {
+        try {
+          const offline = JSON.parse(localStorage.getItem("offline_members") || "[]");
+          const found = offline.find((m: any) => (m.voters_card_id || "").trim().toUpperCase() === trimmedVin);
+          if (found) {
+            setMatchedVoter(null);
+            setLookupError(`This voter (${found.full_name}) is already registered as a member in the campaign!`);
+            setSearching(false);
+            return;
+          }
+        } catch (_) {}
       }
 
-      // 2. Search local INEC register for this ward
+      // 2. Search local INEC register for this ward instantly
       const localVoter = await localVoterService.findWardVoterByVin(formData.lga, formData.ward, trimmedVin);
 
       if (localVoter) {
@@ -433,28 +453,26 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
     setLookupError(null);
     setSearching(true);
     try {
-      // 1. Search local INEC register in this ward
+      // 1. Search local INEC register in this ward instantly (0ms delay)
       const localMatches = await localVoterService.searchWardVoters(formData.lga, formData.ward, nameQuery.trim());
 
-      // 2. Fetch registered campaign members in this LGA from Supabase to filter out
-      const registeredVins = new Set();
-      try {
-        const { data: registeredMembers } = await supabase
-          .from("members")
-          .select("voters_card_id")
-          .eq("lga", formData.lga);
-        if (registeredMembers) {
-          registeredMembers.forEach(m => {
-            if (m.voters_card_id) registeredVins.add(m.voters_card_id.trim().toUpperCase());
+      // 2. Instant local registration check from cache
+      const localRegisteredVins = new Set<string>();
+      if (typeof window !== "undefined") {
+        try {
+          const offline = JSON.parse(localStorage.getItem("offline_members") || "[]");
+          offline.forEach((m: any) => {
+            if (m.voters_card_id) localRegisteredVins.add(m.voters_card_id.trim().toUpperCase());
           });
-        }
-      } catch (err) {
-        console.warn("Could not check registered members in Supabase:", err);
+          const cached = JSON.parse(localStorage.getItem("members_cache") || "[]");
+          cached.forEach((m: any) => {
+            if (m.voters_card_id) localRegisteredVins.add(m.voters_card_id.trim().toUpperCase());
+          });
+        } catch (_) {}
       }
 
-      // 3. Filter out registered members
       const availableMatches: VoterRecord[] = localMatches
-        .filter(v => !registeredVins.has((v.vin || "").trim().toUpperCase()))
+        .filter(v => !localRegisteredVins.has((v.vin || "").trim().toUpperCase()))
         .map(v => ({
           id: v.vin,
           vin: v.vin,
@@ -468,14 +486,33 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
           photo_url: null,
         }));
 
+      // Render search results IMMEDIATELY!
       setNameResults(availableMatches);
+      setSearching(false);
       if (availableMatches.length === 0) {
         setLookupError("No available registered voters match that name in this ward.");
       }
+
+      // Background non-blocking check
+      (async () => {
+        try {
+          const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1200));
+          const queryPromise = supabase.from("members").select("voters_card_id").eq("lga", formData.lga);
+          const res = (await Promise.race([queryPromise, timeoutPromise])) as any;
+          if (res?.data) {
+            const remoteVins = new Set<string>();
+            res.data.forEach((m: any) => {
+              if (m.voters_card_id) remoteVins.add(m.voters_card_id.trim().toUpperCase());
+            });
+            if (remoteVins.size > 0) {
+              setNameResults(prev => prev.filter(v => !remoteVins.has((v.vin || "").trim().toUpperCase())));
+            }
+          }
+        } catch (_) {}
+      })();
     } catch (err) {
       console.error("Name search error:", err);
       setLookupError("Search failed. Please try again.");
-    } finally {
       setSearching(false);
     }
   };

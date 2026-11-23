@@ -5,7 +5,12 @@ import { cn } from "@/lib/utils";
 
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
 
-const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, ...props }, ref) => {
+const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, value, ...props }, ref) => {
+  const controlledProps =
+    props.onChange !== undefined || value !== undefined
+      ? { value: value ?? "" }
+      : {};
+
   return (
     <textarea
       className={cn(
@@ -14,6 +19,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ classNa
       )}
       ref={ref}
       {...props}
+      {...controlledProps}
     />
   );
 });

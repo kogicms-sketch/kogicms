@@ -122,6 +122,8 @@ export const SupportGroupRegistrationForm = ({ onSuccess }: SupportGroupRegistra
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: "",
+      type: "youth_wing",
       state: CAMPAIGN_STATE,
       member_target: "100",
       create_admin: false,

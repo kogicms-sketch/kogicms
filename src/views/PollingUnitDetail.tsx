@@ -130,6 +130,40 @@ const fetchRealVoters = async (lgaName: string, wardName: string, puCode: string
     return null;
 };
 
+export const getAssignedLocalAgent = (puId: string, puCode?: string, puName?: string, lga?: string, ward?: string) => {
+    if (typeof window === "undefined") return null;
+    try {
+        const assignedMap = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
+        const cleanId = puId ? puId.replace(/^(virtual-|static-)/, '') : '';
+        const normName = (puName || "").toLowerCase().trim();
+        const code = (puCode || "").toLowerCase().trim();
+
+        let found: any =
+            assignedMap[puId] ||
+            assignedMap[cleanId] ||
+            (code ? assignedMap[code] : null) ||
+            (normName ? assignedMap[normName] : null);
+
+        if (!found) {
+            found = Object.values(assignedMap).find((a: any) =>
+                (a.pu_id && (a.pu_id === puId || a.pu_id === cleanId)) ||
+                (a.id && (a.id === puId || a.id === cleanId)) ||
+                (a.pu_code && code && a.pu_code.toLowerCase().trim() === code) ||
+                (a.pu_code && cleanId && a.pu_code.toLowerCase().trim() === cleanId.toLowerCase()) ||
+                (a.pu_name && normName && a.pu_name.toLowerCase().trim() === normName) ||
+                (a.lga && a.ward && lga && ward &&
+                 a.lga.toLowerCase() === lga.toLowerCase() &&
+                 a.ward.toLowerCase() === ward.toLowerCase() &&
+                 (a.pu_name?.toLowerCase().includes(normName) || normName.includes(a.pu_name?.toLowerCase() || "")))
+            );
+        }
+
+        return found || null;
+    } catch {
+        return null;
+    }
+};
+
 const PollingUnitDetail = () => {
     const { partyId } = useParty();
     const queryClient = useQueryClient();
@@ -180,6 +214,8 @@ const PollingUnitDetail = () => {
 
             if (legacyStaticUnit) {
                 const chairmanData = getChairmanByLGA(legacyStaticUnit.lga);
+                const assignedLocal = getAssignedLocalAgent(id, legacyStaticUnit.code, legacyStaticUnit.name, legacyStaticUnit.lga, legacyStaticUnit.wardName);
+
                 return {
                     id: legacyStaticUnit.id,
                     polling_unit_name: legacyStaticUnit.name,
@@ -190,10 +226,10 @@ const PollingUnitDetail = () => {
                     target_voters: 50,
                     reliable_voters: 0,
                     registered_voters: legacyStaticUnit.registeredVoters || 0,
-                    status: 'forming',
+                    status: assignedLocal ? 'active' : 'forming',
                     type: 'static',
-                    canvasser_name: null,
-                    canvasser_phone: null
+                    canvasser_name: assignedLocal?.agent_name || null,
+                    canvasser_phone: assignedLocal?.phone || null
                 };
             }
 
@@ -471,39 +507,43 @@ const PollingUnitDetail = () => {
             // Extract real ID if it has virtual- prefix
             const realId = id.startsWith('virtual-') ? id.replace('virtual-', '') : id;
 
-            const { data, error } = await supabase
-                .from("political_excos")
-                .select("*")
-                .or(`lga.eq.${unit.lga},lga.is.null`)
-                .eq("is_active", true);
+            let lgaChairman = null;
+            let wardChairman = null;
+            try {
+                const { data } = await supabase
+                    .from("political_excos")
+                    .select("*")
+                    .or(`lga.eq.${unit.lga},lga.is.null`)
+                    .eq("is_active", true);
 
-            if (error) {
-                console.error("Error fetching leadership:", error);
-                return null;
+                if (data) {
+                    lgaChairman = data.find(e => e.level === 'lga' && e.position === 'lga_chairman' && e.lga === unit.lga);
+                    wardChairman = data.find(e => e.level === 'ward' && e.position === 'ward_chairman' && e.lga === unit.lga && e.ward === unit.ward);
+                }
+            } catch (excoErr) {
+                console.warn("Notice: political_excos query fallback:", excoErr);
             }
-
-            const lgaChairman = data?.find(e => e.level === 'lga' && e.position === 'lga_chairman' && e.lga === unit.lga);
-            const wardChairman = data?.find(e => e.level === 'ward' && e.position === 'ward_chairman' && e.lga === unit.lga && e.ward === unit.ward);
 
             // Fetch Ward Councillor from councillors table
-            const { data: councillorData, error: councillorError } = await (supabase as any)
-                .from("councillors")
-                .select("councillor_name, phone")
-                .eq("lga", unit.lga)
-                .eq("ward", unit.ward)
-                .eq("is_active", true)
-                .maybeSingle();
+            let wardCouncilor = null;
+            try {
+                const { data: councillorData } = await (supabase as any)
+                    .from("councillors")
+                    .select("councillor_name, phone")
+                    .eq("lga", unit.lga)
+                    .eq("ward", unit.ward)
+                    .eq("is_active", true)
+                    .maybeSingle();
 
-            if (councillorError) {
-                console.error("Error fetching ward councillor:", councillorError);
+                if (councillorData) {
+                    wardCouncilor = {
+                        name: councillorData.councillor_name,
+                        phone: councillorData.phone
+                    };
+                }
+            } catch (councillorErr) {
+                console.warn("Notice: councillors query fallback:", councillorErr);
             }
-
-            console.log("Councillor data for", unit.ward, ":", councillorData);
-
-            const wardCouncilor = councillorData ? {
-                name: councillorData.councillor_name,
-                phone: councillorData.phone
-            } : null;
 
             // 1. Fetch polling unit agent from polling_unit_agents table
             let agentData = null;
@@ -528,40 +568,33 @@ const PollingUnitDetail = () => {
             } : null;
 
             // 2. Check assigned_pu_agents in localStorage
-            if (!puAgent && typeof window !== "undefined") {
-                try {
-                    const assignedLocal = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
-                    const normPuName = (unit?.polling_unit_name || "").toLowerCase().trim();
-                    const puCode = unit?.pu_code || "";
-
-                    let found: any =
-                        assignedLocal[id] ||
-                        assignedLocal[realId] ||
-                        (puCode ? assignedLocal[puCode] : null) ||
-                        (normPuName ? assignedLocal[normPuName] : null);
-
-                    if (!found) {
-                        found = Object.values(assignedLocal).find((a: any) =>
-                            (a.pu_id && (a.pu_id === id || a.pu_id === realId)) ||
-                            (a.pu_code && puCode && a.pu_code === puCode) ||
-                            (a.pu_name && normPuName && a.pu_name.toLowerCase().trim() === normPuName)
-                        );
-                    }
-
-                    if (found) {
-                        puAgent = {
-                            id: found.id || realId,
-                            name: found.agent_name,
-                            phone: found.phone || '',
-                            email: found.email || '',
-                            password: found.password || '',
-                            user_id: found.user_id || null
-                        };
-                    }
-                } catch (e) {}
+            if (!puAgent) {
+                const assignedLocal = getAssignedLocalAgent(id, unit.pu_code, unit.polling_unit_name, unit.lga, unit.ward);
+                if (assignedLocal) {
+                    puAgent = {
+                        id: assignedLocal.id || realId,
+                        name: assignedLocal.agent_name,
+                        phone: assignedLocal.phone || '',
+                        email: assignedLocal.email || '',
+                        password: assignedLocal.password || '',
+                        user_id: assignedLocal.user_id || null
+                    };
+                }
             }
 
-            // 3. Check localRepository polling_unit_cells
+            // 3. Fallback to unit.canvasser_name if available
+            if (!puAgent && unit?.canvasser_name) {
+                puAgent = {
+                    id: unit.id || realId,
+                    name: unit.canvasser_name,
+                    phone: unit.canvasser_phone || '',
+                    email: '',
+                    password: '',
+                    user_id: null
+                };
+            }
+
+            // 4. Check localRepository polling_unit_cells
             if (!puAgent) {
                 try {
                     const cachedCells = await localRepository.getPollingUnitCells();
@@ -586,25 +619,20 @@ const PollingUnitDetail = () => {
                 } catch (e) {}
             }
 
-            // 4. Check pu_starred_agents_store
-            if (!puAgent && typeof window !== "undefined") {
+            // 5. Check mock_users for agent credentials if password is missing
+            if (puAgent && !puAgent.password && typeof window !== "undefined") {
                 try {
-                    const rawStarred = localStorage.getItem("pu_starred_agents_store");
-                    if (rawStarred) {
-                        const starredMap = JSON.parse(rawStarred);
-                        const normPuName = (unit?.polling_unit_name || "").toLowerCase().trim();
-                        for (const [mId, rec] of Object.entries(starredMap) as [string, any][]) {
-                            if (rec.is_starred && rec.polling_unit && (rec.polling_unit.toLowerCase().trim() === normPuName || normPuName.includes(rec.polling_unit.toLowerCase().trim()))) {
-                                puAgent = {
-                                    id: mId,
-                                    name: "Assigned Lead Agent",
-                                    phone: "",
-                                    email: "",
-                                    password: "",
-                                    user_id: mId
-                                };
-                                break;
-                            }
+                    const rawMock = localStorage.getItem("mock_users");
+                    if (rawMock) {
+                        const mockUsers = JSON.parse(rawMock);
+                        const matchUser = mockUsers.find((u: any) =>
+                            (u.polling_unit_id && (u.polling_unit_id === id || u.polling_unit_id === realId)) ||
+                            (u.email && puAgent?.email && u.email.toLowerCase() === puAgent.email.toLowerCase()) ||
+                            (u.full_name && puAgent?.name && u.full_name.toLowerCase() === puAgent.name.toLowerCase())
+                        );
+                        if (matchUser && matchUser.password) {
+                            puAgent.password = matchUser.password;
+                            if (!puAgent.email && matchUser.email) puAgent.email = matchUser.email;
                         }
                     }
                 } catch (e) {}
@@ -648,7 +676,16 @@ const PollingUnitDetail = () => {
         );
     }
 
-    const statusConfig = CELL_STATUS_LABELS[unit.status as keyof typeof CELL_STATUS_LABELS] || CELL_STATUS_LABELS.forming;
+    const effectiveAgent = leadership?.puAgent || (unit.canvasser_name ? {
+        id: unit.id,
+        name: unit.canvasser_name,
+        phone: unit.canvasser_phone || "",
+        email: "",
+        password: ""
+    } : null);
+
+    const effectiveStatus = (effectiveAgent && unit.status === 'forming') ? 'active' : (unit.status || 'forming');
+    const statusConfig = CELL_STATUS_LABELS[effectiveStatus as keyof typeof CELL_STATUS_LABELS] || CELL_STATUS_LABELS.forming;
     const memberCount = members?.length || 0;
     const targetVoters = unit.target_voters || 50;
     const memberProgress = Math.min(Math.round((memberCount / targetVoters) * 100), 100);
@@ -890,7 +927,7 @@ const PollingUnitDetail = () => {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    {(leadership?.puAgent || unit.canvasser_name) ? (
+                                    {effectiveAgent ? (
                                         <div className="space-y-4">
                                             <div className="flex items-start gap-4">
                                                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -898,24 +935,24 @@ const PollingUnitDetail = () => {
                                                 </div>
                                                 <div className="flex-1 space-y-1.5 min-w-0">
                                                     <h4 className="font-semibold text-lg truncate">
-                                                        {leadership?.puAgent?.name || unit.canvasser_name || `${unit.name || "Polling Unit"} Agent`}
+                                                        {effectiveAgent.name}
                                                     </h4>
                                                     <div className="flex flex-col gap-1.5 text-sm text-muted-foreground mt-1">
                                                         <div className="flex items-center gap-2">
                                                             <Phone className="w-4 h-4 text-slate-400" />
-                                                            <span>{leadership?.puAgent?.phone || unit.canvasser_phone || "No phone number"}</span>
+                                                            <span>{effectiveAgent.phone || "No phone number"}</span>
                                                         </div>
-                                                        {leadership?.puAgent?.email && (
+                                                        {effectiveAgent.email && (
                                                             <div className="flex items-center gap-2">
                                                                 <Mail className="w-4 h-4 text-slate-400" />
-                                                                <span className="truncate">{leadership.puAgent.email}</span>
+                                                                <span className="truncate">{effectiveAgent.email}</span>
                                                             </div>
                                                         )}
-                                                        {leadership?.puAgent?.password && (
+                                                        {effectiveAgent.password && (
                                                             <div className="flex items-center gap-2 bg-slate-50 p-1.5 px-2.5 rounded-lg border border-slate-100 w-fit mt-1">
                                                                 <Lock className="w-4 h-4 text-slate-400" />
                                                                 <span className="font-mono text-xs font-semibold text-slate-700">
-                                                                    {showPassword ? leadership.puAgent.password : "••••••••"}
+                                                                    {showPassword ? effectiveAgent.password : "••••••••"}
                                                                 </span>
                                                                 <Button
                                                                     size="icon"
@@ -929,7 +966,7 @@ const PollingUnitDetail = () => {
                                                                     size="icon"
                                                                     variant="ghost"
                                                                     className="h-5 w-5 text-slate-400 hover:text-slate-600"
-                                                                    onClick={() => handleCopyPassword(leadership.puAgent.password)}
+                                                                    onClick={() => handleCopyPassword(effectiveAgent.password)}
                                                                 >
                                                                     <Copy className="h-3.5 w-3.5" />
                                                                 </Button>
@@ -1247,31 +1284,31 @@ const PollingUnitDetail = () => {
                                     <CardTitle className="text-base font-semibold">Polling Unit Agent</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    {leadership?.puAgent ? (
+                                    {effectiveAgent ? (
                                         <div className="space-y-3">
                                             <div className="flex items-start gap-3">
                                                 <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center text-orange-700 font-bold flex-shrink-0">
-                                                    {(leadership.puAgent.name || "Agent").charAt(0)}
+                                                    {(effectiveAgent.name || "Agent").charAt(0)}
                                                 </div>
                                                 <div className="flex-1 space-y-1 min-w-0">
                                                     <p className="font-semibold text-slate-800 truncate">
-                                                        {leadership.puAgent.name}
+                                                        {effectiveAgent.name}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                                                         <Phone className="w-3.5 h-3.5 text-slate-400" />
-                                                        {leadership.puAgent.phone || "No phone number"}
+                                                        {effectiveAgent.phone || "No phone number"}
                                                     </p>
-                                                    {leadership.puAgent.email && (
+                                                    {effectiveAgent.email && (
                                                         <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
                                                             <Mail className="w-3.5 h-3.5 text-slate-400" />
-                                                            {leadership.puAgent.email}
+                                                            {effectiveAgent.email}
                                                         </p>
                                                     )}
-                                                    {leadership.puAgent.password && (
+                                                    {effectiveAgent.password && (
                                                         <div className="flex items-center gap-1.5 bg-white p-1 px-2 rounded border border-slate-100 w-fit mt-1">
                                                             <Lock className="w-3 h-3 text-slate-400" />
                                                             <span className="font-mono text-xs text-slate-700">
-                                                                {showPassword ? leadership.puAgent.password : "••••••••"}
+                                                                {showPassword ? effectiveAgent.password : "••••••••"}
                                                             </span>
                                                             <Button
                                                                 size="icon"
@@ -1285,7 +1322,7 @@ const PollingUnitDetail = () => {
                                                                 size="icon"
                                                                 variant="ghost"
                                                                 className="h-4 w-4 text-slate-400 hover:text-slate-600"
-                                                                onClick={() => handleCopyPassword(leadership.puAgent.password)}
+                                                                onClick={() => handleCopyPassword(effectiveAgent.password)}
                                                             >
                                                                 <Copy className="h-3 w-3" />
                                                             </Button>
