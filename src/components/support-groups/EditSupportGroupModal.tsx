@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CAMPAIGN_STATE, KATSINA_LGAS, getWardsForLga } from "@/lib/campaign-data";
+import { CAMPAIGN_STATE, KOGI_LGAS, getWardsForLga } from "@/lib/campaign-data";
 import type { SupportGroupWithStats } from "@/hooks/useSupportGroups";
 
 const GROUP_TYPES = [
@@ -155,7 +155,7 @@ export const EditSupportGroupModal = ({ group, open, onOpenChange }: Props) => {
             <Select value={form.lga} onValueChange={(v) => { update("lga", v); update("ward", ""); }}>
               <SelectTrigger><SelectValue placeholder="Select LGA" /></SelectTrigger>
               <SelectContent>
-                {KATSINA_LGAS.map((l) => (
+                {KOGI_LGAS.map((l) => (
                   <SelectItem key={l} value={l}>{l}</SelectItem>
                 ))}
               </SelectContent>

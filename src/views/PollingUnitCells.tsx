@@ -38,6 +38,7 @@ import { useAuthorizedLgas } from "@/hooks/useAuthorizedLgas";
 import { useProfile } from "@/hooks/useSettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCouncillor } from "@/hooks/useCouncillors";
+import { usePUAgent } from "@/hooks/usePUAgent";
 import { KOGI_LGAS, ALL_WARDS, ALL_POLLING_UNITS } from "@/data/aggregated_lga_data";
 import {
   Select,
@@ -71,20 +72,31 @@ const PollingUnitCells = () => {
   const { role, user } = useAuth();
   const { data: profile } = useProfile();
   const { data: councillor } = useCouncillor();
+  const { data: puAgent } = usePUAgent();
+
+  // Check if current user is Polling Unit Agent
+  const cachedRole = typeof window !== "undefined" ? localStorage.getItem("auth_role") : null;
+  const isPUAgent =
+    role === "polling_unit_agent" ||
+    role === "agent" ||
+    role === "pu_agent" ||
+    cachedRole === "polling_unit_agent" ||
+    profile?.role === "polling_unit_agent" ||
+    user?.user_metadata?.role === "polling_unit_agent";
 
   // Check if current user is in Ward / Councillor scope
-  const cachedRole = typeof window !== "undefined" ? localStorage.getItem("auth_role") : null;
   const cachedWard = typeof window !== "undefined" ? localStorage.getItem("councillor_ward") : null;
   const cachedLga = typeof window !== "undefined" ? localStorage.getItem("councillor_lga") : null;
   const queryWard = searchParams.get("ward");
   const queryLga = searchParams.get("lga");
 
   const isCouncillor =
+    !isPUAgent && (
     role === "councillor" ||
     cachedRole === "councillor" ||
     profile?.role === "councillor" ||
     Boolean(queryWard) ||
-    Boolean(cachedWard);
+    Boolean(cachedWard));
 
   // Determine active ward & LGA
   const activeWard = queryWard || cachedWard || councillor?.ward || profile?.ward || "Eggan";
@@ -133,8 +145,59 @@ const PollingUnitCells = () => {
 
   const isLoading = cellsLoading || statsLoading || jurisdictionLoading;
 
-  // Filter cells strictly for ward councillor with instant synchronous indexed fallback
+  // Filter cells strictly for PU agent or ward councillor with instant synchronous indexed fallback
   const filteredCells = useMemo(() => {
+    // 1. Strict filter for Polling Unit Field Agent - ONLY their assigned polling unit
+    if (isPUAgent) {
+      const puName = puAgent?.polling_unit_name || "Eggan Tifain Area LGEA Sch Eggan";
+      const puId = puAgent?.polling_unit_id;
+      const agentLga = puAgent?.lga || "Lokoja";
+      const agentWard = puAgent?.ward || "Eggan";
+
+      const matched = ALL_POLLING_UNITS.find((p) =>
+        (puId && (p.id === puId || p.code === puId)) ||
+        norm(p.name) === norm(puName) ||
+        norm(p.name).includes(norm(puName)) ||
+        norm(puName).includes(norm(p.name))
+      );
+
+      const cellItem = matched
+        ? {
+            id: matched.id,
+            polling_unit_name: matched.name,
+            ward: matched.wardName,
+            lga: matched.lga,
+            pu_code: matched.code,
+            registered_voters: matched.registeredVoters || 505,
+            target_voters: 50,
+            app_members_count: 0,
+            status: "active",
+            polling_unit_agent_name: puAgent?.agent_name || "Assigned Officer",
+          }
+        : {
+            id: puId || "LOKOJA-W10-PU001",
+            polling_unit_name: puName,
+            ward: agentWard,
+            lga: agentLga,
+            pu_code: puId || "22-12-10-001",
+            registered_voters: 505,
+            target_voters: 50,
+            app_members_count: 0,
+            status: "active",
+            polling_unit_agent_name: puAgent?.agent_name || "Assigned Officer",
+          };
+
+      if (!searchQuery.trim()) return [cellItem];
+      const q = searchQuery.toLowerCase().trim();
+      if (
+        cellItem.polling_unit_name.toLowerCase().includes(q) ||
+        cellItem.pu_code.toLowerCase().includes(q) ||
+        cellItem.ward.toLowerCase().includes(q)
+      ) {
+        return [cellItem];
+      }
+      return [];
+    }
     let list = cells && cells.length > 0 ? cells : [];
 
     // Instant zero-millisecond fallback from front-end indexed data
@@ -175,7 +238,7 @@ const PollingUnitCells = () => {
         cell.pu_code?.toLowerCase().includes(query)
       );
     });
-  }, [cells, effectiveLga, effectiveWard, isCouncillor, activeWard, searchQuery]);
+  }, [cells, effectiveLga, effectiveWard, isCouncillor, isPUAgent, puAgent, activeWard, searchQuery]);
 
   const totalTarget = stats?.totalTarget || (filteredCells.length * 50) || 50;
   const totalAppMembers = stats?.totalAppMembers || 0;
@@ -183,13 +246,55 @@ const PollingUnitCells = () => {
 
   return (
     <DashboardLayout
-      title={isCouncillor ? `${activeWard} Ward Polling Unit Cells` : "Polling Unit Cells"}
+      title={
+        isPUAgent
+          ? (puAgent?.polling_unit_name || "My Polling Unit Cell")
+          : isCouncillor
+          ? `${activeWard} Ward Polling Unit Cells`
+          : "Polling Unit Cells"
+      }
       subtitle={
-        isCouncillor
+        isPUAgent
+          ? `Official INEC Polling Unit Cell • ${puAgent?.ward || "Eggan"} Ward, ${puAgent?.lga || "Lokoja"} LGA • APM Field Agent`
+          : isCouncillor
           ? `Official INEC Polling Units in ${activeWard} Ward (${activeLga} LGA) • APM Ward Command`
           : "PU-level voter mobilization and cell formation"
       }
     >
+      {/* Polling Unit Field Agent Scope Banner */}
+      {isPUAgent && (
+        <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-950 via-slate-900 to-emerald-950 text-white shadow-lg border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white tracking-wide uppercase">
+                  {puAgent?.polling_unit_name || "Assigned Polling Unit Cell"}
+                </span>
+                <Badge className="bg-emerald-500 text-slate-950 font-bold text-[10px] px-2 py-0.5">
+                  Assigned PU
+                </Badge>
+              </div>
+              <p className="text-xs text-emerald-200/80 mt-0.5">
+                Strict Field Operations Scope: Showing only your assigned polling unit in {puAgent?.ward || "Eggan"} Ward ({puAgent?.lga || "Lokoja"} LGA).
+              </p>
+            </div>
+          </div>
+
+          <Link href="/dashboard">
+            <Button
+              size="sm"
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-semibold shrink-0 gap-1.5"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              PU Dashboard
+            </Button>
+          </Link>
+        </div>
+      )}
+
       {/* Ward Councillor Scope Banner */}
       {isCouncillor && (
         <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-900 to-teal-950 text-white shadow-lg border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -340,7 +445,7 @@ const PollingUnitCells = () => {
               </Select>
 
               {/* When NOT in councillor mode, allow LGA and Ward filters */}
-              {!isCouncillor && (
+              {!isCouncillor && !isPUAgent && (
                 <>
                   <Select
                     value={filters.lga || "all"}
@@ -380,6 +485,17 @@ const PollingUnitCells = () => {
                 </>
               )}
 
+              {/* Locked Badge for Polling Unit Agent */}
+              {isPUAgent && (
+                <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-300 text-emerald-800 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="truncate max-w-[200px]">{puAgent?.polling_unit_name || "My Polling Unit"}</span>
+                  <Badge className="bg-emerald-600 text-white text-[9px] px-1.5 py-0 font-bold ml-1">
+                    Assigned
+                  </Badge>
+                </div>
+              )}
+
               {/* Locked Badge for Councillor */}
               {isCouncillor && (
                 <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-300 text-emerald-800 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">
@@ -394,7 +510,7 @@ const PollingUnitCells = () => {
           )}
 
           {/* Filters - Show for Map View */}
-          {activeTab === "map" && !isCouncillor && (
+          {activeTab === "map" && !isCouncillor && !isPUAgent && (
             <div className="flex gap-2">
               <Select
                 value={filters.lga || "all"}

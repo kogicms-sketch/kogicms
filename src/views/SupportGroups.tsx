@@ -25,7 +25,7 @@ import {
 import { useSupportGroups } from "@/hooks/useSupportGroups";
 import { useDeleteSupportGroup } from "@/hooks/useDeleteSupportGroup";
 import { useChairman } from "@/hooks/useChairmen";
-import { CAMPAIGN_STATE, KATSINA_LGAS } from "@/lib/campaign-data";
+import { CAMPAIGN_STATE, KOGI_LGAS } from "@/lib/campaign-data";
 import {
   Select,
   SelectContent,
@@ -218,7 +218,7 @@ const SupportGroups = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All LGAs</SelectItem>
-              {KATSINA_LGAS.map(lga => (
+              {KOGI_LGAS.map(lga => (
                 <SelectItem key={lga} value={lga}>{lga}</SelectItem>
               ))}
             </SelectContent>
@@ -376,17 +376,17 @@ const SupportGroups = () => {
                     )}
                   </div>
 
-                  {/* View Button */}
+                  {/* View Dashboard Button */}
                   <Button
-                    variant="ghost"
-                    className="w-full mt-2 group-hover:bg-[hsl(var(--apc-green))]/10"
+                    variant="default"
+                    className="w-full mt-2 bg-[#005A36] hover:bg-[#00482B] text-white flex items-center justify-center gap-2 font-medium"
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/support-groups/detail?id=${group.id}`);
                     }}
                   >
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Details
+                    <Eye className="w-4 h-4" />
+                    Open Support Group Dashboard
                   </Button>
                 </div>
               </CardContent>
@@ -431,3 +431,4 @@ const SupportGroups = () => {
 };
 
 export default SupportGroups;
+

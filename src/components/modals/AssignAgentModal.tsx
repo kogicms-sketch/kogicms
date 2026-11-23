@@ -6,6 +6,7 @@ import * as z from "zod";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { localRepository } from "@/services/LocalRepository";
+import { setLocalStarredAgent } from "@/services/AgentService";
 import {
     Dialog,
     DialogContent,
@@ -25,7 +26,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, Copy, Check } from "lucide-react";
+import { Loader2, Copy, Check, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { ALL_POLLING_UNITS } from "@/data/aggregated_lga_data";
 
 const formSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
@@ -44,6 +46,7 @@ interface AssignAgentModalProps {
         name: string;
         ward: string;
         lga: string;
+        code?: string;
     };
 }
 
@@ -61,6 +64,7 @@ const AssignAgentModal = ({
     const [isLoading, setIsLoading] = useState(false);
     const [credentials, setCredentials] = useState<{ email: string; password: string } | null>(null);
     const [copied, setCopied] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -68,7 +72,7 @@ const AssignAgentModal = ({
             name: "",
             email: "",
             phone: "",
-            password: Math.random().toString(36).slice(-8), // Generate random password
+            password: Math.random().toString(36).slice(-8), // Generate initial random password
         },
     });
 
@@ -78,6 +82,12 @@ const AssignAgentModal = ({
             const cleanPuId = pollingUnit.id.replace(/^(static-|virtual-)/, "");
             const validCouncillorId = isUuid(councillorId) ? councillorId : null;
             const validPuId = isUuid(cleanPuId) ? cleanPuId : null;
+
+            // Find matching static unit for code if available
+            const matchedStatic = ALL_POLLING_UNITS.find(
+                u => u.id === pollingUnit.id || u.id === cleanPuId || u.code === cleanPuId || u.name?.toLowerCase().trim() === pollingUnit.name?.toLowerCase().trim()
+            );
+            const puCode = matchedStatic?.code || pollingUnit.code || cleanPuId;
 
             // 1. Attempt backend RPC if parameters match UUID expectations
             try {
@@ -96,12 +106,13 @@ const AssignAgentModal = ({
                     console.log("RPC agent created successfully");
                 }
             } catch (rpcErr) {
-                console.warn("RPC function create_polling_unit_agent notice, continuing with resilient assignment:", rpcErr);
+                console.warn("RPC function notice:", rpcErr);
             }
 
-            // 2. Attempt Supabase Auth SignUp so agent has credentials in auth.users
+            // 2. Register with Supabase Auth
+            let authUserId: string | null = null;
             try {
-                await supabase.auth.signUp({
+                const { data: signUpData } = await supabase.auth.signUp({
                     email: values.email,
                     password: values.password,
                     options: {
@@ -113,21 +124,120 @@ const AssignAgentModal = ({
                             ward: pollingUnit.ward,
                             polling_unit_id: pollingUnit.id,
                             polling_unit_name: pollingUnit.name,
+                            pu_code: puCode,
                         },
                     },
                 });
+                authUserId = signUpData?.user?.id || null;
             } catch (authErr) {
-                // Ignore if offline or user already registered
+                console.warn("Auth signup notice:", authErr);
             }
 
-            // 3. Persist assignment in localRepository (IndexedDB)
+            // 3. Try to upsert in Supabase polling_unit_agents table
+            try {
+                await (supabase.from("polling_unit_agents" as any) as any).upsert({
+                    user_id: authUserId,
+                    agent_name: values.name,
+                    phone: values.phone,
+                    email: values.email,
+                    password: values.password,
+                    polling_unit_id: cleanPuId,
+                    polling_unit_name: pollingUnit.name,
+                    ward: pollingUnit.ward,
+                    lga: pollingUnit.lga,
+                    is_active: true,
+                }, { onConflict: "email" });
+            } catch (puaErr) {
+                console.warn("polling_unit_agents table notice:", puaErr);
+            }
+
+            // 4. Try to upsert in Supabase profiles
+            if (authUserId) {
+                try {
+                    await supabase.from("profiles").upsert({
+                        id: authUserId,
+                        full_name: values.name,
+                        phone: values.phone,
+                        role: "polling_unit_agent",
+                        lga: pollingUnit.lga,
+                        ward: pollingUnit.ward,
+                    });
+                } catch (profErr) {
+                    console.warn("profiles upsert notice:", profErr);
+                }
+            }
+
+            // 5. Save in mock_users for instant 100% reliable login
+            if (typeof window !== "undefined") {
+                try {
+                    const rawMock = localStorage.getItem("mock_users");
+                    const mockUsers = rawMock ? JSON.parse(rawMock) : [];
+                    const normalizedEmail = values.email.toLowerCase().trim();
+                    const existingIdx = mockUsers.findIndex((u: any) => u.email?.toLowerCase().trim() === normalizedEmail);
+                    const mockUserObj = {
+                        id: authUserId || `pu_agent_${Date.now()}`,
+                        email: normalizedEmail,
+                        password: values.password,
+                        full_name: values.name,
+                        phone: values.phone,
+                        role: "polling_unit_agent",
+                        lga: pollingUnit.lga,
+                        ward: pollingUnit.ward,
+                        polling_unit_id: pollingUnit.id,
+                        polling_unit_name: pollingUnit.name,
+                        pu_code: puCode,
+                    };
+                    if (existingIdx !== -1) {
+                        mockUsers[existingIdx] = mockUserObj;
+                    } else {
+                        mockUsers.push(mockUserObj);
+                    }
+                    localStorage.setItem("mock_users", JSON.stringify(mockUsers));
+                } catch (e) {}
+            }
+
+            // 6. Save in assigned_pu_agents in localStorage
+            if (typeof window !== "undefined") {
+                try {
+                    const assignedMap = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
+                    const agentEntry = {
+                        id: pollingUnit.id,
+                        agent_name: values.name,
+                        phone: values.phone,
+                        email: values.email,
+                        password: values.password,
+                        lga: pollingUnit.lga,
+                        ward: pollingUnit.ward,
+                        pu_name: pollingUnit.name,
+                        pu_id: pollingUnit.id,
+                        pu_code: puCode,
+                        assigned_at: new Date().toISOString(),
+                    };
+
+                    assignedMap[pollingUnit.id] = agentEntry;
+                    assignedMap[cleanPuId] = agentEntry;
+                    if (puCode) assignedMap[puCode] = agentEntry;
+                    if (pollingUnit.name) {
+                        assignedMap[pollingUnit.name.toLowerCase().trim()] = agentEntry;
+                    }
+                    localStorage.setItem("assigned_pu_agents", JSON.stringify(assignedMap));
+                } catch (lsErr) {}
+            }
+
+            // 7. Save in pu_starred_agents_store
+            try {
+                setLocalStarredAgent(`agent_${Date.now()}`, true, "lead_agent", pollingUnit.name);
+            } catch (starErr) {}
+
+            // 8. Persist assignment in localRepository (IndexedDB)
             try {
                 const cachedCells = await localRepository.getPollingUnitCells();
                 const puMatch = (c: any) =>
                     c.id === pollingUnit.id ||
                     c.id === cleanPuId ||
+                    c.pu_code === puCode ||
                     c.pu_code === cleanPuId ||
-                    c.polling_unit_name?.toLowerCase() === pollingUnit.name.toLowerCase();
+                    c.polling_unit_name?.toLowerCase().trim() === pollingUnit.name.toLowerCase().trim();
 
                 const existingIdx = cachedCells.findIndex(puMatch);
                 const updatedCell = {
@@ -135,6 +245,7 @@ const AssignAgentModal = ({
                     polling_unit_name: pollingUnit.name,
                     ward: pollingUnit.ward,
                     lga: pollingUnit.lga,
+                    pu_code: puCode,
                     polling_unit_agent_name: values.name,
                     polling_unit_agent_phone: values.phone,
                     canvasser_name: values.name,
@@ -152,40 +263,16 @@ const AssignAgentModal = ({
                 }
                 await localRepository.savePollingUnitCells(cachedCells);
             } catch (repoErr) {
-                console.warn("LocalRepository save error:", repoErr);
+                console.warn("LocalRepository save notice:", repoErr);
             }
 
-            // 4. Persist in localStorage for instant synchronization across all views
-            if (typeof window !== "undefined") {
-                try {
-                    const assignedMap = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
-                    const agentEntry = {
-                        id: pollingUnit.id,
-                        agent_name: values.name,
-                        phone: values.phone,
-                        email: values.email,
-                        password: values.password,
-                        lga: pollingUnit.lga,
-                        ward: pollingUnit.ward,
-                        pu_name: pollingUnit.name,
-                        pu_id: pollingUnit.id,
-                        assigned_at: new Date().toISOString(),
-                    };
-                    assignedMap[pollingUnit.id] = agentEntry;
-                    assignedMap[cleanPuId] = agentEntry;
-                    if (pollingUnit.name) {
-                        assignedMap[pollingUnit.name.toLowerCase().trim()] = agentEntry;
-                    }
-                    localStorage.setItem("assigned_pu_agents", JSON.stringify(assignedMap));
-                } catch (lsErr) {}
-            }
-
-            // 5. Invalidate relevant queries so all tabs & views update immediately
+            // 9. Invalidate all relevant queries
             queryClient.invalidateQueries({ queryKey: ["polling-unit-cells"] });
             queryClient.invalidateQueries({ queryKey: ["polling-unit-stats"] });
             queryClient.invalidateQueries({ queryKey: ["polling-unit-detail"] });
             queryClient.invalidateQueries({ queryKey: ["polling-unit-leadership"] });
             queryClient.invalidateQueries({ queryKey: ["councillor-ward-data"] });
+            queryClient.invalidateQueries({ queryKey: ["pu-agent-profile"] });
 
             setCredentials({ email: values.email, password: values.password });
             toast.success("Polling Unit Agent assigned successfully!");
@@ -200,11 +287,11 @@ const AssignAgentModal = ({
 
     const copyToClipboard = () => {
         if (!credentials) return;
-        const text = `Email: ${credentials.email}\nPassword: ${credentials.password}`;
+        const text = `KOGI APM POLLING UNIT AGENT CREDENTIALS\nPolling Unit: ${pollingUnit.name}\nLGA: ${pollingUnit.lga} | Ward: ${pollingUnit.ward}\nEmail: ${credentials.email}\nPassword: ${credentials.password}\nLogin URL: http://localhost:3000/login`;
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-        toast.success("Credentials copied to clipboard");
+        toast.success("Credentials copied to clipboard!");
     };
 
     const handleClose = () => {
@@ -219,9 +306,12 @@ const AssignAgentModal = ({
                 {!credentials ? (
                     <>
                         <DialogHeader>
-                            <DialogTitle>Assign Polling Unit Agent</DialogTitle>
+                            <DialogTitle className="flex items-center gap-2">
+                                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                                Assign Polling Unit Agent
+                            </DialogTitle>
                             <DialogDescription>
-                                Create a new agent for {pollingUnit.name}. They will be able to manage members only in this unit.
+                                Create and assign a polling unit field agent for <span className="font-semibold text-foreground">{pollingUnit.name}</span>.
                             </DialogDescription>
                         </DialogHeader>
 
@@ -232,9 +322,9 @@ const AssignAgentModal = ({
                                     name="name"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Full Name</FormLabel>
+                                            <FormLabel>Agent Full Name *</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="Enter agent's full name" {...field} />
+                                                <Input placeholder="e.g., Ibrahim Yakubu" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -246,9 +336,9 @@ const AssignAgentModal = ({
                                     name="email"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Email Address</FormLabel>
+                                            <FormLabel>Login Email *</FormLabel>
                                             <FormControl>
-                                                <Input type="email" placeholder="agent@example.com" {...field} />
+                                                <Input placeholder="agent@kogicms.ng" type="email" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -260,7 +350,7 @@ const AssignAgentModal = ({
                                     name="phone"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Phone Number</FormLabel>
+                                            <FormLabel>Phone Number *</FormLabel>
                                             <FormControl>
                                                 <Input placeholder="08012345678" {...field} />
                                             </FormControl>
@@ -274,54 +364,83 @@ const AssignAgentModal = ({
                                     name="password"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Initial Password</FormLabel>
+                                            <FormLabel>Generated Password *</FormLabel>
                                             <FormControl>
-                                                <Input type="text" {...field} />
+                                                <div className="relative">
+                                                    <Input 
+                                                        type={showPassword ? "text" : "password"} 
+                                                        {...field} 
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowPassword(!showPassword)}
+                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                                    >
+                                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                                    </button>
+                                                </div>
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
 
-                                <DialogFooter>
-                                    <Button type="submit" disabled={isLoading} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-                                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Create & Assign Agent
+                                <DialogFooter className="pt-2">
+                                    <Button type="button" variant="outline" onClick={handleClose}>
+                                        Cancel
+                                    </Button>
+                                    <Button 
+                                        type="submit" 
+                                        disabled={isLoading}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                                    >
+                                        {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                        Assign Agent
                                     </Button>
                                 </DialogFooter>
                             </form>
                         </Form>
                     </>
                 ) : (
-                    <>
+                    <div className="space-y-4 py-2">
                         <DialogHeader>
-                            <DialogTitle className="text-emerald-700 font-bold">Agent Assigned Successfully!</DialogTitle>
+                            <DialogTitle className="text-emerald-700 flex items-center gap-2">
+                                <Check className="w-5 h-5 text-emerald-600" />
+                                Agent Assigned Successfully!
+                            </DialogTitle>
                             <DialogDescription>
-                                Please share these credentials with the agent. This is the only time the password will be shown.
+                                Copy and share these login credentials with the polling unit agent.
                             </DialogDescription>
                         </DialogHeader>
 
-                        <div className="space-y-4 py-4">
-                            <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-lg space-y-2 font-mono text-sm relative">
-                                <p><span className="text-muted-foreground font-sans font-semibold">Email:</span> {credentials.email}</p>
-                                <p><span className="text-muted-foreground font-sans font-semibold">Password:</span> {credentials.password}</p>
-                                <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="absolute top-2 right-2 text-emerald-700 hover:text-emerald-900"
-                                    onClick={copyToClipboard}
-                                >
-                                    {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-                                </Button>
+                        <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-3">
+                            <div>
+                                <span className="text-xs font-semibold text-emerald-900 uppercase tracking-wider">Polling Unit:</span>
+                                <p className="text-sm font-bold text-emerald-950">{pollingUnit.name}</p>
+                            </div>
+                            <div className="border-t border-emerald-200/60 pt-2">
+                                <span className="text-xs font-semibold text-emerald-900 uppercase tracking-wider">Email:</span>
+                                <p className="text-sm font-mono font-bold text-emerald-950">{credentials.email}</p>
+                            </div>
+                            <div className="border-t border-emerald-200/60 pt-2">
+                                <span className="text-xs font-semibold text-emerald-900 uppercase tracking-wider">Password:</span>
+                                <p className="text-sm font-mono font-bold text-emerald-950">{credentials.password}</p>
                             </div>
                         </div>
 
-                        <DialogFooter>
-                            <Button onClick={handleClose} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                        <div className="flex gap-2">
+                            <Button 
+                                onClick={copyToClipboard} 
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2"
+                            >
+                                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                                {copied ? "Copied to Clipboard!" : "Copy Credentials"}
+                            </Button>
+                            <Button variant="outline" onClick={handleClose}>
                                 Done
                             </Button>
-                        </DialogFooter>
-                    </>
+                        </div>
+                    </div>
                 )}
             </DialogContent>
         </Dialog>

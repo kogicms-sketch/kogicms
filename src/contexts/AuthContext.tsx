@@ -81,17 +81,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("Fetching role for user:", userId);
       if (isMockRef.current) return "super_admin";
 
-      // Helper to normalize ward and councillor roles
+      // Helper to normalize roles
       const normalizeRole = (r: string | null | undefined): AppRole => {
         if (!r) return null;
         const norm = r.toLowerCase().trim();
         if (norm === "ward_chairman" || norm === "ward_leader" || norm === "ward_admin" || norm === "councillor") {
           return "councillor";
         }
+        if (norm === "polling_unit_agent" || norm === "agent" || norm === "pu_agent" || norm === "polling_agent") {
+          return "polling_unit_agent";
+        }
         return norm as AppRole;
       };
 
-      // 1. Direct fast check: profiles table
+      // 1. Direct fast check: user metadata
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.id === userId && user.user_metadata?.role) {
+          const mRole = normalizeRole(user.user_metadata.role);
+          if (mRole) return mRole;
+        }
+      } catch (e) {}
+
+      // 2. Direct fast check: profiles table
       try {
         const { data: profile } = await supabase
           .from("profiles")
@@ -102,12 +114,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (profile?.role) {
           return normalizeRole(profile.role);
         }
-        if (profile?.ward) {
-          return "councillor";
-        }
       } catch (e) {
         // continue
       }
+
+      // 3. Direct fast check: mock_users in localStorage
+      if (typeof window !== "undefined") {
+        try {
+          const rawMock = localStorage.getItem("mock_users");
+          if (rawMock) {
+            const mockUsers = JSON.parse(rawMock);
+            const foundUser = mockUsers.find((u: any) => u.id === userId || (user?.email && u.email?.toLowerCase().trim() === user.email.toLowerCase().trim()));
+            if (foundUser?.role) {
+              return normalizeRole(foundUser.role);
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 4. Check assigned_pu_agents in localStorage
+      if (typeof window !== "undefined") {
+        try {
+          const assignedLocal = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
+          const userEmail = (user?.email || "").toLowerCase().trim();
+          for (const [, agentInfo] of Object.entries(assignedLocal) as [string, any][]) {
+            if (
+              (agentInfo.email && agentInfo.email.toLowerCase().trim() === userEmail) ||
+              (agentInfo.user_id && agentInfo.user_id === userId)
+            ) {
+              return "polling_unit_agent";
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 5. Fallback if profile has ward and no other role
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("ward")
+          .eq("id", userId)
+          .maybeSingle();
+        if (profile?.ward) {
+          return "councillor";
+        }
+      } catch (e) {}
 
       const rolePromise = supabase.rpc('get_user_role', {
         _user_id: userId
@@ -357,10 +408,97 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const normEmail = email.toLowerCase().trim();
+
+    // 1. Check local mock_users & assigned_pu_agents for instant local/offline authentication
+    if (typeof window !== "undefined") {
+      try {
+        const rawMock = localStorage.getItem("mock_users");
+        if (rawMock) {
+          const mockUsers = JSON.parse(rawMock);
+          const found = mockUsers.find(
+            (u: any) => u.email?.toLowerCase().trim() === normEmail && u.password === password
+          );
+          if (found) {
+            console.log("Logged in via mock_users:", found);
+            const mockUser: any = {
+              id: found.id || `user_${Date.now()}`,
+              email: found.email,
+              user_metadata: {
+                full_name: found.full_name,
+                role: found.role,
+                lga: found.lga,
+                ward: found.ward,
+                polling_unit_id: found.polling_unit_id,
+                polling_unit_name: found.polling_unit_name,
+                phone: found.phone,
+              },
+            };
+            setUser(mockUser);
+            setSession({ user: mockUser } as any);
+            const roleNorm = (found.role === "agent" || found.role === "pu_agent") ? "polling_unit_agent" : found.role;
+            setRole(roleNorm as AppRole);
+            setAccountStatus("active");
+            localStorage.setItem("auth_role", roleNorm || "polling_unit_agent");
+            localStorage.setItem("auth_account_status", "active");
+            if (found.organization_id) {
+              setOrganizationId(found.organization_id);
+              localStorage.setItem("auth_organization_id", found.organization_id);
+            }
+            return { error: null };
+          }
+        }
+
+        // Also check assigned_pu_agents directly
+        const assignedLocal = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
+        for (const [, agentInfo] of Object.entries(assignedLocal) as [string, any][]) {
+          if (
+            agentInfo.email &&
+            agentInfo.email.toLowerCase().trim() === normEmail &&
+            agentInfo.password === password
+          ) {
+            console.log("Logged in via assigned_pu_agents:", agentInfo);
+            const mockUser: any = {
+              id: agentInfo.id || `pu_agent_${Date.now()}`,
+              email: agentInfo.email,
+              user_metadata: {
+                full_name: agentInfo.agent_name,
+                role: "polling_unit_agent",
+                lga: agentInfo.lga,
+                ward: agentInfo.ward,
+                polling_unit_id: agentInfo.pu_id || agentInfo.id,
+                polling_unit_name: agentInfo.pu_name,
+                phone: agentInfo.phone,
+              },
+            };
+            setUser(mockUser);
+            setSession({ user: mockUser } as any);
+            setRole("polling_unit_agent");
+            setAccountStatus("active");
+            localStorage.setItem("auth_role", "polling_unit_agent");
+            localStorage.setItem("auth_account_status", "active");
+            return { error: null };
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 2. Fall back to Supabase Auth
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
+    if (!error && authData?.user) {
+      if (authData.user.user_metadata?.role) {
+        const norm = authData.user.user_metadata.role.toLowerCase().trim();
+        if (norm === "polling_unit_agent" || norm === "agent" || norm === "pu_agent") {
+          setRole("polling_unit_agent");
+          localStorage.setItem("auth_role", "polling_unit_agent");
+        }
+      }
+    }
+
     return { error: error as Error | null };
   };
 

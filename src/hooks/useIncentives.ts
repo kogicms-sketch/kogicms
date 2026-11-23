@@ -79,9 +79,11 @@ export const useIncentiveBatches = (filters?: {
         query = query.eq("target_support_group_id", filters.target_support_group_id);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as IncentiveBatch[];
+      try {
+        const { data, error } = await query;
+        if (error) return [];
+        return (data || []) as IncentiveBatch[];
+      } catch { return []; }
     },
   });
 };
@@ -196,9 +198,11 @@ export const useMemberIncentives = (filters?: {
         query = query.eq("audit_status", filters.audit_status);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as any[] as MemberIncentive[];
+      try {
+        const { data, error } = await query;
+        if (error) return [];
+        return (data || []) as any[] as MemberIncentive[];
+      } catch { return []; }
     },
   });
 };

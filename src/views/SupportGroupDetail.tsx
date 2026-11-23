@@ -60,6 +60,7 @@ import {
 import { ActivityLogForm } from "@/components/support-groups/ActivityLogForm";
 import { SupportGroupFunding } from "@/components/support-groups/SupportGroupFunding";
 import { SupportGroupLogistics } from "@/components/support-groups/SupportGroupLogistics";
+import { APCBanner } from "@/components/branding/APCBanner";
 import { format } from "date-fns";
 import { Wallet, Truck } from "lucide-react";
 
@@ -167,8 +168,14 @@ const SupportGroupDetail = () => {
   return (
     <DashboardLayout
       title={group.name}
-      subtitle="Support Group Details"
+      subtitle="Support Group Command Center"
     >
+      {/* APM Campaign Banner */}
+      <APCBanner
+        title={`${group.name} Command Center`}
+        subtitle={`APM Grassroots Mobilization — ${group.lga ? group.lga + " LGA, " : ""}${group.state || "Kogi State"}`}
+      />
+
       {/* Back Button */}
       <Button
         variant="ghost"

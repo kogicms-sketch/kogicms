@@ -58,14 +58,34 @@ const Dashboard = () => {
     return <ChairmanDashboard />;
   }
 
-  // 3. Councillor / Ward Leader View (or default if user has ward or no organization)
+  // 3. Polling Unit Agent View (Check before councillor so agents are routed to their field dashboard)
+  if (
+    role === "polling_unit_agent" ||
+    (role as string) === "agent" ||
+    (role as string) === "pu_agent" ||
+    user?.user_metadata?.role === "polling_unit_agent" ||
+    user?.user_metadata?.role === "agent" ||
+    user?.user_metadata?.role === "pu_agent"
+  ) {
+    return (
+      <DashboardLayout
+        title="Field Operations"
+        subtitle="Polling Unit Coordinator Dashboard"
+      >
+        <PUAgentDashboard />
+      </DashboardLayout>
+    );
+  }
+
+  // 4. Councillor / Ward Leader View
   if (
     role === "councillor" ||
     (role as string) === "ward_chairman" ||
     (role as string) === "ward_leader" ||
+    (role as string) === "ward_admin" ||
     user?.user_metadata?.role === "councillor" ||
     user?.user_metadata?.role === "ward_chairman" ||
-    Boolean(user?.user_metadata?.ward)
+    user?.user_metadata?.role === "ward_admin"
   ) {
     return <CouncillorDashboard />;
   }
@@ -85,20 +105,8 @@ const Dashboard = () => {
     return <AssemblyDashboard />;
   }
 
-  // 7. Polling Unit Agent View
-  if (role === "polling_unit_agent") {
-    return (
-      <DashboardLayout
-        title="Field Operations"
-        subtitle="Polling Unit Coordinator Dashboard"
-      >
-        <PUAgentDashboard />
-      </DashboardLayout>
-    );
-  }
-
   // 8. Support Group Admin View
-  if (role === "org_admin" && userOrg) {
+  if (role === "org_admin") {
     return <SupportGroupAdminDashboard />;
   }
 

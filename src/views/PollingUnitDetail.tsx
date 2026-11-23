@@ -336,6 +336,34 @@ const PollingUnitDetail = () => {
                 const chairmanData = getChairmanByLGA(staticUnit.lga);
                 const realCount = await fetchRealVoters(staticUnit.lga, staticUnit.wardName, staticUnit.code);
 
+                // Check local storage caches for assigned agent
+                let assignedName: string | null = null;
+                let assignedPhone: string | null = null;
+                let cellStatus = 'forming';
+
+                if (typeof window !== "undefined") {
+                    try {
+                        const assignedMap = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
+                        const normName = staticUnit.name.toLowerCase().trim();
+                        const found: any =
+                            assignedMap[id] ||
+                            assignedMap[cleanId] ||
+                            assignedMap[staticUnit.code] ||
+                            assignedMap[normName] ||
+                            Object.values(assignedMap).find((a: any) =>
+                                (a.pu_id && (a.pu_id === id || a.pu_id === cleanId)) ||
+                                (a.pu_code && a.pu_code === staticUnit.code) ||
+                                (a.pu_name && a.pu_name.toLowerCase().trim() === normName)
+                            );
+
+                        if (found) {
+                            assignedName = found.agent_name;
+                            assignedPhone = found.phone;
+                            cellStatus = 'active';
+                        }
+                    } catch (e) {}
+                }
+
                 return {
                     id: id,
                     polling_unit_name: staticUnit.name,
@@ -346,10 +374,10 @@ const PollingUnitDetail = () => {
                     target_voters: 50,
                     reliable_voters: 0,
                     registered_voters: realCount ?? staticUnit.registeredVoters ?? 0,
-                    status: 'forming',
+                    status: cellStatus,
                     type: 'static',
-                    canvasser_name: null,
-                    canvasser_phone: null
+                    canvasser_name: assignedName,
+                    canvasser_phone: assignedPhone
                 };
             } else {
                 console.warn("Static unit not found for:", cleanId);
@@ -477,15 +505,17 @@ const PollingUnitDetail = () => {
                 phone: councillorData.phone
             } : null;
 
-            // Fetch polling unit agent from polling_unit_agents table using real ID
-            const { data: agentData, error: agentError } = await (supabase as any)
-                .from("polling_unit_agents")
-                .select("id, user_id, agent_name, phone, email, password")
-                .eq("polling_unit_id", realId)
-                .maybeSingle();
-
-            if (agentError) {
-                console.error("Error fetching polling unit agent:", agentError);
+            // 1. Fetch polling unit agent from polling_unit_agents table
+            let agentData = null;
+            try {
+                const { data } = await (supabase as any)
+                    .from("polling_unit_agents")
+                    .select("id, user_id, agent_name, phone, email, password, polling_unit_name, polling_unit_id")
+                    .or(`polling_unit_id.eq.${realId},polling_unit_id.eq.${id},polling_unit_name.eq.${unit.polling_unit_name}`)
+                    .maybeSingle();
+                agentData = data;
+            } catch (err) {
+                console.warn("Notice during polling_unit_agents query:", err);
             }
 
             let puAgent = agentData ? {
@@ -497,14 +527,27 @@ const PollingUnitDetail = () => {
                 user_id: agentData.user_id
             } : null;
 
+            // 2. Check assigned_pu_agents in localStorage
             if (!puAgent && typeof window !== "undefined") {
                 try {
                     const assignedLocal = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
-                    const found =
+                    const normPuName = (unit?.polling_unit_name || "").toLowerCase().trim();
+                    const puCode = unit?.pu_code || "";
+
+                    let found: any =
                         assignedLocal[id] ||
                         assignedLocal[realId] ||
-                        assignedLocal[unit?.pu_code] ||
-                        assignedLocal[unit?.polling_unit_name?.toLowerCase()?.trim()];
+                        (puCode ? assignedLocal[puCode] : null) ||
+                        (normPuName ? assignedLocal[normPuName] : null);
+
+                    if (!found) {
+                        found = Object.values(assignedLocal).find((a: any) =>
+                            (a.pu_id && (a.pu_id === id || a.pu_id === realId)) ||
+                            (a.pu_code && puCode && a.pu_code === puCode) ||
+                            (a.pu_name && normPuName && a.pu_name.toLowerCase().trim() === normPuName)
+                        );
+                    }
+
                     if (found) {
                         puAgent = {
                             id: found.id || realId,
@@ -514,6 +557,55 @@ const PollingUnitDetail = () => {
                             password: found.password || '',
                             user_id: found.user_id || null
                         };
+                    }
+                } catch (e) {}
+            }
+
+            // 3. Check localRepository polling_unit_cells
+            if (!puAgent) {
+                try {
+                    const cachedCells = await localRepository.getPollingUnitCells();
+                    const normPuName = (unit?.polling_unit_name || "").toLowerCase().trim();
+                    const puCode = unit?.pu_code || "";
+                    const matchedCell = cachedCells.find((c: any) =>
+                        c.id === id ||
+                        c.id === realId ||
+                        (puCode && c.pu_code === puCode) ||
+                        (c.polling_unit_name && normPuName && c.polling_unit_name.toLowerCase().trim() === normPuName)
+                    );
+                    if (matchedCell && (matchedCell.polling_unit_agent_name || matchedCell.canvasser_name)) {
+                        puAgent = {
+                            id: matchedCell.id || realId,
+                            name: matchedCell.polling_unit_agent_name || matchedCell.canvasser_name,
+                            phone: matchedCell.polling_unit_agent_phone || matchedCell.canvasser_phone || '',
+                            email: matchedCell.agent_email || '',
+                            password: matchedCell.agent_password || '',
+                            user_id: null
+                        };
+                    }
+                } catch (e) {}
+            }
+
+            // 4. Check pu_starred_agents_store
+            if (!puAgent && typeof window !== "undefined") {
+                try {
+                    const rawStarred = localStorage.getItem("pu_starred_agents_store");
+                    if (rawStarred) {
+                        const starredMap = JSON.parse(rawStarred);
+                        const normPuName = (unit?.polling_unit_name || "").toLowerCase().trim();
+                        for (const [mId, rec] of Object.entries(starredMap) as [string, any][]) {
+                            if (rec.is_starred && rec.polling_unit && (rec.polling_unit.toLowerCase().trim() === normPuName || normPuName.includes(rec.polling_unit.toLowerCase().trim()))) {
+                                puAgent = {
+                                    id: mId,
+                                    name: "Assigned Lead Agent",
+                                    phone: "",
+                                    email: "",
+                                    password: "",
+                                    user_id: mId
+                                };
+                                break;
+                            }
+                        }
                     }
                 } catch (e) {}
             }
@@ -1423,6 +1515,7 @@ const PollingUnitDetail = () => {
                             name: unit.polling_unit_name,
                             ward: unit.ward,
                             lga: unit.lga,
+                            code: unit.pu_code,
                         }}
                     />
                 )}

@@ -27,6 +27,35 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useParty } from "@/contexts/PartyContext";
 import { navItems } from "@/config/navigation";
 
+// Dedicated navigation strictly for Polling Unit Field Agents
+const puAgentNavItems = [
+  {
+    label: "PU Dashboard",
+    icon: LayoutDashboard,
+    path: "/dashboard",
+  },
+  {
+    label: "Polling Unit Cell",
+    icon: Target,
+    path: "/polling-units",
+  },
+  {
+    label: "Unit Members",
+    icon: Users,
+    path: "/members",
+  },
+  {
+    label: "Welfare & Incentives",
+    icon: Gift,
+    path: "/welfare",
+  },
+  {
+    label: "Notifications",
+    icon: Bell,
+    path: "/notifications",
+  },
+];
+
 // Dedicated navigation strictly for Ward / Councillor operations
 const wardNavItems = [
   {
@@ -100,7 +129,8 @@ const Sidebar = () => {
   const effectiveRole =
     role || cachedRole || (pathname.startsWith("/chairman") ? "lga_chairman" : "councillor");
 
-  const isCouncillor = effectiveRole === "councillor" || pathname.startsWith("/councillor");
+  const isPUAgent = effectiveRole === "polling_unit_agent" || effectiveRole === "agent" || effectiveRole === "pu_agent";
+  const isCouncillor = !isPUAgent && (effectiveRole === "councillor" || pathname.startsWith("/councillor"));
 
   // Active ward name from localStorage cache
   const activeWard =
@@ -146,7 +176,14 @@ const Sidebar = () => {
               <h2 className="text-sm font-bold text-white truncate leading-tight">
                 Kogi State {party.shortName}
               </h2>
-              {isCouncillor ? (
+              {isPUAgent ? (
+                <div className="mt-1">
+                  <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950/90 border border-emerald-500/40 px-2 py-0.5 rounded-full inline-flex items-center gap-1 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    PU Field Agent
+                  </span>
+                </div>
+              ) : isCouncillor ? (
                 <div className="mt-1">
                   <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950/90 border border-emerald-500/40 px-2 py-0.5 rounded-full inline-flex items-center gap-1 shadow-sm">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -165,7 +202,26 @@ const Sidebar = () => {
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto mt-2">
-        {isCouncillor ? (
+        {isPUAgent ? (
+          // DEDICATED POLLING UNIT AGENT NAVIGATION
+          puAgentNavItems.map((item) => {
+            const isActive = pathname === item.path;
+            const Icon = item.icon;
+
+            return (
+              <Link
+                key={item.path}
+                href={item.path}
+                className={isActive ? "nav-item-active" : "nav-item"}
+              >
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                {!collapsed && (
+                  <span className="text-sm font-medium">{item.label}</span>
+                )}
+              </Link>
+            );
+          })
+        ) : isCouncillor ? (
           // DEDICATED WARD NAVIGATION (Strictly for Ward Councillor operations)
           wardNavItems.map((item) => {
             const isActive =

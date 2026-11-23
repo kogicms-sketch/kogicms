@@ -1,18 +1,27 @@
+"use client";
+
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { toast } from "sonner";
+import { deleteLocalSupportGroup } from "./useSupportGroups";
 
 export const useDeleteSupportGroup = () => {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: async (id: string) => {
-            const { error } = await supabase
-                .from("organizations")
-                .delete()
-                .eq("id", id);
+            // 1. Delete from local storage
+            deleteLocalSupportGroup(id);
 
-            if (error) throw error;
+            // 2. Attempt Supabase delete in background
+            try {
+                await supabase
+                    .from("organizations")
+                    .delete()
+                    .eq("id", id);
+            } catch (err) {
+                console.warn("Supabase organizations delete skipped:", err);
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["support-groups"] });

@@ -39,43 +39,11 @@ const MapController = ({ center, zoom }: { center: [number, number]; zoom: numbe
   return null;
 };
 
-// All 34 LGAs of Katsina State coordinates
+import { LGA_COORDINATES } from '@/data/lga_coordinates';
+
 const lgaCoordinates: Record<string, [number, number]> = {
-  "Katsina": [12.9894, 7.6006],
-  "Daura": [13.0333, 8.3167],
-  "Funtua": [11.5233, 7.3081],
-  "Dutsin-Ma": [12.4539, 7.4986],
-  "Malumfashi": [11.7867, 7.6186],
-  "Mani": [12.8550, 7.8814],
-  "Kankia": [12.5481, 7.8242],
-  "Bakori": [11.5519, 7.4206],
-  "Jibia": [13.0931, 7.2289],
-  "Batagarawa": [12.9094, 7.6178],
-  "Safana": [12.4167, 7.2333],
-  "Kurfi": [12.6372, 7.4697],
-  "Bindawa": [12.6667, 7.9833],
-  "Baure": [12.8500, 8.6167],
-  "Zango": [13.0500, 8.5333],
-  "Sandamu": [12.9500, 8.3667],
-  "Mai'Adua": [13.1833, 8.2167],
-  "Mashi": [12.9833, 7.9500],
-  "Kaita": [13.1000, 7.7333],
-  "Ingawa": [12.6333, 8.1667],
-  "Kusada": [12.4500, 8.0833],
-  "Matazu": [12.2333, 7.6833],
-  "Musawa": [12.1333, 7.6667],
-  "Dan Musa": [12.1500, 7.3167],
-  "Batsari": [12.7500, 7.2500],
-  "Kankara": [11.9333, 7.4167],
-  "Faskari": [11.7167, 7.0333],
-  "Sabuwa": [11.1667, 7.1167],
-  "Dandume": [11.3667, 7.1667],
-  "Kafur": [11.6500, 7.6667],
-  "Danja": [11.3833, 7.5500],
-  "Charanchi": [12.6667, 7.7333],
-  "Rimi": [12.8528, 7.7125],
-  "Dutsi": [13.0167, 8.1667],
-  "default": [12.5139, 7.6114]
+  ...LGA_COORDINATES,
+  "default": [7.80, 6.74]
 };
 
 interface SupportGroupsMapProps {
@@ -103,7 +71,7 @@ export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
   const [activeTab, setActiveTab] = useState<'all' | CoverageStatus>('all');
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedLga, setSelectedLga] = useState<string | null>(null);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([12.5139, 7.6114]);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([7.80, 6.74]);
   const [mapZoom, setMapZoom] = useState(8);
 
   // Process data for all 34 LGAs
@@ -185,7 +153,7 @@ export function SupportGroupsMap({ groups }: SupportGroupsMapProps) {
 
   const resetMap = () => {
     setSelectedLga(null);
-    setMapCenter([12.5139, 7.6114]);
+    setMapCenter([7.80, 6.74]);
     setMapZoom(8);
   };
 
