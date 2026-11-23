@@ -417,13 +417,13 @@ const Members = () => {
         <div className="kpi-card">
           <p className="text-xs sm:text-sm text-muted-foreground">Total Members</p>
           <p className="text-xl sm:text-2xl font-bold text-foreground mt-1">
-            {(stats?.total || 0).toLocaleString()}
+            {((stats?.total && stats.total > 0) ? stats.total : members.length).toLocaleString()}
           </p>
         </div>
         <div className="kpi-card">
           <p className="text-xs sm:text-sm text-muted-foreground">Active Members</p>
           <p className="text-xl sm:text-2xl font-bold text-success mt-1">
-            {(stats?.active || 0).toLocaleString()}
+            {((stats?.active && stats.active > 0) ? stats.active : members.filter(m => m.status === 'active' || !m.status).length).toLocaleString()}
           </p>
         </div>
         <div className="kpi-card">
@@ -433,9 +433,9 @@ const Members = () => {
           </p>
         </div>
         <div className="kpi-card">
-          <p className="text-xs sm:text-sm text-muted-foreground">Organizations</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">Expected Turnout</p>
           <p className="text-xl sm:text-2xl font-bold text-foreground mt-1">
-            {new Set(members.map((m) => m.organization_id)).size}
+            {((stats?.total && stats.total > 0) ? stats.total : members.length).toLocaleString()}
           </p>
         </div>
       </div>
@@ -719,7 +719,6 @@ const Members = () => {
                   <thead>
                     <tr>
                       <th>Member</th>
-                      <th>Organization</th>
                       <th>Role</th>
                       <th>Gender</th>
                       <th>Voter Card</th>
@@ -764,14 +763,7 @@ const Members = () => {
                             </div>
                           </div>
                         </td>
-                        <td>
-                          <div className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-foreground">
-                              {member.organizations?.name || "-"}
-                            </span>
-                          </div>
-                        </td>
+                        
                         <td>
                           <span className="text-foreground capitalize">{member.role || "-"}</span>
                         </td>

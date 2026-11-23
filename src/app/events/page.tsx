@@ -1,12 +1,12 @@
 "use client";
 
-import Component from "@/views/CampaignEvents";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Page() {
-  return (
-    <ProtectedRoute>
-      <Component />
-    </ProtectedRoute>
-  );
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/dashboard");
+  }, [router]);
+  return null;
 }

@@ -102,7 +102,7 @@ const MemberProfile = () => {
 
             let query = supabase
                 .from("members")
-                .select("*, organizations:organization_id(name)")
+                .select("*")
                 .eq("id", id);
 
             if (userProfile?.role === "polling_unit_agent") {

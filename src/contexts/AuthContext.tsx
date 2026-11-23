@@ -81,6 +81,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("Fetching role for user:", userId);
       if (isMockRef.current) return "super_admin";
 
+      // 1. Direct fast check: profiles table
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (profile?.role) {
+          return profile.role as AppRole;
+        }
+      } catch (e) {
+        // continue
+      }
+
       const rolePromise = supabase.rpc('get_user_role', {
         _user_id: userId
       });

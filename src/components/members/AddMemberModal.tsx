@@ -246,7 +246,12 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
           const { data: registeredMembers } = await supabase
             .from("members")
             .select("voters_card_id")
-            .eq("lga", formData.lga);
+            .in("lga", Array.from(new Set([
+              formData.lga,
+              formData.lga.toUpperCase(),
+              formData.lga.toLowerCase(),
+              formData.lga.charAt(0).toUpperCase() + formData.lga.slice(1).toLowerCase()
+            ])));
           if (registeredMembers) {
             registeredMembers.forEach(m => {
               if (m.voters_card_id) {

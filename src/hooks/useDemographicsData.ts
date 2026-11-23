@@ -28,7 +28,7 @@ const fetchFreshDemographicsData = async ({ lga, lgas, ward }: DemographicsParam
   let countQuery = supabase
     .from("members")
     .select("*", { count: "exact", head: true })
-    .or("is_deceased.eq.false,is_deceased.is.null");
+
 
   if (ward) {
     countQuery = countQuery.eq("ward", ward);
@@ -44,7 +44,7 @@ const fetchFreshDemographicsData = async ({ lga, lgas, ward }: DemographicsParam
     .from("members")
     .select("*", { count: "exact", head: true })
     .eq("is_verified", true)
-    .or("is_deceased.eq.false,is_deceased.is.null");
+
 
   if (ward) {
     verifiedQuery = verifiedQuery.eq("ward", ward);
@@ -92,7 +92,7 @@ const fetchFreshDemographicsData = async ({ lga, lgas, ward }: DemographicsParam
   while (hasMore && page < 50) { // Fetch up to 50,000 sample rows for high precision
     let batchQuery = supabase
       .from("members")
-      .select("gender, date_of_birth, is_verified, is_deceased")
+      .select("gender, date_of_birth, is_verified")
       .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
     if (ward) {
@@ -119,7 +119,7 @@ const fetchFreshDemographicsData = async ({ lga, lgas, ward }: DemographicsParam
     }
   }
 
-  const sampleActive = allRows.filter((m) => !m.is_deceased);
+  const sampleActive = allRows;
   const totalRegistered = countRes.count !== null && countRes.count !== undefined ? countRes.count : sampleActive.length;
   const expectedTurnout = verifiedRes.count !== null && verifiedRes.count !== undefined ? verifiedRes.count : sampleActive.filter((m) => m.is_verified).length;
 

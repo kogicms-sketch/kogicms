@@ -125,13 +125,7 @@ export const navItems: NavItem[] = [
     group: "Main Menu",
     roles: ["super_admin"],
   },
-  {
-    label: "Organizations",
-    icon: Building2,
-    path: "/organization-admins",
-    group: "Main Menu",
-    roles: ["super_admin", "lga_chairman"],
-  },
+  
   {
     label: "Support Groups",
     icon: ShieldCheck,
@@ -147,23 +141,7 @@ export const navItems: NavItem[] = [
       "house_assembly_member",
     ],
   },
-  {
-    label: "Events",
-    icon: Calendar,
-    path: "/events",
-    group: "Operations",
-    inBottomNav: true,
-    roles: [
-      "super_admin",
-      "org_admin",
-      "member",
-      "lga_chairman",
-      "councillor",
-      "senatorial_leader",
-      "federal_rep",
-      "house_assembly_member",
-    ],
-  },
+  
   {
     label: "Situation Room",
     icon: Radio,

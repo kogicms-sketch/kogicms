@@ -44,7 +44,7 @@ export const useSuperAdminStats = () => {
             // 1. Fetch Headline Stats (Efficient Counts)
             const [orgsCount, membersCount, activitiesCount, messagesCount] = await Promise.all([
                 supabase.from("organizations").select("*", { count: "exact", head: true }),
-                supabase.from("members").select("*", { count: "exact", head: true }).eq("is_deceased", false),
+                supabase.from("members").select("*", { count: "exact", head: true }),
                 supabase.from("activities").select("*", { count: "exact", head: true }),
                 supabase.from("messages").select("*", { count: "exact", head: true }),
             ]);

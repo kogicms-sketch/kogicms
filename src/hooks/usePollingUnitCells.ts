@@ -1,3 +1,4 @@
+import { ALL_POLLING_UNITS } from "@/data/aggregated_lga_data";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/loose-client";
 // Voter registry (with real INEC registered-voter data) lives on the Lovable Cloud backend.
@@ -77,9 +78,7 @@ export const usePollingUnitCells = (filters?: {
 
   return useQuery({
     queryKey: ["polling-unit-cells", filters, profile?.id],
-    staleTime: 1000 * 60 * 5, // 5 mins cache
-    gcTime: 1000 * 60 * 30,
-    enabled: !!profile,
+    staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       let targetLga = filters?.lga;
       let targetWard = filters?.ward;
@@ -93,235 +92,115 @@ export const usePollingUnitCells = (filters?: {
         }
       }
 
-      // 1. Check local cache first
-      let cached = await localRepository.getPollingUnitCells();
-      
-      // Apply filters locally
-      if (targetLga) {
-        cached = cached.filter(c => c.lga === targetLga);
+      // 1. Base polling units from local INEC register (3,512 PUs across Kogi State)
+      let baseUnits = ALL_POLLING_UNITS;
+
+      if (targetLga && targetLga !== "all" && targetLga !== "ALL") {
+        baseUnits = baseUnits.filter(pu => pu.lga.toLowerCase() === targetLga!.toLowerCase());
       }
-      if (targetWard) {
-        cached = cached.filter(c => c.ward === targetWard);
-      }
-      if (filters?.status) {
-        cached = cached.filter(c => c.status === filters.status);
-      }
-      if (filters?.canvasserId) {
-        cached = cached.filter(c => c.canvasser_id === filters.canvasserId);
+      if (targetWard && targetWard !== "all") {
+        baseUnits = baseUnits.filter(pu => pu.wardName.toLowerCase() === targetWard!.toLowerCase());
       }
 
-      if (cached.length > 0) {
-        console.log(`📦 Loaded ${cached.length} polling unit cells from IndexedDB local cache.`);
-        
-        // Enrich cached cells with pu_code from polling_units table
-        try {
-          let puQuery = supabase
-            .from("polling_units")
-            .select("name, code");
-            
-          if (targetLga) {
-            puQuery = puQuery.eq("lga_name", targetLga);
-          }
-          if (targetWard) {
-            puQuery = puQuery.eq("ward_name", targetWard);
-          }
-          
-          const { data: puData } = await puQuery;
-            
-          if (puData && puData.length > 0) {
-            const codeMap = new Map();
-            puData.forEach(pu => {
-              codeMap.set(pu.name.toLowerCase().trim(), pu.code);
-            });
-            cached = cached.map(c => ({
-              ...c,
-              pu_code: c.pu_code || codeMap.get(c.polling_unit_name?.toLowerCase().trim()) || null
-            }));
-          }
-        } catch (e) {
-          console.warn("Failed to enrich cached cells with pu_code:", e);
+      // 2. Fetch campaign members (from IndexedDB local cache & Supabase)
+      let members: any[] = [];
+      try {
+        members = await localRepository.getMembers();
+      } catch (e) {
+        members = [];
+      }
+
+      try {
+        let query = supabase.from("members").select("id, lga, ward, polling_unit, polling_unit_id, voters_card_id");
+        if (targetLga && targetLga !== "all") {
+          query = query.in("lga", [targetLga, targetLga.toUpperCase(), targetLga.toLowerCase()]);
         }
-
-        return cached;
-      }
-
-      // 2. Fallback to Supabase
-      console.log("🌐 IndexedDB cache empty. Querying polling units from database...");
-      let query = db
-        .from("polling_unit_cells")
-        .select(`
-          *,
-          members:cell_members(count),
-          canvasser:members(id, full_name, phone, membership_id)
-        `)
-        .order("created_at", { ascending: false });
-
-      if (targetLga) {
-        query = query.eq("lga", targetLga);
-      }
-      if (targetWard) {
-        query = query.eq("ward", targetWard);
-      }
-      if (filters?.status) {
-        query = query.eq("status", filters.status);
-      }
-      if (filters?.canvasserId) {
-        query = query.eq("canvasser_id", filters.canvasserId);
-      }
-
-      const { data: dbCells, error } = await query;
-
-      if (error) throw error;
-
-      // Query polling_units table - fetch ALL in batches of 1000 to bypass API limit
-      const PAGE_SIZE = 1000;
-      let pollingUnits: any[] = [];
-      let page = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        let query = supabase
-          .from("polling_units")
-          .select("*")
-          .order("lga_name", { ascending: true })
-          .order("ward_name", { ascending: true })
-          .order("name", { ascending: true })
-          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-        if (targetLga) {
-          query = query.eq("lga_name", targetLga);
+        const { data: dbMembers } = await Promise.race([
+          query,
+          new Promise<{ data: null }>((resolve) => setTimeout(() => resolve({ data: null }), 1500))
+        ]);
+        if (dbMembers && dbMembers.length > 0) {
+          members = dbMembers as any[];
         }
-        if (targetWard) {
-          query = query.eq("ward_name", targetWard);
-        }
-
-        const { data, error: puError } = await query;
-        if (puError) throw puError;
-
-        pollingUnits = pollingUnits.concat(data || []);
-        hasMore = (data?.length || 0) === PAGE_SIZE;
-        page++;
+      } catch (e) {
+        // offline fallback
       }
 
-      // Fetch polling unit agents
-      const { data: agentsData, error: agentsError } = await db
-        .from("polling_unit_agents")
-        .select("polling_unit_id, user_id, agent_name, phone");
-
-      if (agentsError) {
-        console.error("Error fetching polling unit agents:", agentsError);
-      }
-
-      // Create a map of polling unit agents by polling_unit_id
-      const agentsMap = new Map();
-      (agentsData || []).forEach(agent => {
-        if (agent.polling_unit_id) {
-          agentsMap.set(agent.polling_unit_id, {
-            name: agent.agent_name || 'Unknown',
-            phone: agent.phone || ''
-          });
-        }
-      });
-
-      // Fetch actual member counts from the members table grouped by lga/ward/polling_unit
-      let memberCountsQuery = supabase
-        .from("members")
-        .select("lga, ward, polling_unit");
-
-      if (targetLga) {
-        memberCountsQuery = memberCountsQuery.eq("lga", targetLga);
-      }
-      if (targetWard) {
-        memberCountsQuery = memberCountsQuery.eq("ward", targetWard);
-      }
-
-      const { data: allMembers, error: membersError } = await memberCountsQuery;
-      if (membersError) console.error("Error fetching member counts:", membersError);
-
-      // Build a member count map: key -> count
+      // 3. Map members per polling unit
       const memberCountMap = new Map<string, number>();
-      (allMembers || []).forEach(m => {
-        if (m.lga && m.polling_unit) {
-          const key = `${m.lga}-${m.ward || ''}-${m.polling_unit}`.toLowerCase();
-          memberCountMap.set(key, (memberCountMap.get(key) || 0) + 1);
+      (members || []).forEach(m => {
+        const lga = (m.lga || "").toLowerCase().trim();
+        const ward = (m.ward || "").toLowerCase().trim();
+        const pu = (m.polling_unit || "").toLowerCase().trim();
+        const puId = (m.polling_unit_id || "").toLowerCase().trim();
+
+        if (pu) {
+          memberCountMap.set(`${lga}|${ward}|${pu}`, (memberCountMap.get(`${lga}|${ward}|${pu}`) || 0) + 1);
+          memberCountMap.set(pu, (memberCountMap.get(pu) || 0) + 1);
+        }
+        if (puId) {
+          memberCountMap.set(puId, (memberCountMap.get(puId) || 0) + 1);
         }
       });
 
-      // Real registered-voter counts from the INEC voter registry
-      const voterCountMap = await fetchRegisteredVoterCounts(targetWard);
-
-      // Create a map of existing cells for O(1) lookup
-      const dbCellMap = new Map();
-      dbCells?.forEach(cell => {
-        // Create a composite key: "LGA-WARD-NAME" (normalized)
-        const key = `${cell.lga}-${cell.ward}-${cell.polling_unit_name}`.toLowerCase();
-        dbCellMap.set(key, cell);
+      // 4. Load custom modifications (targets, assigned canvassers) from localRepository
+      let cachedCustomCells: any[] = [];
+      try {
+        cachedCustomCells = await localRepository.getPollingUnitCells();
+      } catch (e) {
+        cachedCustomCells = [];
+      }
+      const customCellMap = new Map<string, any>();
+      cachedCustomCells.forEach((c: any) => {
+        if (c.id) customCellMap.set(c.id, c);
+        if (c.pu_code) customCellMap.set(c.pu_code, c);
+        const key = `${(c.lga || "").toLowerCase()}|${(c.ward || "").toLowerCase()}|${(c.polling_unit_name || "").toLowerCase()}`;
+        customCellMap.set(key, c);
       });
 
-      // Map polling units to the Cell format, merging with DB cells where they exist
-      const mergedCells = (pollingUnits || []).map(pollingUnit => {
-        const key = `${pollingUnit.lga_name}-${pollingUnit.ward_name}-${pollingUnit.name}`.toLowerCase();
-        const existingCell = dbCellMap.get(key);
-        const appMembersCount = memberCountMap.get(key) || 0;
-        const agent = agentsMap.get(pollingUnit.id);
+      // 5. Build full enriched polling unit cell list
+      let cells = baseUnits.map(pu => {
+        const fullKey = `${pu.lga.toLowerCase()}|${pu.wardName.toLowerCase()}|${pu.name.toLowerCase()}`;
+        const custom = customCellMap.get(pu.id) || customCellMap.get(pu.code) || customCellMap.get(fullKey);
+        const count =
+          memberCountMap.get(fullKey) ||
+          memberCountMap.get(pu.code.toLowerCase()) ||
+          memberCountMap.get(pu.name.toLowerCase().trim()) ||
+          0;
 
-        // Real registered voters from the INEC voter registry (when available)
-        const realCount = voterCountMap.get(
-          puMatchKey(pollingUnit.ward_name, pollingUnit.code) || ""
-        );
-
-        if (existingCell) {
-          // Return the DB version with full data + actual member count + agent info
-          return {
-            ...existingCell,
-            pu_code: pollingUnit.code,
-            registered_voters: realCount ?? existingCell.registered_voters ?? 0,
-            app_members_count: appMembersCount,
-            polling_unit_agent_name: agent?.name || null,
-            polling_unit_agent_phone: agent?.phone || null
-          };
-        }
-
-        // Return a "virtual" cell from polling unit data
-        const uniqueId = `virtual-${pollingUnit.id}`;
+        const target = custom?.target_voters || 50;
+        const status: CellStatus = custom?.status || (count >= target ? "ready" : count > 0 ? "active" : "forming");
 
         return {
-          id: uniqueId,
-          polling_unit_name: pollingUnit.name,
-          ward: pollingUnit.ward_name,
-          lga: pollingUnit.lga_name,
-          pu_code: pollingUnit.code,
-          status: "forming" as CellStatus, // Default status
-          target_voters: pollingUnit.target_voters || 50, // Use target from DB or default
-          registered_voters: realCount ?? pollingUnit.registered_voters ?? 0,
-          reliable_voters: 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          id: pu.id,
+          polling_unit_name: pu.name,
+          ward: pu.wardName,
+          lga: pu.lga,
+          pu_code: pu.code,
+          status,
+          target_voters: target,
+          registered_voters: pu.registeredVoters || 0,
+          reliable_voters: custom?.reliable_voters || 0,
+          created_at: custom?.created_at || new Date().toISOString(),
+          updated_at: custom?.updated_at || new Date().toISOString(),
           members: [],
-          canvasser: null,
-          app_members_count: appMembersCount,
-          polling_unit_agent_name: agent?.name || null,
-          polling_unit_agent_phone: agent?.phone || null
+          canvasser: custom?.canvasser || null,
+          canvasser_id: custom?.canvasser_id || null,
+          app_members_count: count,
+          polling_unit_agent_name: custom?.polling_unit_agent_name || null,
+          polling_unit_agent_phone: custom?.polling_unit_agent_phone || null
         };
       });
 
-      // Save to local cache
-      if (mergedCells && mergedCells.length > 0) {
-        await localRepository.savePollingUnitCells(mergedCells);
+      if (filters?.status && filters.status !== "all") {
+        cells = cells.filter(cell => cell.status === filters.status);
       }
 
-      // If we have status filter, filter AFTER merging
-      if (filters?.status) {
-        return mergedCells.filter(cell => cell.status === filters.status);
+      if (filters?.canvasserId) {
+        cells = cells.filter(cell => cell.canvasser_id === filters.canvasserId);
       }
 
-      return mergedCells as (PollingUnitCell & {
-        members: { count: number }[];
-        canvasser: { id: string; full_name: string; phone: string; membership_id: string } | null;
-        app_members_count: number;
-        polling_unit_agent_name: string | null;
-        polling_unit_agent_phone: string | null;
-      })[];
+      return cells;
     },
   });
 };
@@ -330,38 +209,60 @@ export const usePollingUnitCell = (id: string) => {
   return useQuery({
     queryKey: ["polling-unit-cells", id],
     queryFn: async () => {
-      // 1. Check local cache
-      const cached = await localRepository.getPollingUnitCells();
-      const cell = cached.find((c: any) => c.id === id);
-      if (cell) {
-        console.log(`📦 Loaded polling unit cell detail for ${id} from IndexedDB.`);
-        return cell;
+      if (!id) return null;
+      try {
+        const cached = await localRepository.getPollingUnitCells();
+        const cell = cached.find((c: any) => c.id === id || c.pu_code === id);
+        if (cell) return cell;
+      } catch (e) {
+        // ignore
       }
 
-      // 2. Fallback to Supabase
-      const { data, error } = await db
-        .from("polling_unit_cells")
-        .select(`
-          *,
-          members:cell_members(*),
-          canvasser:members(id, full_name, phone, membership_id, political_position)
-        `)
-        .eq("id", id)
-        .maybeSingle();
+      const cleanId = id.replace(/^(virtual-|static-)/, "");
+      const pu = ALL_POLLING_UNITS.find(u =>
+        u.id === cleanId ||
+        u.code === cleanId ||
+        u.id === id ||
+        u.code === id ||
+        u.name.toLowerCase() === cleanId.toLowerCase()
+      );
 
-      if (error) throw error;
-      return data as PollingUnitCell & {
-        members: CellMember[];
-        canvasser: {
-          id: string;
-          full_name: string;
-          phone: string;
-          membership_id: string;
-          political_position: string;
-        } | null;
-      } | null;
+      if (pu) {
+        let count = 0;
+        try {
+          const members = await localRepository.getMembers();
+          const matchPu = pu.name.toLowerCase().trim();
+          count = members.filter(m =>
+            (m.polling_unit && m.polling_unit.toLowerCase().trim() === matchPu) ||
+            (m.polling_unit_id && (m.polling_unit_id === pu.id || m.polling_unit_id === pu.code))
+          ).length;
+        } catch (e) {
+          // ignore
+        }
+
+        return {
+          id: pu.id,
+          polling_unit_name: pu.name,
+          ward: pu.wardName,
+          lga: pu.lga,
+          pu_code: pu.code,
+          status: (count >= 50 ? "ready" : count > 0 ? "active" : "forming") as CellStatus,
+          target_voters: 50,
+          registered_voters: pu.registeredVoters || 0,
+          reliable_voters: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          members: [],
+          canvasser: null,
+          canvasser_id: null,
+          app_members_count: count,
+          polling_unit_agent_name: null,
+          polling_unit_agent_phone: null
+        };
+      }
+
+      return null;
     },
-    enabled: !!id,
   });
 };
 

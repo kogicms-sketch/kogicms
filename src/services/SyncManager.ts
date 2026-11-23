@@ -1,6 +1,7 @@
 import { Network, ConnectionStatus } from '@capacitor/network';
 import { supabase } from '@/integrations/supabase/client';
 import { localRepository, SyncQueueItem, LocalMember } from './LocalRepository';
+import { cleanMemberForDb } from '@/hooks/useMembers';
 
 export type SyncStatus = 'Offline' | 'Syncing...' | 'Synced';
 
@@ -187,7 +188,7 @@ class SyncManager {
 
       console.log(`📤 Push changes to server (LWW won): ${item.table_name} / ID ${item.record_id}`);
       
-      const dbRecord: any = {
+      let dbRecord: any = {
         id: item.record_id,
         ...payload,
         updated_at: localUpdatedAt.toISOString()
@@ -200,6 +201,9 @@ class SyncManager {
       delete dbRecord.app_members_count;
       delete dbRecord.polling_unit_agent_name;
       delete dbRecord.polling_unit_agent_phone;
+      if (item.table_name === 'members') {
+        dbRecord = cleanMemberForDb(dbRecord);
+      }
 
       let syncError;
       if (item.action === 'UPDATE') {

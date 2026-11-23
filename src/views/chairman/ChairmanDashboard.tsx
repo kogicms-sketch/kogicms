@@ -3,7 +3,7 @@ import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useChairman, useChairmanDashboardStats } from "@/hooks/useChairmen";
 import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
-import { Users, MapPin, Building2, UserCheck, Globe, TrendingUp, Shield, ChevronRight, Star, ShieldCheck, Clock, Vote, Navigation } from "lucide-react";
+import { Users, MapPin, Plus, Building2, UserCheck, Globe, TrendingUp, Shield, ChevronRight, Star, ShieldCheck, Clock, Vote, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from 'next/navigation';
 import { APCBanner } from "@/components/branding/APCBanner";
@@ -134,9 +134,10 @@ const ChairmanDashboard = () => {
             valColor: "text-orange-700",
         },
         {
-            label: "Councillors",
-            value: stats?.totalCouncillors || 0,
-            sub: "Ward councillors",
+            label: "Ward Admins",
+            value: stats?.totalCouncillors !== undefined ? `${stats.totalCouncillors} / ${stats.totalWards}` : "0 / 0",
+            sub: "Wards Assigned",
+            route: "/chairman/councillors",
             icon: UserCheck,
             color: "red",
             bg: "from-red-50 to-white",
@@ -400,7 +401,8 @@ const ChairmanDashboard = () => {
 
                 {/* ── STATS GRID ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-3 sm:gap-4">
-                    {statCards.map(({ label, value, sub, icon: Icon, bg, border, iconBg, iconColor, valColor }) => (
+                    {statCards.map((item) => {
+                        const { label, value, sub, icon: Icon, bg, border, iconBg, iconColor, valColor } = item as any;
                         <Card
                             key={label}
                             className={`border-l-4 ${border} bg-gradient-to-br ${bg} shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5`}
@@ -415,7 +417,7 @@ const ChairmanDashboard = () => {
                             </CardHeader>
                             <CardContent className="p-3 sm:p-4 pt-0">
                                 <div className={`text-2xl sm:text-3xl font-extrabold ${valColor} tracking-tight`}>
-                                    {value.toLocaleString()}
+                                    {typeof value === "number" ? value.toLocaleString() : value}
                                 </div>
                                 <p className={`text-[10px] sm:text-xs ${iconColor} mt-0.5 font-medium`}>{sub}</p>
                             </CardContent>
@@ -516,6 +518,22 @@ const ChairmanDashboard = () => {
                                                         <div className="rounded-full bg-apc-green/10 p-1.5 group-hover:bg-apc-green/20 transition-colors">
                                                             <MapPin className="h-4 w-4 text-apc-green" />
                                                         </div>
+                                                    </div>
+
+                                                    {/* Ward Admin indicator */}
+                                                    <div className="mb-3 p-2 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-between text-xs">
+                                                        <span className="text-[11px] text-gray-500 font-medium">Ward Admin:</span>
+                                                        {(ward as any).councillorName ? (
+                                                            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded flex items-center gap-1">
+                                                                <UserCheck className="w-3 h-3 text-emerald-600" />
+                                                                {(ward as any).councillorName}
+                                                            </span>
+                                                        ) : (
+                                                            <Link href="/chairman/councillors" className="text-[10px] font-bold text-amber-700 bg-amber-100/80 hover:bg-amber-200 px-2 py-0.5 rounded flex items-center gap-1 transition-colors">
+                                                                <Plus className="w-2.5 h-2.5" />
+                                                                Assign Admin
+                                                            </Link>
+                                                        )}
                                                     </div>
 
                                                     {/* Stats row */}

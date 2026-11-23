@@ -38,6 +38,50 @@ export type MemberWithOrganization = Member & {
   organizations: { name: string } | null;
 };
 
+export const MEMBER_VALID_COLUMNS = new Set([
+  "id",
+  "membership_id",
+  "full_name",
+  "email",
+  "phone",
+  "state",
+  "lga",
+  "ward",
+  "polling_unit",
+  "polling_unit_id",
+  "gender",
+  "date_of_birth",
+  "voters_card_id",
+  "pvc_status",
+  "created_by",
+  "social_media_handle",
+  "bank_name",
+  "account_number",
+  "marital_status",
+  "occupation",
+  "school_name",
+  "school_level",
+  "status",
+  "is_verified",
+  "created_at",
+  "updated_at",
+]);
+
+export function cleanMemberForDb(raw: any): any {
+  if (!raw) return {};
+  const clean: any = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (MEMBER_VALID_COLUMNS.has(k) && v !== undefined) {
+      if ((k === "id" || k === "created_by" || k === "polling_unit_id") && v === "") {
+        clean[k] = null;
+      } else {
+        clean[k] = v;
+      }
+    }
+  }
+  return clean;
+}
+
 type MemberScope = "all" | "organization" | "polling_unit";
 
 export const useMembers = (
@@ -76,10 +120,7 @@ export const useMembers = (
         console.log(`🌐 Fetching latest members from Supabase...`);
         let query = supabase
           .from("members")
-          .select(`
-            *,
-            organizations:organization_id (name)
-          `)
+          .select("*")
           .order("created_at", { ascending: false });
         
         if (scope === "polling_unit") {
@@ -95,11 +136,25 @@ export const useMembers = (
         }
 
         if (allowedWard) {
-          query = query.eq("ward", allowedWard);
+          const wardVariants = Array.from(new Set([
+            allowedWard,
+            allowedWard.toUpperCase(),
+            allowedWard.toLowerCase(),
+            allowedWard.charAt(0).toUpperCase() + allowedWard.slice(1).toLowerCase()
+          ]));
+          query = query.in("ward", wardVariants);
         }
 
         if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
-          query = query.in("lga", allowedLgas);
+          const lgaVariants = Array.from(new Set(
+            allowedLgas.flatMap(l => [
+              l,
+              l.toUpperCase(),
+              l.toLowerCase(),
+              l.charAt(0).toUpperCase() + l.slice(1).toLowerCase()
+            ])
+          ));
+          query = query.in("lga", lgaVariants);
         }
 
         const networkResult = await withTimeout(
@@ -124,10 +179,10 @@ export const useMembers = (
             cachedList = cachedList.filter(m => m.organization_id === organizationId || m.support_group_id === organizationId);
           } else if (scope === "all") {
             if (allowedWard) {
-              cachedList = cachedList.filter(m => m.ward === allowedWard);
+              cachedList = cachedList.filter(m => m.ward && m.ward.toLowerCase() === allowedWard.toLowerCase());
             }
             if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
-              cachedList = cachedList.filter(m => m.lga && allowedLgas.includes(m.lga));
+              cachedList = cachedList.filter(m => m.lga && allowedLgas.some(al => al.toLowerCase() === m.lga.toLowerCase()));
             }
           }
           
@@ -162,11 +217,11 @@ export const useMembers = (
       }
 
       if (allowedWard) {
-        list = list.filter(m => m.ward === allowedWard);
+        list = list.filter(m => m.ward && m.ward.toLowerCase() === allowedWard.toLowerCase());
       }
 
       if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
-        list = list.filter(m => m.lga && allowedLgas.includes(m.lga));
+        list = list.filter(m => m.lga && allowedLgas.some(al => al.toLowerCase() === m.lga.toLowerCase()));
       }
 
       return list as MemberWithOrganization[];
@@ -189,10 +244,7 @@ export const useMember = (id: string) => {
       console.log(`🌐 Member not found in cache. Fetching from Supabase...`);
       const { data, error } = await supabase
         .from("members")
-        .select(`
-          *,
-          organizations:organization_id (name)
-        `)
+        .select("*")
         .eq("id", id)
         .maybeSingle();
 
@@ -212,7 +264,7 @@ export const useCreateMember = () => {
 
   return useMutation({
     mutationFn: async (member: MemberInsert) => {
-      const id = member.id || localRepository.generateUUID();
+      const id = member.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : localRepository.generateUUID());
       const membershipId = member.membership_id || await generateSequentialMembershipId(
         member.lga || "",
         member.ward || "",
@@ -232,7 +284,25 @@ export const useCreateMember = () => {
       await localRepository.saveMember(newMember as any);
 
       // 2. Queue the mutation in background outbox
-      await localRepository.enqueueAction("members", "INSERT", id, newMember);
+      const cleanRecord = cleanMemberForDb(newMember);
+      try {
+        const { data, error } = await supabase
+          .from("members")
+          .insert(cleanRecord)
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          console.warn("Direct Supabase insert failed, enqueuing for background sync:", error);
+          await localRepository.enqueueAction("members", "INSERT", id, cleanRecord);
+        } else if (data) {
+          await localRepository.saveMember(data as any);
+          return data;
+        }
+      } catch (err) {
+        console.warn("Network error inserting member, enqueuing for background sync:", err);
+        await localRepository.enqueueAction("members", "INSERT", id, cleanRecord);
+      }
 
       // 3. Trigger background Supabase synchronization
       syncManager.sync();
@@ -325,23 +395,23 @@ export const useMemberStats = (
       }
 
       if (allowedWard) {
-        list = list.filter(m => m.ward === allowedWard);
+        list = list.filter(m => m.ward && m.ward.toLowerCase() === allowedWard.toLowerCase());
       }
 
       if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
-        list = list.filter(m => m.lga && allowedLgas.includes(m.lga));
+        list = list.filter(m => m.lga && allowedLgas.some(al => al.toLowerCase() === m.lga.toLowerCase()));
       }
 
       // If local cache has data, calculate statistics locally
       if (list.length > 0) {
-        const activeMembers = list.filter((m: any) => !m.is_deceased);
+        const activeMembers = list;
         const total = activeMembers.length;
         const active = activeMembers.filter((m) => m.status === "active").length;
         return { total, active, inactive: total - active };
       }
 
       // 2. Fallback to Supabase
-      let query = supabase.from("members").select("status, is_deceased");
+      let query = supabase.from("members").select("status");
 
       if (scope === "polling_unit") {
         if (pollingUnitId && pollingUnitName) {
@@ -356,17 +426,31 @@ export const useMemberStats = (
       }
 
       if (allowedWard) {
-        query = query.eq("ward", allowedWard);
-      }
+          const wardVariants = Array.from(new Set([
+            allowedWard,
+            allowedWard.toUpperCase(),
+            allowedWard.toLowerCase(),
+            allowedWard.charAt(0).toUpperCase() + allowedWard.slice(1).toLowerCase()
+          ]));
+          query = query.in("ward", wardVariants);
+        }
 
       if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
-        query = query.in("lga", allowedLgas);
-      }
+          const lgaVariants = Array.from(new Set(
+            allowedLgas.flatMap(l => [
+              l,
+              l.toUpperCase(),
+              l.toLowerCase(),
+              l.charAt(0).toUpperCase() + l.slice(1).toLowerCase()
+            ])
+          ));
+          query = query.in("lga", lgaVariants);
+        }
 
       const { data, error } = await query;
       if (error) throw error;
 
-      const activeMembers = (data || []).filter((m: any) => !m.is_deceased);
+      const activeMembers = data || [];
       const total = activeMembers.length;
       const active = activeMembers.filter((m) => m.status === "active").length;
 

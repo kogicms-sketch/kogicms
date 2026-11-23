@@ -167,7 +167,34 @@ const PollingUnitDetail = () => {
     const { data: unit, isLoading, refetch: refetchUnit } = useQuery({
         queryKey: ["polling-unit-detail", id],
         queryFn: async () => {
-            if (!id) return null;
+                        if (!id) return null;
+
+            // 1. Direct local lookup from ALL_POLLING_UNITS (offline & online instant resolution)
+            const targetId = id.replace(/^(virtual-|static-)/, '');
+            const legacyStaticUnit = ALL_POLLING_UNITS.find(u => {
+                if (u.id === targetId || u.code === targetId || u.id === id || u.code === id) return true;
+                if (u.name.toLowerCase() === targetId.toLowerCase()) return true;
+                return false;
+            });
+
+            if (legacyStaticUnit) {
+                const chairmanData = getChairmanByLGA(legacyStaticUnit.lga);
+                return {
+                    id: staticUnit.id,
+                    polling_unit_name: legacyStaticUnit.name,
+                    ward: legacyStaticUnit.wardName,
+                    lga: legacyStaticUnit.lga,
+                    pu_code: legacyStaticUnit.code,
+                    lga_chairman: chairmanData?.chairman || legacyStaticUnit.lgaChairman || null,
+                    target_voters: 50,
+                    reliable_voters: 0,
+                    registered_voters: staticUnit.registeredVoters || 0,
+                    status: 'forming',
+                    type: 'static',
+                    canvasser_name: null,
+                    canvasser_phone: null
+                };
+            }
 
             // Handle "virtual-" prefix: polling_units without a polling_unit_cells record
             if (id.startsWith('virtual-')) {
@@ -280,7 +307,7 @@ const PollingUnitDetail = () => {
             }
 
             // If not in DB, look up in static data
-            let cleanId = id;
+            cleanId = id;
             let targetLga = '';
             let targetCode = '';
 
@@ -306,7 +333,7 @@ const PollingUnitDetail = () => {
 
             if (staticUnit) {
                 const chairmanData = getChairmanByLGA(staticUnit.lga);
-                const realCount = await fetchRealVoters(staticUnit.lga, staticUnit.wardName, staticUnit.code);
+                const realCount = await fetchRealVoters(legacyStaticUnit.lga, legacyStaticUnit.wardName, legacyStaticUnit.code);
 
                 return {
                     id: id,
@@ -317,7 +344,7 @@ const PollingUnitDetail = () => {
                     lga_chairman: chairmanData?.chairman || staticUnit.lgaChairman || null,
                     target_voters: 50,
                     reliable_voters: 0,
-                    registered_voters: realCount ?? staticUnit.registeredVoters ?? 0,
+                    registered_voters: realCount ?? fallbackUnit.registeredVoters ?? 0,
                     status: 'forming',
                     type: 'static',
                     canvasser_name: null,

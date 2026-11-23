@@ -68,7 +68,7 @@ export const useSuperAdminDemographics = () => {
     queryKey: ["super-admin", "demographics"],
     queryFn: async () => {
       const [membersResponse, puResponse, deceasedResponse] = await Promise.all([
-        supabase.from("members").select("created_at, date_of_birth, lga, is_verified, is_deceased"),
+        supabase.from("members").select("created_at, date_of_birth, lga, is_verified"),
         supabase.from("polling_units").select("lga_name, target_voters"),
         supabase.from("voter_registry").select("*", { count: "exact", head: true }).eq("voter_status", "deceased"),
       ]);
@@ -90,7 +90,7 @@ export const useSuperAdminDemographics = () => {
       });
 
       const totalDeceased = deceasedResponse.count || 0;
-      const activeMembers = members.filter(m => !m.is_deceased);
+      const activeMembers = members;
       const totalRegistered = activeMembers.length;
       const totalVerified = activeMembers.filter(m => m.is_verified).length;
 
