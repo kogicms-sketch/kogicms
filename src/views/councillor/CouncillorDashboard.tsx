@@ -269,14 +269,6 @@ export default function CouncillorDashboard() {
       bg: "bg-purple-600 hover:bg-purple-700",
       text: "text-white",
     },
-    {
-      label: "AI Post Generator",
-      sub: "Grassroots outreach",
-      icon: Sparkles,
-      route: "/post-generator",
-      bg: "bg-amber-600 hover:bg-amber-700",
-      text: "text-white",
-    },
   ];
 
   return (
@@ -596,7 +588,7 @@ export default function CouncillorDashboard() {
             </div>
           </CardHeader>
           <CardContent className="p-4 sm:p-6">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {quickActions.map((act) => {
                 const Content = (
                   <div

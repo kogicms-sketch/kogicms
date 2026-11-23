@@ -65,11 +65,6 @@ const wardNavItems = [
     path: "/activities",
   },
   {
-    label: "Ward Attendance",
-    icon: CheckCircle,
-    path: "/attendance",
-  },
-  {
     label: "Ward Reports",
     icon: BarChart3,
     path: "/reports",
@@ -78,11 +73,6 @@ const wardNavItems = [
     label: "Ward Chat",
     icon: MessageSquare,
     path: "/chat",
-  },
-  {
-    label: "AI Post Generator",
-    icon: Sparkles,
-    path: "/post-generator",
   },
   {
     label: "Notifications",

@@ -41,6 +41,31 @@ export const useActivities = (organizationId?: string, status?: string) => {
   });
 };
 
+export const useActivityStats = (organizationId?: string | null) => {
+  return useQuery({
+    queryKey: ["activities", "stats", organizationId],
+    queryFn: async () => {
+      try {
+        let query = supabase.from("activities").select("status");
+        if (organizationId) {
+          query = query.eq("organization_id", organizationId);
+        }
+        const { data, error } = await query;
+        if (error) return { total: 0, ongoing: 0, planned: 0, completed: 0 };
+        const rows = data || [];
+        return {
+          total: rows.length,
+          ongoing: rows.filter((r) => r.status === "ongoing").length,
+          planned: rows.filter((r) => r.status === "planned").length,
+          completed: rows.filter((r) => r.status === "completed").length,
+        };
+      } catch {
+        return { total: 0, ongoing: 0, planned: 0, completed: 0 };
+      }
+    },
+  });
+};
+
 export const useActivity = (id: string) => {
   return useQuery({
     queryKey: ["activities", "detail", id],
