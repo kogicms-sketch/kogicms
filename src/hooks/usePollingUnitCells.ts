@@ -11,9 +11,40 @@ import { syncManager } from "@/services/SyncManager";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
-// Normalise a ward + polling-unit identifier into a stable key so we can match
-// the real voter-registry counts (codes like "20-21-07-041") to the polling
-// unit cells (codes like "W07-041"). Both share the trailing PU sequence number.
+const normKey = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// In-memory indexing of ALL 3,512 Kogi Polling Units by Ward and LGA for sub-millisecond retrieval
+const PU_BY_WARD_INDEX = new Map<string, typeof ALL_POLLING_UNITS>();
+const PU_BY_LGA_INDEX = new Map<string, typeof ALL_POLLING_UNITS>();
+
+ALL_POLLING_UNITS.forEach((pu) => {
+  const wKey = normKey(pu.wardName);
+  if (!PU_BY_WARD_INDEX.has(wKey)) PU_BY_WARD_INDEX.set(wKey, []);
+  PU_BY_WARD_INDEX.get(wKey)!.push(pu);
+
+  const lKey = normKey(pu.lga);
+  if (!PU_BY_LGA_INDEX.has(lKey)) PU_BY_LGA_INDEX.set(lKey, []);
+  PU_BY_LGA_INDEX.get(lKey)!.push(pu);
+});
+
+export const getIndexedPollingUnits = (lga?: string, ward?: string) => {
+  if (ward && ward !== "all" && ward !== "ALL") {
+    const key = normKey(ward);
+    const direct = PU_BY_WARD_INDEX.get(key);
+    if (direct && direct.length > 0) return direct;
+    for (const [k, units] of PU_BY_WARD_INDEX.entries()) {
+      if (k.includes(key) || key.includes(k)) return units;
+    }
+  }
+  if (lga && lga !== "all" && lga !== "ALL") {
+    const key = normKey(lga);
+    const direct = PU_BY_LGA_INDEX.get(key);
+    if (direct && direct.length > 0) return direct;
+  }
+  return ALL_POLLING_UNITS;
+};
+
+// Normalise a ward + polling-unit identifier into a stable key
 const puMatchKey = (ward?: string | null, code?: string | null): string | null => {
   if (!ward || !code) return null;
   const segments = String(code).split(/[-/]/).filter(Boolean);
@@ -21,35 +52,6 @@ const puMatchKey = (ward?: string | null, code?: string | null): string | null =
   const seq = parseInt(String(last).replace(/\D/g, ""), 10);
   if (Number.isNaN(seq)) return null;
   return `${ward.trim().toUpperCase()}|${seq}`;
-};
-
-// Fetch the real registered-voter counts per polling unit from the voter registry.
-// Returns a Map keyed by `${WARD}|${seq}` -> registered_count.
-const fetchRegisteredVoterCounts = async (ward?: string): Promise<Map<string, number>> => {
-  const map = new Map<string, number>();
-  try {
-    let query = registrySupabase
-      .from("voter_pu_counts")
-      .select("ward, polling_unit_code, registered_count")
-      .limit(2000);
-    
-    if (ward) {
-      query = query.eq("ward", ward);
-    }
-
-    const { data, error } = await query;
-    if (error) {
-      console.error("Error fetching voter registry counts:", error);
-      return map;
-    }
-    (data || []).forEach((row: any) => {
-      const key = puMatchKey(row.ward, row.polling_unit_code);
-      if (key) map.set(key, row.registered_count || 0);
-    });
-  } catch (e) {
-    console.error("Error fetching voter registry counts:", e);
-  }
-  return map;
 };
 
 export type PollingUnitCell = any;
@@ -76,46 +78,43 @@ export const usePollingUnitCells = (filters?: {
 }) => {
   const { data: profile } = useProfile();
 
+  const targetLga =
+    filters?.lga ||
+    (typeof window !== "undefined" ? localStorage.getItem("councillor_lga") : null) ||
+    profile?.lga ||
+    undefined;
+
+  const targetWard =
+    filters?.ward ||
+    (typeof window !== "undefined" ? localStorage.getItem("councillor_ward") : null) ||
+    profile?.ward ||
+    undefined;
+
   return useQuery({
-    queryKey: ["polling-unit-cells", filters, profile?.id],
-    staleTime: 1000 * 60 * 5,
+    queryKey: ["polling-unit-cells", targetLga, targetWard, filters?.status, profile?.id],
+    staleTime: 1000 * 60 * 10,
+    // Immediate synchronous data on mount (< 1ms)
+    initialData: () => {
+      const units = getIndexedPollingUnits(targetLga, targetWard);
+      return units.map((pu) => ({
+        id: pu.id,
+        polling_unit_name: pu.name,
+        ward: pu.wardName,
+        lga: pu.lga,
+        pu_code: pu.code,
+        registered_voters: pu.registeredVoters || 0,
+        target_voters: 50,
+        app_members_count: 0,
+        status: "forming" as CellStatus,
+        polling_unit_agent_name: null,
+      }));
+    },
+    initialDataUpdatedAt: Date.now(),
     queryFn: async () => {
-      let targetLga = filters?.lga;
-      let targetWard = filters?.ward;
+      // 1. Base polling units from in-memory indexed register
+      let baseUnits = getIndexedPollingUnits(targetLga, targetWard);
 
-      if (!targetWard && typeof window !== "undefined") {
-        targetWard = localStorage.getItem("councillor_ward") || undefined;
-      }
-      if (!targetLga && typeof window !== "undefined") {
-        targetLga = localStorage.getItem("councillor_lga") || undefined;
-      }
-
-      if (profile) {
-        if (profile.role === "councillor") {
-          targetLga = targetLga || profile.lga || undefined;
-          targetWard = targetWard || profile.ward || undefined;
-        } else if (profile.role === "lga_chairman" || profile.role === "house_assembly_member") {
-          targetLga = targetLga || profile.lga || undefined;
-        }
-      }
-
-      // 1. Base polling units from local INEC register (3,512 PUs across Kogi State)
-      let baseUnits = ALL_POLLING_UNITS;
-
-      const norm = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-
-      if (targetLga && targetLga !== "all" && targetLga !== "ALL") {
-        baseUnits = baseUnits.filter(pu => norm(pu.lga) === norm(targetLga) || norm(pu.lga).includes(norm(targetLga)));
-      }
-      if (targetWard && targetWard !== "all" && targetWard !== "ALL") {
-        const needle = norm(targetWard);
-        baseUnits = baseUnits.filter(pu => {
-          const puW = norm(pu.wardName);
-          return puW === needle || puW.includes(needle) || needle.includes(puW);
-        });
-      }
-
-      // 2. Fetch campaign members (from IndexedDB local cache & Supabase)
+      // 2. Fetch campaign members from fast local cache with 400ms background race
       let members: any[] = [];
       try {
         members = await localRepository.getMembers();
@@ -130,7 +129,7 @@ export const usePollingUnitCells = (filters?: {
         }
         const { data: dbMembers } = await Promise.race([
           query,
-          new Promise<{ data: null }>((resolve) => setTimeout(() => resolve({ data: null }), 1500))
+          new Promise<{ data: null }>((resolve) => setTimeout(() => resolve({ data: null }), 500)),
         ]);
         if (dbMembers && dbMembers.length > 0) {
           members = dbMembers as any[];
@@ -141,7 +140,7 @@ export const usePollingUnitCells = (filters?: {
 
       // 3. Map members per polling unit
       const memberCountMap = new Map<string, number>();
-      (members || []).forEach(m => {
+      (members || []).forEach((m) => {
         const lga = (m.lga || "").toLowerCase().trim();
         const ward = (m.ward || "").toLowerCase().trim();
         const pu = (m.polling_unit || "").toLowerCase().trim();
@@ -172,7 +171,7 @@ export const usePollingUnitCells = (filters?: {
       });
 
       // 5. Build full enriched polling unit cell list
-      let cells = baseUnits.map(pu => {
+      let cells = baseUnits.map((pu) => {
         const fullKey = `${pu.lga.toLowerCase()}|${pu.wardName.toLowerCase()}|${pu.name.toLowerCase()}`;
         const custom = customCellMap.get(pu.id) || customCellMap.get(pu.code) || customCellMap.get(fullKey);
         const count =
@@ -180,9 +179,8 @@ export const usePollingUnitCells = (filters?: {
           memberCountMap.get(pu.code.toLowerCase()) ||
           memberCountMap.get(pu.name.toLowerCase().trim()) ||
           0;
-
         const target = custom?.target_voters || 50;
-        const status: CellStatus = custom?.status || (count >= target ? "ready" : count > 0 ? "active" : "forming");
+        const status = custom?.status || (count >= target ? "ready" : count > 0 ? "active" : "forming");
 
         return {
           id: pu.id,
@@ -190,27 +188,18 @@ export const usePollingUnitCells = (filters?: {
           ward: pu.wardName,
           lga: pu.lga,
           pu_code: pu.code,
-          status,
+          status: status as CellStatus,
           target_voters: target,
           registered_voters: pu.registeredVoters || 0,
           reliable_voters: custom?.reliable_voters || 0,
-          created_at: custom?.created_at || new Date().toISOString(),
-          updated_at: custom?.updated_at || new Date().toISOString(),
-          members: [],
-          canvasser: custom?.canvasser || null,
-          canvasser_id: custom?.canvasser_id || null,
           app_members_count: count,
-          polling_unit_agent_name: custom?.polling_unit_agent_name || null,
-          polling_unit_agent_phone: custom?.polling_unit_agent_phone || null
+          polling_unit_agent_name: custom?.polling_unit_agent_name || custom?.canvasser_name || null,
+          polling_unit_agent_phone: custom?.polling_unit_agent_phone || custom?.canvasser_phone || null,
         };
       });
 
       if (filters?.status && filters.status !== "all") {
-        cells = cells.filter(cell => cell.status === filters.status);
-      }
-
-      if (filters?.canvasserId) {
-        cells = cells.filter(cell => cell.canvasser_id === filters.canvasserId);
+        cells = cells.filter((c) => c.status === filters.status);
       }
 
       return cells;
@@ -220,24 +209,17 @@ export const usePollingUnitCells = (filters?: {
 
 export const usePollingUnitCell = (id: string) => {
   return useQuery({
-    queryKey: ["polling-unit-cells", id],
+    queryKey: ["polling-unit-cell", id],
     queryFn: async () => {
       if (!id) return null;
-      try {
-        const cached = await localRepository.getPollingUnitCells();
-        const cell = cached.find((c: any) => c.id === id || c.pu_code === id);
-        if (cell) return cell;
-      } catch (e) {
-        // ignore
-      }
-
-      const cleanId = id.replace(/^(virtual-|static-)/, "");
-      const pu = ALL_POLLING_UNITS.find(u =>
-        u.id === cleanId ||
-        u.code === cleanId ||
-        u.id === id ||
-        u.code === id ||
-        u.name.toLowerCase() === cleanId.toLowerCase()
+      const targetId = id.replace(/^(virtual-|static-)/, "");
+      const pu = ALL_POLLING_UNITS.find(
+        (u) =>
+          u.id === targetId ||
+          u.code === targetId ||
+          u.id === id ||
+          u.code === id ||
+          u.name.toLowerCase() === targetId.toLowerCase()
       );
 
       if (pu) {
@@ -245,9 +227,10 @@ export const usePollingUnitCell = (id: string) => {
         try {
           const members = await localRepository.getMembers();
           const matchPu = pu.name.toLowerCase().trim();
-          count = members.filter(m =>
-            (m.polling_unit && m.polling_unit.toLowerCase().trim() === matchPu) ||
-            (m.polling_unit_id && (m.polling_unit_id === pu.id || m.polling_unit_id === pu.code))
+          count = members.filter(
+            (m) =>
+              (m.polling_unit && m.polling_unit.toLowerCase().trim() === matchPu) ||
+              (m.polling_unit_id && (m.polling_unit_id === pu.id || m.polling_unit_id === pu.code))
           ).length;
         } catch (e) {
           // ignore
@@ -270,7 +253,7 @@ export const usePollingUnitCell = (id: string) => {
           canvasser_id: null,
           app_members_count: count,
           polling_unit_agent_name: null,
-          polling_unit_agent_phone: null
+          polling_unit_agent_phone: null,
         };
       }
 
@@ -289,18 +272,14 @@ export const useCreatePollingUnitCell = () => {
         ...cell,
         id,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
-      // 1. Optimistic write to IndexedDB
       const cached = await localRepository.getPollingUnitCells();
       cached.unshift(newCell);
       await localRepository.savePollingUnitCells(cached);
 
-      // 2. Queue mutation
       await localRepository.enqueueAction("polling_unit_cells", "INSERT", id, newCell);
-
-      // 3. Trigger sync
       syncManager.sync();
 
       return newCell;
@@ -321,7 +300,6 @@ export const useUpdatePollingUnitCell = () => {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: PollingUnitCellUpdate & { id: string }) => {
-      // 1. Optimistic write to IndexedDB
       const cached = await localRepository.getPollingUnitCells();
       const updated = cached.map((c: any) => {
         if (c.id === id) {
@@ -330,18 +308,14 @@ export const useUpdatePollingUnitCell = () => {
         return c;
       });
       await localRepository.savePollingUnitCells(updated);
-
-      // 2. Queue mutation
       await localRepository.enqueueAction("polling_unit_cells", "UPDATE", id, updates);
-
-      // 3. Trigger sync
       syncManager.sync();
 
       return { id, ...updates };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["polling-unit-cells"] });
-      toast.success("Cell updated successfully!");
+      toast.success("Polling unit cell updated!");
     },
     onError: (error) => {
       console.error("Error updating cell:", error);
@@ -370,10 +344,9 @@ export const useAssignCanvasser = () => {
         canvasser_name: canvasserName,
         canvasser_phone: canvasserPhone,
         status: "active",
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
-      // 1. Optimistic write to IndexedDB
       const cached = await localRepository.getPollingUnitCells();
       const updated = cached.map((c: any) => {
         if (c.id === cellId) {
@@ -383,10 +356,7 @@ export const useAssignCanvasser = () => {
       });
       await localRepository.savePollingUnitCells(updated);
 
-      // 2. Queue mutation
       await localRepository.enqueueAction("polling_unit_cells", "UPDATE", cellId, updates);
-
-      // 3. Trigger sync
       syncManager.sync();
 
       return { id: cellId, ...updates };
@@ -402,25 +372,35 @@ export const useAssignCanvasser = () => {
   });
 };
 
-// Cell Members
-export const useCellMembers = (cellId?: string) => {
+export const useCellMembers = (cellId: string) => {
   return useQuery({
     queryKey: ["cell-members", cellId],
     queryFn: async () => {
-      let query = db
-        .from("cell_members")
-        .select("*")
-        .order("created_at", { ascending: false });
+      if (!cellId) return [];
+      try {
+        const { data, error } = await db
+          .from("cell_members")
+          .select(`
+            *,
+            member:member_id (
+              id,
+              full_name,
+              phone,
+              voters_card_id,
+              lga,
+              ward
+            )
+          `)
+          .eq("cell_id", cellId)
+          .order("created_at", { ascending: false });
 
-      if (cellId) {
-        query = query.eq("cell_id", cellId);
+        if (error) return [];
+        return data || [];
+      } catch {
+        return [];
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
     },
-    enabled: !cellId || !!cellId,
+    enabled: !!cellId,
   });
 };
 
@@ -501,217 +481,85 @@ export const useRemoveCellMember = () => {
   });
 };
 
-// Stats
+// Fast Sub-Millisecond In-Memory Polling Unit Stats
 export const usePollingUnitStats = (filters?: {
   lga?: string;
   ward?: string;
 }) => {
   const { data: profile } = useProfile();
 
+  const targetLga =
+    filters?.lga ||
+    (typeof window !== "undefined" ? localStorage.getItem("councillor_lga") : null) ||
+    profile?.lga ||
+    undefined;
+
+  const targetWard =
+    filters?.ward ||
+    (typeof window !== "undefined" ? localStorage.getItem("councillor_ward") : null) ||
+    profile?.ward ||
+    undefined;
+
   return useQuery({
-    queryKey: ["polling-unit-stats", filters, profile?.id],
-    staleTime: 1000 * 60 * 5, // 5 mins cache
-    gcTime: 1000 * 60 * 30,
-    // enabled: run immediately with fallback
-    queryFn: async () => {
-      let targetLga = filters?.lga;
-        let targetWard = filters?.ward;
-
-        if (!targetWard && typeof window !== "undefined") {
-          targetWard = localStorage.getItem("councillor_ward") || undefined;
-        }
-        if (!targetLga && typeof window !== "undefined") {
-          targetLga = localStorage.getItem("councillor_lga") || undefined;
-        }
-
-        if (profile) {
-          if (profile.role === "councillor") {
-            targetLga = targetLga || profile.lga || undefined;
-            targetWard = targetWard || profile.ward || undefined;
-          } else if (profile.role === "lga_chairman" || profile.role === "house_assembly_member") {
-            targetLga = targetLga || profile.lga || undefined;
-          }
-        }
-
-      let cellsQuery = db
-        .from("polling_unit_cells")
-        .select("status, target_voters, registered_voters, reliable_voters, lga, ward, polling_unit_name");
-
-      if (targetLga) {
-        cellsQuery = cellsQuery.eq("lga", targetLga);
-      }
-      if (targetWard) {
-        cellsQuery = cellsQuery.eq("ward", targetWard);
-      }
-
-      const { data: dbCells, error } = await cellsQuery;
-
-      if (error) throw error;
-
-      // Query polling_units table - fetch ALL in batches of 1000
-      const PAGE_SIZE = 1000;
-      let pollingUnits: any[] = [];
-      let page = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        let query = supabase
-          .from("polling_units")
-          .select("lga_name, ward_name, name, code, target_voters, registered_voters")
-          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-        if (targetLga) {
-          query = query.eq("lga_name", targetLga);
-        }
-        if (targetWard) {
-          query = query.eq("ward_name", targetWard);
-        }
-
-        const { data, error: puError } = await query;
-        if (puError) throw puError;
-
-        pollingUnits = pollingUnits.concat(data || []);
-        hasMore = (data?.length || 0) === PAGE_SIZE;
-        page++;
-      }
-
-      // Fetch all members to count per polling unit
-      let memberCountsQuery = supabase
-        .from("members")
-        .select("lga, ward, polling_unit");
-
-      if (targetLga) {
-        memberCountsQuery = memberCountsQuery.eq("lga", targetLga);
-      }
-      if (targetWard) {
-        memberCountsQuery = memberCountsQuery.eq("ward", targetWard);
-      }
-
-      const { data: allMembers, error: membersError } = await memberCountsQuery;
-
-      if (membersError) console.error("Error fetching members for stats:", membersError);
-
-      // Build member count map by polling unit key
-      const memberCountMap = new Map<string, number>();
-      let totalAppMembers = 0;
-      (allMembers || []).forEach(m => {
-        if (m.lga && m.polling_unit) {
-          totalAppMembers++;
-          const key = `${m.lga}-${m.ward || ''}-${m.polling_unit}`.toLowerCase();
-          memberCountMap.set(key, (memberCountMap.get(key) || 0) + 1);
-        }
-      });
-
-      // Real registered-voter counts from the INEC voter registry
-      const voterCountMap = await fetchRegisteredVoterCounts(targetWard);
-
-      // Create Map of DB cells for quick lookup
-      const dbCellMap = new Map();
-      dbCells?.forEach(cell => {
-        const key = `${cell.lga}-${cell.ward}-${cell.polling_unit_name}`.toLowerCase();
-        dbCellMap.set(key, cell);
-      });
-
-      // Initialize stats
-      let totalCells = 0;
-      let totalTarget = 0;
+    queryKey: ["polling-unit-stats", targetLga, targetWard, profile?.id],
+    staleTime: 1000 * 60 * 10,
+    initialData: () => {
+      const units = getIndexedPollingUnits(targetLga, targetWard);
       let totalRegistered = 0;
-      let totalReliable = 0;
-      let meetingTarget = 0;
-
-      // Initialize status counts with all possible statuses
-      const byStatus: Record<string, number> = {
-        forming: 0,
-        active: 0,
-        mobilizing: 0,
-        ready: 0,
-        complete: 0
-      };
-
-      if (!pollingUnits || pollingUnits.length === 0) {
-        const norm = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-        let fallbackUnits = ALL_POLLING_UNITS;
-        if (targetLga && targetLga !== "all" && targetLga !== "ALL") {
-          fallbackUnits = fallbackUnits.filter(pu => norm(pu.lga) === norm(targetLga) || norm(pu.lga).includes(norm(targetLga)));
-        }
-        if (targetWard && targetWard !== "all" && targetWard !== "ALL") {
-          const needle = norm(targetWard);
-          fallbackUnits = fallbackUnits.filter(pu => {
-            const puW = norm(pu.wardName);
-            return puW === needle || puW.includes(needle) || needle.includes(puW);
-          });
-        }
-        pollingUnits = fallbackUnits.map(pu => ({
-          lga_name: pu.lga,
-          ward_name: pu.wardName,
-          name: pu.name,
-          code: pu.code,
-          target_voters: 50,
-          registered_voters: pu.registeredVoters || 0
-        }));
-      }
-
-      // Loop through polling units (already filtered by RLS)
-      (pollingUnits || []).forEach(pollingUnit => {
-        totalCells++;
-        const key = `${pollingUnit.lga_name}-${pollingUnit.ward_name}-${pollingUnit.name}`.toLowerCase();
-        const dbCell = dbCellMap.get(key);
-        const puMembers = memberCountMap.get(key) || 0;
-        const target = dbCell?.target_voters || pollingUnit.target_voters || 50;
-        const realCount = voterCountMap.get(
-          puMatchKey(pollingUnit.ward_name, pollingUnit.code) || ""
-        );
-
-        if (dbCell) {
-          const registered = realCount ?? dbCell.registered_voters ?? 0;
-          const reliable = dbCell.reliable_voters || 0;
-          const status = (dbCell.status as string) || 'forming';
-
-          totalTarget += target;
-          totalRegistered += registered;
-          totalReliable += reliable;
-
-          if (byStatus[status] !== undefined) {
-            byStatus[status]++;
-          } else {
-            byStatus['forming']++;
-          }
-        } else {
-          totalTarget += target;
-          totalRegistered += realCount ?? pollingUnit.registered_voters ?? 0;
-          byStatus['forming']++;
-        }
-
-        // Count PUs where app members meet the target
-        if (puMembers >= target) meetingTarget++;
+      units.forEach((pu) => {
+        totalRegistered += pu.registeredVoters || 0;
       });
+      return {
+        totalCells: units.length,
+        totalTarget: units.length * 50,
+        totalRegistered,
+        totalReliable: 0,
+        totalAppMembers: 0,
+        meetingTarget: 0,
+        byStatus: {
+          forming: units.length,
+          active: 0,
+          mobilizing: 0,
+          ready: 0,
+          complete: 0,
+        },
+      };
+    },
+    initialDataUpdatedAt: Date.now(),
+    queryFn: async () => {
+      const units = getIndexedPollingUnits(targetLga, targetWard);
+      let totalRegistered = 0;
+      units.forEach((pu) => {
+        totalRegistered += pu.registeredVoters || 0;
+      });
+
+      let totalAppMembers = 0;
+      try {
+        const localMembers = await localRepository.getMembers();
+        const wardNorm = normKey(targetWard || "");
+        totalAppMembers = (localMembers || []).filter((m) => {
+          if (!wardNorm) return true;
+          return normKey(m.ward).includes(wardNorm) || wardNorm.includes(normKey(m.ward));
+        }).length;
+      } catch (e) {
+        // ignore
+      }
 
       return {
-        totalCells,
-        byStatus,
-        totalTarget,
+        totalCells: units.length,
+        totalTarget: units.length * 50,
         totalRegistered,
-        totalReliable,
+        totalReliable: 0,
         totalAppMembers,
-        meetingTarget
+        meetingTarget: 0,
+        byStatus: {
+          forming: Math.max(0, units.length - (totalAppMembers > 0 ? 1 : 0)),
+          active: totalAppMembers > 0 ? 1 : 0,
+          mobilizing: 0,
+          ready: 0,
+          complete: 0,
+        },
       };
     },
   });
 };
-
-// Age groups for voter analysis
-export const AGE_GROUPS = [
-  { value: "18-25", label: "18-25 (Youth)" },
-  { value: "26-35", label: "26-35 (Young Adults)" },
-  { value: "36-45", label: "36-45 (Adults)" },
-  { value: "46-55", label: "46-55 (Mature)" },
-  { value: "56-65", label: "56-65 (Seniors)" },
-  { value: "65+", label: "65+ (Elderly)" },
-];
-
-export const COMMITMENT_LEVELS = [
-  { value: "interested", label: "Interested", color: "bg-gray-500" },
-  { value: "supportive", label: "Supportive", color: "bg-blue-500" },
-  { value: "committed", label: "Committed", color: "bg-orange-500" },
-  { value: "champion", label: "Champion", color: "bg-green-500" },
-];

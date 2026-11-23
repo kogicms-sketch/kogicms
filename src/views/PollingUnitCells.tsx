@@ -31,6 +31,7 @@ import {
 import {
   usePollingUnitCells,
   usePollingUnitStats,
+  getIndexedPollingUnits,
   CELL_STATUS_LABELS,
 } from "@/hooks/usePollingUnitCells";
 import { useAuthorizedLgas } from "@/hooks/useAuthorizedLgas";
@@ -132,14 +133,31 @@ const PollingUnitCells = () => {
 
   const isLoading = cellsLoading || statsLoading || jurisdictionLoading;
 
-  // Filter cells strictly for ward councillor
+  // Filter cells strictly for ward councillor with instant synchronous indexed fallback
   const filteredCells = useMemo(() => {
-    let list = cells || [];
+    let list = cells && cells.length > 0 ? cells : [];
+
+    // Instant zero-millisecond fallback from front-end indexed data
+    if (list.length === 0) {
+      const synchronousUnits = getIndexedPollingUnits(effectiveLga, effectiveWard);
+      list = synchronousUnits.map((pu) => ({
+        id: pu.id,
+        polling_unit_name: pu.name,
+        ward: pu.wardName,
+        lga: pu.lga,
+        pu_code: pu.code,
+        registered_voters: pu.registeredVoters || 0,
+        target_voters: 50,
+        app_members_count: 0,
+        status: "forming",
+        polling_unit_agent_name: null,
+      }));
+    }
 
     // Strict ward boundary check for ward councillors
     if (isCouncillor && activeWard) {
       const targetNeedle = norm(activeWard);
-      list = list.filter(cell => {
+      list = list.filter((cell) => {
         const cellWard = norm(cell.ward);
         return cellWard === targetNeedle || cellWard.includes(targetNeedle) || targetNeedle.includes(cellWard);
       });
@@ -148,7 +166,7 @@ const PollingUnitCells = () => {
     if (!searchQuery.trim()) return list;
 
     const query = searchQuery.toLowerCase().trim();
-    return list.filter(cell => {
+    return list.filter((cell) => {
       return (
         cell.polling_unit_name?.toLowerCase().includes(query) ||
         cell.ward?.toLowerCase().includes(query) ||
@@ -157,7 +175,7 @@ const PollingUnitCells = () => {
         cell.pu_code?.toLowerCase().includes(query)
       );
     });
-  }, [cells, isCouncillor, activeWard, searchQuery]);
+  }, [cells, effectiveLga, effectiveWard, isCouncillor, activeWard, searchQuery]);
 
   const totalTarget = stats?.totalTarget || (filteredCells.length * 50) || 50;
   const totalAppMembers = stats?.totalAppMembers || 0;
@@ -399,7 +417,7 @@ const PollingUnitCells = () => {
 
         {/* List View Tab */}
         <TabsContent value="list" className="space-y-4">
-          {isLoading ? (
+          {filteredCells.length === 0 && isLoading ? (
             <div className="text-center py-16 flex flex-col items-center justify-center gap-3">
               <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
               <p className="text-sm font-semibold text-gray-600">Loading {isCouncillor ? `${activeWard} Ward` : ""} polling units...</p>
