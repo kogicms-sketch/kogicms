@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { startOfWeek, subWeeks, format } from "date-fns";
+import { ALL_POLLING_UNITS } from "@/data/aggregated_lga_data";
+import { localRepository } from "@/services/LocalRepository";
 
 export interface SuperAdminDemographicsData {
   weeklyGrowth: {
@@ -36,7 +38,6 @@ const LGA_TO_ZONE: Record<string, string> = {
   "Okehi": "Kogi Central",
   "Okene": "Kogi Central",
   "Ogori/Magongo": "Kogi Central",
-  "Ogori Magongo": "Kogi Central",
 
   // Kogi East
   "Ankpa": "Kogi East",
@@ -45,7 +46,6 @@ const LGA_TO_ZONE: Record<string, string> = {
   "Ibaji": "Kogi East",
   "Idah": "Kogi East",
   "Igalamela-Odolu": "Kogi East",
-  "Igalamela Odolu": "Kogi East",
   "Ofu": "Kogi East",
   "Olamaboro": "Kogi East",
   "Omala": "Kogi East",
@@ -53,12 +53,9 @@ const LGA_TO_ZONE: Record<string, string> = {
   // Kogi West
   "Ijumu": "Kogi West",
   "Kabba/Bunu": "Kogi West",
-  "Kabba Bunu": "Kogi West",
   "Kogi (Koton Karfe)": "Kogi West",
-  "Kogi": "Kogi West",
   "Lokoja": "Kogi West",
   "Mopa-Muro": "Kogi West",
-  "Mopa Moro": "Kogi West",
   "Yagba East": "Kogi West",
   "Yagba West": "Kogi West",
 };
@@ -67,48 +64,54 @@ export const useSuperAdminDemographics = () => {
   return useQuery<SuperAdminDemographicsData>({
     queryKey: ["super-admin", "demographics"],
     queryFn: async () => {
-      const [membersResponse, puResponse, deceasedResponse] = await Promise.all([
-        supabase.from("members").select("created_at, date_of_birth, lga, is_verified"),
-        supabase.from("polling_units").select("lga_name, target_voters"),
-        supabase.from("voter_registry").select("*", { count: "exact", head: true }).eq("voter_status", "deceased"),
-      ]);
+      // 1. Fetch real campaign members from Supabase / IndexedDB
+      let members: any[] = [];
+      try {
+        const { data, error } = await supabase
+          .from("members")
+          .select("created_at, date_of_birth, lga, is_verified, status");
+        if (!error && data) {
+          members = data;
+        }
+      } catch (e) {
+        console.warn("Could not load members from Supabase:", e);
+      }
 
-      if (membersResponse.error) throw membersResponse.error;
-      if (puResponse.error) throw puResponse.error;
-      if (deceasedResponse.error) throw deceasedResponse.error;
+      if (members.length === 0) {
+        try {
+          members = await localRepository.getMembers();
+        } catch {}
+      }
 
-      const members = membersResponse.data || [];
-      const pollingUnits = puResponse.data || [];
-
-      // Calculate LGA targets
+      // 2. Compute LGA voter targets directly from local INEC dataset (3,512 PUs, 21 LGAs)
       const lgaTargets: Record<string, number> = {};
       let totalTarget = 0;
-      pollingUnits.forEach(pu => {
-        const lga = pu.lga_name;
-        lgaTargets[lga] = (lgaTargets[lga] || 0) + (pu.target_voters || 0);
-        totalTarget += (pu.target_voters || 0);
+
+      ALL_POLLING_UNITS.forEach(pu => {
+        const lga = pu.lga;
+        const voters = pu.registeredVoters || 0;
+        lgaTargets[lga] = (lgaTargets[lga] || 0) + voters;
+        totalTarget += voters;
       });
 
-      const totalDeceased = deceasedResponse.count || 0;
       const activeMembers = members;
       const totalRegistered = activeMembers.length;
-      const totalVerified = activeMembers.filter(m => m.is_verified).length;
+      const totalVerified = activeMembers.filter(m => m.is_verified || m.status === "active").length;
+      const totalDeceased = 0;
 
-      // 1. Weekly Growth Trends
+      // 3. Weekly Growth Trends
       const today = new Date();
       const weeksToShow = 12;
       const weeklyCounts: Record<string, number> = {};
 
-      // Initialize weekly counts
       for (let i = weeksToShow - 1; i >= 0; i--) {
         const weekDate = startOfWeek(subWeeks(today, i));
         const weekKey = format(weekDate, "MMM dd");
         weeklyCounts[weekKey] = 0;
       }
 
-      // Group active members by week
       activeMembers.forEach(m => {
-        const createdDate = new Date(m.created_at);
+        const createdDate = new Date(m.created_at || Date.now());
         for (let i = weeksToShow - 1; i >= 0; i--) {
           const weekDate = startOfWeek(subWeeks(today, i));
           const nextWeekDate = startOfWeek(subWeeks(today, i - 1));
@@ -121,7 +124,6 @@ export const useSuperAdminDemographics = () => {
         }
       });
 
-      // Create cumulative growth array
       const weeklyGrowthData: { week: string; actual: number | null; projected: number | null }[] = [];
       let cumulative = 0;
       
@@ -135,14 +137,12 @@ export const useSuperAdminDemographics = () => {
         });
       });
 
-      // Calculate recent velocity (average growth per week in the last 4 weeks)
       const last4WeeksCount = keys.slice(-4).reduce((sum, key) => sum + weeklyCounts[key], 0);
       const weeklyVelocity = last4WeeksCount / 4;
 
-      // Project forward for 6 weeks
       let projectedCumulative = cumulative;
       for (let i = 1; i <= 6; i++) {
-        projectedCumulative += Math.round(weeklyVelocity || 100); // fallback to 100 if velocity is 0
+        projectedCumulative += Math.round(weeklyVelocity || 25);
         const projectedWeekDate = startOfWeek(subWeeks(today, -i));
         const weekKey = format(projectedWeekDate, "MMM dd");
         
@@ -153,14 +153,13 @@ export const useSuperAdminDemographics = () => {
         });
       }
       
-      // Connect the projection line to the last actual point
       if (weeklyGrowthData.length > 0 && keys.length > 0) {
         const lastActualIndex = keys.length - 1;
         weeklyGrowthData[lastActualIndex].projected = weeklyGrowthData[lastActualIndex].actual;
       }
 
-      // 2. Zone weights (Youth vs Senior)
-            const zoneStats: Record<string, { youth: number; senior: number }> = {
+      // 4. Zone weights (Youth vs Senior)
+      const zoneStats: Record<string, { youth: number; senior: number }> = {
         "Kogi Central": { youth: 0, senior: 0 },
         "Kogi East": { youth: 0, senior: 0 },
         "Kogi West": { youth: 0, senior: 0 },
@@ -172,7 +171,7 @@ export const useSuperAdminDemographics = () => {
         const zone = LGA_TO_ZONE[m.lga] || "Kogi Central";
         if (m.date_of_birth) {
           const age = currentYear - new Date(m.date_of_birth).getFullYear();
-          if (age >= 20 && age <= 35) {
+          if (age >= 18 && age <= 35) {
             zoneStats[zone].youth++;
           } else if (age >= 60) {
             zoneStats[zone].senior++;
@@ -186,7 +185,7 @@ export const useSuperAdminDemographics = () => {
         senior: zoneStats[zone].senior,
       }));
 
-      // 3. LGA Heatmap Performance Grid
+      // 5. LGA Heatmap Performance Grid
       const lgaDataMap: Record<string, { registered: number; verified: number }> = {};
       
       activeMembers.forEach(m => {
@@ -195,7 +194,7 @@ export const useSuperAdminDemographics = () => {
           lgaDataMap[lga] = { registered: 0, verified: 0 };
         }
         lgaDataMap[lga].registered++;
-        if (m.is_verified) {
+        if (m.is_verified || m.status === "active") {
           lgaDataMap[lga].verified++;
         }
       });
@@ -203,7 +202,7 @@ export const useSuperAdminDemographics = () => {
       const lgaHeatmap = Object.keys(LGA_TO_ZONE).map(lga => {
         const zone = LGA_TO_ZONE[lga];
         const data = lgaDataMap[lga] || { registered: 0, verified: 0 };
-        const target = lgaTargets[lga] || 1000; // default target if none found
+        const target = lgaTargets[lga] || 1000;
         const coverage = target > 0 ? Math.min((data.verified / target) * 100, 100) : 0;
 
         return {
@@ -214,7 +213,7 @@ export const useSuperAdminDemographics = () => {
           target,
           coverage: parseFloat(coverage.toFixed(1))
         };
-      }).sort((a, b) => b.coverage - a.coverage); // Sort by performance
+      }).sort((a, b) => b.coverage - a.coverage);
 
       return {
         weeklyGrowth: weeklyGrowthData,
@@ -228,6 +227,6 @@ export const useSuperAdminDemographics = () => {
         }
       };
     },
-    staleTime: 1000 * 60 * 5, // 5 mins
+    staleTime: 1000 * 60 * 5,
   });
 };

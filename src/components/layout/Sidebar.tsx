@@ -22,6 +22,10 @@ const Sidebar = () => {
   const { party } = useParty();
   const stripeColors = [party.colors.swatches[0], party.colors.swatches[1] || "#FFFFFF", party.colors.swatches[2] || party.colors.swatches[0]];
 
+  // Fallback to cached role or intelligent context role so sidebar never empties out
+  const cachedRole = typeof window !== "undefined" ? (localStorage.getItem("auth_role") as any) : null;
+  const effectiveRole = role || cachedRole || (pathname.startsWith("/councillor") ? "councillor" : (pathname.startsWith("/chairman") ? "lga_chairman" : "councillor"));
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     await signOut();
@@ -65,12 +69,14 @@ const Sidebar = () => {
         {navItems.map((item) => {
           // Check role-based visibility
           if (item.roles) {
-            if (!role || !item.roles.includes(role)) {
+            if (!effectiveRole || !item.roles.includes(effectiveRole)) {
               return null;
             }
           }
 
-          const isActive = pathname === item.path;
+          const isActive =
+            pathname === item.path ||
+            (item.path === "/councillor/dashboard" && (pathname === "/dashboard" || pathname === "/councillor/dashboard") && effectiveRole === "councillor");
           const Icon = item.icon;
 
           return (

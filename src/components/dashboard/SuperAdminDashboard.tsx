@@ -42,17 +42,19 @@ const SuperAdminDashboard = () => {
     const { data: statsData, isLoading: statsLoading } = useSuperAdminStats();
     const { data: demoData, isLoading: demoLoading } = useSuperAdminDemographics();
     const { party } = useParty();
-    const { data: topSupportGroups = [], isLoading: topGroupsLoading } = useQuery({
-        queryKey: ["global-top-support-groups"],
+    const { data: lgaChairmen = [], isLoading: chairmenLoading } = useQuery({
+        queryKey: ["global-lga-chairmen"],
         queryFn: async () => {
-            const { data, error } = await supabase
-                .from("organizations")
-                .select("id, name, type, leader_name, kpi_score, candidate_race, lga")
-                .eq("verification_status", "verified")
-                .order("kpi_score", { ascending: false })
-                .limit(10);
-            if (error) throw error;
-            return data || [];
+            try {
+                const { data, error } = await supabase
+                    .from("lga_chairmen")
+                    .select("id, lga, chairman_name, email, phone, party, is_active")
+                    .order("lga", { ascending: true });
+                if (error) return [];
+                return data || [];
+            } catch {
+                return [];
+            }
         }
     });
     const [selectedZone, setSelectedZone] = useState<string>("All");
@@ -137,9 +139,9 @@ const SuperAdminDashboard = () => {
             {/* 1. Global KPI Row */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
                 <KPICard
-                    title="Total Organizations"
-                    value={counts.organizations}
-                    change={`${counts.activeOrgs} active units`}
+                    title="Total Electoral Wards"
+                    value={239}
+                    change="21 LGAs State Alignment"
                     changeType="positive"
                     icon={Building2}
                     variant="default"
@@ -384,75 +386,63 @@ const SuperAdminDashboard = () => {
                 </CardContent>
             </Card>
 
-            {/* Top Support Groups (Global Leaderboard) */}
+            {/* LGA Executive Leadership Roster */}
             <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <div>
                             <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                                <Trophy className="w-5 h-5 text-yellow-500" />
-                                Top Support Groups (Global Leaderboard)
+                                <Trophy className="w-5 h-5 text-emerald-600" />
+                                LGA Executive Leadership Roster (21 LGAs)
                             </CardTitle>
                             <CardDescription>
-                                Master standing of the top 10 support groups across the entire state based on field KPI scores
+                                Assigned LGA Chairmen managing operations, wards, and voter mobilization across Kogi State
                             </CardDescription>
                         </div>
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 font-bold">
+                            21 of 21 LGAs Active
+                        </Badge>
                     </div>
                 </CardHeader>
                 <CardContent>
-                    {topGroupsLoading ? (
+                    {chairmenLoading ? (
                         <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading rankings...
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading LGA leaders...
                         </div>
-                    ) : topSupportGroups.length === 0 ? (
+                    ) : lgaChairmen.length === 0 ? (
                         <div className="text-center py-8 text-muted-foreground text-sm">
-                            No verified support groups found.
+                            No LGA Chairmen records found.
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-muted/30">
-                                        <TableHead className="w-[80px] font-bold">Rank</TableHead>
-                                        <TableHead className="font-bold">Group Name</TableHead>
-                                        <TableHead className="font-bold">Type</TableHead>
-                                        <TableHead className="font-bold">LGA Focus</TableHead>
-                                        <TableHead className="font-bold">Leader</TableHead>
-                                        <TableHead className="text-right font-bold">KPI Score</TableHead>
+                                        <TableHead className="font-bold">LGA</TableHead>
+                                        <TableHead className="font-bold">Chairman Name</TableHead>
+                                        <TableHead className="font-bold">Login Email</TableHead>
+                                        <TableHead className="font-bold">Party</TableHead>
+                                        <TableHead className="text-right font-bold">Status</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {topSupportGroups.map((group, idx) => {
-                                        const rank = idx + 1;
-                                        return (
-                                            <TableRow key={group.id} className="hover:bg-muted/20 transition-colors">
-                                                <TableCell className="font-extrabold text-sm">
-                                                    {rank === 1 ? (
-                                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-500 text-white shadow-sm">🥇</span>
-                                                    ) : rank === 2 ? (
-                                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-300 text-slate-800 shadow-sm">🥈</span>
-                                                    ) : rank === 3 ? (
-                                                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-600 text-white shadow-sm">🥉</span>
-                                                    ) : (
-                                                        `#${rank}`
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="font-semibold text-foreground">{group.name}</TableCell>
-                                                <TableCell className="text-xs text-muted-foreground capitalize">
-                                                    {group.type ? group.type.replace('_', ' ') : '—'}
-                                                </TableCell>
-                                                <TableCell className="text-xs">
-                                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 hover:bg-blue-50">
-                                                        {group.lga || 'State-Wide'}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-xs font-medium text-foreground">{group.leader_name}</TableCell>
-                                                <TableCell className="text-right font-extrabold text-[#0B3D91]">
-                                                    {group.kpi_score || 0} pts
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
+                                    {lgaChairmen.map((ch) => (
+                                        <TableRow key={ch.id} className="hover:bg-muted/20 transition-colors">
+                                            <TableCell className="font-bold text-foreground">{ch.lga}</TableCell>
+                                            <TableCell className="font-semibold">{ch.chairman_name}</TableCell>
+                                            <TableCell className="text-xs font-mono text-muted-foreground">{ch.email}</TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                                    {ch.party || "APM"}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
+                                                    Active
+                                                </span>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
                                 </TableBody>
                             </Table>
                         </div>

@@ -5,7 +5,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 export default function Page() {
   return (
-    <ProtectedRoute allowedRoles={["councillor"]}>
+    <ProtectedRoute allowedRoles={["councillor", "lga_chairman", "super_admin"]}>
       <Component />
     </ProtectedRoute>
   );

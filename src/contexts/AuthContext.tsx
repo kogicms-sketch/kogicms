@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode } fro
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/loose-client";
 
-type AppRole = "super_admin" | "org_admin" | "lga_chairman" | "councillor" | "senatorial_leader" | "federal_rep" | "house_assembly_member" | "polling_unit_agent" | "student" | "member" | null;
+type AppRole = "super_admin" | "org_admin" | "lga_chairman" | "councillor" | "ward_chairman" | "ward_leader" | "senatorial_leader" | "federal_rep" | "house_assembly_member" | "polling_unit_agent" | "student" | "member" | null;
 
 interface AuthContextType {
   user: User | null;
@@ -81,16 +81,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("Fetching role for user:", userId);
       if (isMockRef.current) return "super_admin";
 
+      // Helper to normalize ward and councillor roles
+      const normalizeRole = (r: string | null | undefined): AppRole => {
+        if (!r) return null;
+        const norm = r.toLowerCase().trim();
+        if (norm === "ward_chairman" || norm === "ward_leader" || norm === "ward_admin" || norm === "councillor") {
+          return "councillor";
+        }
+        return norm as AppRole;
+      };
+
       // 1. Direct fast check: profiles table
       try {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role")
+          .select("role, lga, ward")
           .eq("id", userId)
           .maybeSingle();
 
         if (profile?.role) {
-          return profile.role as AppRole;
+          return normalizeRole(profile.role);
+        }
+        if (profile?.ward) {
+          return "councillor";
         }
       } catch (e) {
         // continue
@@ -121,7 +134,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .maybeSingle();
 
           if (memberData?.role) {
-            return memberData.role as AppRole;
+            return normalizeRole(memberData.role);
           }
         } catch (e) {
           // ignore fallback error
@@ -129,7 +142,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         return null;
       }
-      return data as AppRole;
+      return normalizeRole(data);
     } catch (err) {
       console.warn("Handled exception in fetchUserRole:", err);
       return null;

@@ -24,7 +24,7 @@ import { APCBanner } from "@/components/branding/APCBanner";
 import { useParty } from "@/contexts/PartyContext";
 
 const Dashboard = () => {
-  const { role, organizationId, loading: authLoading } = useAuth();
+  const { user, role, organizationId, loading: authLoading } = useAuth();
   const { party } = useParty();
   const isSuperAdmin = role === "super_admin";
   const { data: userOrg } = useUserOrganization();
@@ -35,7 +35,7 @@ const Dashboard = () => {
     return (
       <DashboardLayout title="Loading..." subtitle="Please wait">
         <div className="flex items-center justify-center h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-navy-deep"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
         </div>
       </DashboardLayout>
     );
@@ -58,8 +58,15 @@ const Dashboard = () => {
     return <ChairmanDashboard />;
   }
 
-  // 3. Councillor View
-  if (role === "councillor") {
+  // 3. Councillor / Ward Leader View (or default if user has ward or no organization)
+  if (
+    role === "councillor" ||
+    (role as string) === "ward_chairman" ||
+    (role as string) === "ward_leader" ||
+    user?.user_metadata?.role === "councillor" ||
+    user?.user_metadata?.role === "ward_chairman" ||
+    Boolean(user?.user_metadata?.ward)
+  ) {
     return <CouncillorDashboard />;
   }
 
@@ -91,11 +98,16 @@ const Dashboard = () => {
   }
 
   // 8. Support Group Admin View
-  if (role === "org_admin") {
+  if (role === "org_admin" && userOrg) {
     return <SupportGroupAdminDashboard />;
   }
 
-  // 9. Organization Admin View
+  // 9. If role is not an org_admin with an organization, default to the rich Councillor/Ward Dashboard!
+  if (!userOrg || role === "member" || !role) {
+    return <CouncillorDashboard />;
+  }
+
+  // 10. Organization Admin View (Only when user explicitly has an assigned organization)
   return (
     <DashboardLayout
       title={userOrg?.name || "Dashboard"}

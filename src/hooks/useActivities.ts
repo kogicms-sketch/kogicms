@@ -14,26 +14,29 @@ export const useActivities = (organizationId?: string, status?: string) => {
   return useQuery({
     queryKey: ["activities", organizationId, status],
     queryFn: async () => {
-      let query = supabase
-        .from("activities")
-        .select(`
-          *,
-          organizations:organization_id (name)
-        `)
-        .order("scheduled_date", { ascending: false });
+      try {
+        let query = supabase
+          .from("activities")
+          .select(`
+            *,
+            organizations:organization_id (name)
+          `)
+          .order("scheduled_date", { ascending: false });
 
-      if (organizationId) {
-        query = query.eq("organization_id", organizationId);
+        if (organizationId) {
+          query = query.eq("organization_id", organizationId);
+        }
+
+        if (status && status !== "all") {
+          query = query.eq("status", status);
+        }
+
+        const { data, error } = await query;
+        if (error) return [];
+        return (data || []) as ActivityWithOrganization[];
+      } catch {
+        return [];
       }
-
-      if (status && status !== "all") {
-        query = query.eq("status", status);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data as ActivityWithOrganization[];
     },
   });
 };
@@ -42,17 +45,21 @@ export const useActivity = (id: string) => {
   return useQuery({
     queryKey: ["activities", "detail", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("activities")
-        .select(`
-          *,
-          organizations:organization_id (name)
-        `)
-        .eq("id", id)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from("activities")
+          .select(`
+            *,
+            organizations:organization_id (name)
+          `)
+          .eq("id", id)
+          .maybeSingle();
 
-      if (error) throw error;
-      return data as ActivityWithOrganization | null;
+        if (error) return null;
+        return (data || null) as ActivityWithOrganization | null;
+      } catch {
+        return null;
+      }
     },
     enabled: !!id,
   });
@@ -74,11 +81,10 @@ export const useCreateActivity = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["activities"] });
-      toast.success("Activity created successfully");
+      toast.success("Activity scheduled successfully");
     },
     onError: (error) => {
-      console.error("Error creating activity:", error);
-      toast.error("Failed to create activity");
+      toast.error(`Failed to create activity: ${error.message}`);
     },
   });
 };
@@ -87,7 +93,10 @@ export const useUpdateActivity = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: Partial<Activity> & { id: string }) => {
+    mutationFn: async ({
+      id,
+      ...updates
+    }: Partial<Activity> & { id: string }) => {
       const { data, error } = await supabase
         .from("activities")
         .update(updates)
@@ -103,32 +112,26 @@ export const useUpdateActivity = () => {
       toast.success("Activity updated successfully");
     },
     onError: (error) => {
-      console.error("Error updating activity:", error);
-      toast.error("Failed to update activity");
+      toast.error(`Failed to update activity: ${error.message}`);
     },
   });
 };
 
-export const useActivityStats = (organizationId?: string | null) => {
-  return useQuery({
-    queryKey: ["activities", "stats", organizationId],
-    queryFn: async () => {
-      let query = supabase.from("activities").select("status");
-      
-      if (organizationId) {
-        query = query.eq("organization_id", organizationId);
-      }
+export const useDeleteActivity = () => {
+  const queryClient = useQueryClient();
 
-      const { data, error } = await query;
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("activities").delete().eq("id", id);
 
       if (error) throw error;
-
-      const total = data.length;
-      const planned = data.filter((a) => a.status === "planned").length;
-      const ongoing = data.filter((a) => a.status === "ongoing").length;
-      const completed = data.filter((a) => a.status === "completed").length;
-      
-      return { total, planned, ongoing, completed };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      toast.success("Activity deleted successfully");
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete activity: ${error.message}`);
     },
   });
 };

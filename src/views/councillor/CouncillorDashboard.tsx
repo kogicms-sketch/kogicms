@@ -1,622 +1,863 @@
 "use client";
-import React, { useState } from "react";
+
+import React, { useState, useMemo } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useCouncillor, useCouncillorWardData } from "@/hooks/useCouncillors";
-import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
-import { AgentPerformanceReport } from "@/components/dashboard/AgentPerformanceReport";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
-    MapPin, Building2, Users, Activity, ShieldCheck, Clock,
-    Shield, Star, Vote, TrendingUp, ChevronRight, Navigation,
-    UserPlus, Eye, EyeOff, Copy
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  MapPin,
+  Building2,
+  Users,
+  Activity,
+  ShieldCheck,
+  Clock,
+  Vote,
+  TrendingUp,
+  ChevronRight,
+  Navigation,
+  UserPlus,
+  Search,
+  CreditCard,
+  Sparkles,
+  Gift,
+  KeyRound,
+  Award,
+  CheckCircle2,
+  AlertCircle,
+  Filter,
+  Phone,
+  Radio,
+  FileText,
+  UserCheck
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { APCFlag } from "@/components/branding/APCFlag";
-import { VictoryGauge } from "@/components/analytics/DashboardCharts";
-import Link from 'next/link';
-import { Button } from "@/components/ui/button";
-import {
-    Table, TableBody, TableCell, TableHead,
-    TableHeader, TableRow,
-} from "@/components/ui/table";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/loose-client";
-import AssignAgentModal from "@/components/modals/AssignAgentModal";
-import { toast } from "sonner";
+import Link from "next/link";
+import { useParty } from "@/contexts/PartyContext";
+import { useCouncillor, useCouncillorWardData } from "@/hooks/useCouncillors";
+import { KOGI_LGAS, getWardsForLga } from "@/lib/campaign-data";
+import { GranularDemographics } from "@/components/dashboard/GranularDemographics";
+import { AgentPerformanceReport } from "@/components/dashboard/AgentPerformanceReport";
 import { AgentPaymentRoster } from "@/components/councillor/AgentPaymentRoster";
+import AssignAgentModal from "@/components/modals/AssignAgentModal";
+import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal";
+import { toast } from "sonner";
 
-const RecentAgentActivity = ({ lga, ward }: { lga: string; ward: string }) => {
-    const { data: locations = [], isLoading } = useQuery({
-        queryKey: ["ward-recent-locations", lga, ward],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from("agent_locations")
-                .select("*")
-                .eq("lga", lga)
-                .eq("ward", ward)
-                .order("created_at", { ascending: false })
-                .limit(5);
+export default function CouncillorDashboard() {
+  const { party } = useParty();
+  const { data: councillor, isLoading: councillorLoading } = useCouncillor();
 
-            if (error) throw error;
-            return data;
-        },
-        enabled: !!lga && !!ward,
+  // LGA and Ward state with fallback to Councillor profile
+  const [selectedLga, setSelectedLga] = useState<string>("");
+  const [selectedWard, setSelectedWard] = useState<string>("");
+
+  const activeLga = selectedLga || councillor?.lga || "Lokoja";
+  const activeWard = selectedWard || councillor?.ward || "Lokoja - A";
+
+  // Available wards in active LGA
+  const availableWards = useMemo(() => {
+    return getWardsForLga(activeLga);
+  }, [activeLga]);
+
+  // Ward data hook using dynamic selection
+  const {
+    data: wardData,
+    isLoading: wardLoading,
+    refetch: refetchWardData,
+  } = useCouncillorWardData(activeLga, activeWard);
+
+  // Search & Filter state for polling units
+  const [puSearch, setPuSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  // Modal states
+  const [selectedPuForAssignment, setSelectedPuForAssignment] = useState<any | null>(null);
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("polling-units");
+
+  // Handle LGA switch
+  const handleLgaChange = (newLga: string) => {
+    setSelectedLga(newLga);
+    const wards = getWardsForLga(newLga);
+    if (wards.length > 0) {
+      setSelectedWard(wards[0]);
+    }
+  };
+
+  // Filter polling units
+  const filteredPollingUnits = useMemo(() => {
+    if (!wardData?.pollingUnits) return [];
+    return wardData.pollingUnits.filter((pu) => {
+      const matchQuery =
+        !puSearch ||
+        pu.name.toLowerCase().includes(puSearch.toLowerCase()) ||
+        (pu.code && pu.code.toLowerCase().includes(puSearch.toLowerCase()));
+
+      const matchStatus = statusFilter === "all" || pu.status === statusFilter;
+      return matchQuery && matchStatus;
     });
+  }, [wardData?.pollingUnits, puSearch, statusFilter]);
 
+  // Loading state
+  if (councillorLoading || wardLoading) {
     return (
-        <Card className="border-0 shadow-md overflow-hidden flex flex-col h-[480px]">
-            <div className="h-1 bg-purple-600" />
-            <CardHeader className="p-4 border-b border-gray-100">
-                <div>
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                        <Activity className="h-4 w-4 text-purple-600" />
-                        Live Field Activity
-                    </CardTitle>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                        Recent coordinates reported by PU Agents
-                    </p>
-                </div>
-            </CardHeader>
-            <CardContent className="p-3 flex-1 overflow-y-auto divide-y divide-gray-100">
-                {isLoading ? (
-                    <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-                        Loading activity feed...
-                    </div>
-                ) : locations.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-center py-12 text-muted-foreground opacity-60">
-                        <MapPin className="h-8 w-8 text-gray-400 mb-2" />
-                        <p className="text-xs font-semibold">No recent activity</p>
-                        <p className="text-[10px] mt-0.5">Coordinates appear when agents open the app</p>
-                    </div>
-                ) : (
-                    locations.map((loc: any) => (
-                        <div key={loc.id} className="py-3 flex flex-col gap-1 first:pt-1 last:pb-1">
-                            <div className="flex justify-between items-start">
-                                <span className="font-bold text-xs text-gray-800">{loc.agent_name}</span>
-                                <span className="text-[9px] text-purple-600 bg-purple-50 font-bold px-1.5 py-0.5 rounded-full">
-                                    Active
-                                </span>
-                            </div>
-                            <span className="text-[10px] text-muted-foreground uppercase font-medium">
-                                {loc.polling_unit_name}
-                            </span>
-                            <div className="flex items-center justify-between mt-1 text-[9px] text-gray-400">
-                                <span className="flex items-center gap-0.5 font-mono">
-                                    <Navigation className="h-2.5 w-2.5" />
-                                    {loc.latitude.toFixed(4)}, {loc.longitude.toFixed(4)}
-                                </span>
-                                <span>{new Date(loc.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </CardContent>
-        </Card>
-    );
-};
-
-const CouncillorDashboard = () => {
-    const { data: councillor, isLoading: councillorLoading } = useCouncillor();
-    const { data: wardData, isLoading: wardLoading, refetch: refetchWardData } = useCouncillorWardData();
-
-    const [selectedPU, setSelectedPU] = useState<any | null>(null);
-    const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-    const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
-
-    const togglePassword = (puId: string) => {
-        setShowPasswords(prev => ({
-            ...prev,
-            [puId]: !prev[puId]
-        }));
-    };
-
-    const handleCopyPassword = (password: string) => {
-        if (!password) return;
-        navigator.clipboard.writeText(password);
-        toast.success("Password copied to clipboard");
-    };
-
-    if (councillorLoading || (councillor && wardLoading)) {
-        return (
-            <DashboardLayout>
-                <div className="flex items-center justify-center min-h-[60vh]">
-                    <div className="text-center space-y-4">
-                        <div className="relative mx-auto w-16 h-16">
-                            <div className="animate-spin rounded-full h-16 w-16 border-4 border-apc-green/20 border-t-apc-green" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Shield className="h-6 w-6 text-apc-green" />
-                            </div>
-                        </div>
-                        <p className="text-muted-foreground font-medium">Loading Ward Dashboard...</p>
-                    </div>
-                </div>
-            </DashboardLayout>
-        );
-    }
-
-    if (!councillor) {
-        return (
-            <DashboardLayout>
-                <div className="flex items-center justify-center min-h-[60vh]">
-                    <div className="text-center space-y-4">
-                        <Shield className="h-12 w-12 text-red-500 mx-auto" />
-                        <h2 className="text-2xl font-bold text-red-600">Access Denied</h2>
-                        <p className="text-muted-foreground">You are not registered as a Councillor.</p>
-                    </div>
-                </div>
-            </DashboardLayout>
-        );
-    }
-
-    // Computed values
-    const totalRegisteredVoters = (wardData?.pollingUnits || []).reduce(
-        (sum: number, pu: any) => sum + (pu.registered_voters || 0), 0
-    );
-    const totalVerified   = wardData?.verifiedMembers || 0;
-    const totalMembers    = wardData?.totalMembers || 0;
-    const totalPending    = wardData?.pendingVerification || 0;
-    const totalPUs        = wardData?.totalPollingUnits || 0;
-
-    // Target = total registered voters in the ward (same logic as other dashboards)
-    const victoryPct = totalRegisteredVoters > 0
-        ? Math.min((totalVerified / totalRegisteredVoters) * 100, 100)
-        : 0;
-
-    const kpiCards = [
-        {
-            label: "Polling Units",
-            value: totalPUs.toLocaleString(),
-            sub: "In your ward",
-            icon: Building2,
-            color: "text-apc-green",
-            bg: "bg-apc-green/10",
-            border: "border-l-apc-green",
-        },
-        {
-            label: "Registered Voters",
-            value: totalRegisteredVoters.toLocaleString(),
-            sub: "INEC registered",
-            icon: Vote,
-            color: "text-purple-600",
-            bg: "bg-purple-50",
-            border: "border-l-purple-500",
-        },
-        {
-            label: "App Members",
-            value: totalMembers.toLocaleString(),
-            sub: "Registered via app",
-            icon: Users,
-            color: "text-blue-600",
-            bg: "bg-blue-50",
-            border: "border-l-blue-600",
-        },
-        {
-            label: "Verified",
-            value: totalVerified.toLocaleString(),
-            sub: "Field confirmed",
-            icon: ShieldCheck,
-            color: "text-indigo-600",
-            bg: "bg-indigo-50",
-            border: "border-l-indigo-500",
-        },
-        {
-            label: "Pending",
-            value: totalPending.toLocaleString(),
-            sub: "Awaiting visit",
-            icon: Clock,
-            color: "text-orange-600",
-            bg: "bg-orange-50",
-            border: "border-l-orange-500",
-        },
-    ];
-
-    return (
-        <DashboardLayout>
-            <div className="space-y-5 animate-fade-in">
-
-                {/* ── HERO BANNER ── */}
-                <div className="relative overflow-hidden rounded-xl shadow-2xl">
-                    {/* APC tri-color stripe */}
-                    <div className="flex h-2">
-                        <div className="flex-1 bg-apc-green" />
-                        <div className="flex-1 bg-white border-y border-gray-200" />
-                        <div className="flex-1 bg-apc-red" />
-                    </div>
-
-                    <div className="relative bg-gradient-to-br from-[#006600] via-[#004d00] to-[#003300] p-6 sm:p-8">
-                        <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full bg-white/5 pointer-events-none" />
-                        <div className="absolute -bottom-8 -left-8 w-48 h-48 rounded-full bg-white/5 pointer-events-none" />
-
-                        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-4">
-                            <div className="flex-shrink-0 hidden sm:flex w-16 h-16 lg:w-20 lg:h-20 rounded-full bg-white/10 items-center justify-center border-2 border-white/20 shadow-lg">
-                                <APCFlag size="sm" variant="full" />
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight">
-                                    {wardData?.lga || councillor.lga} LGA
-                                </h1>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex h-2">
-                        <div className="flex-1 bg-apc-green" />
-                        <div className="flex-1 bg-white border-y border-gray-200" />
-                        <div className="flex-1 bg-apc-red" />
-                    </div>
-                </div>
-
-                {/* ── INTELLIGENCE OVERVIEW ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    {/* Victory Gauge */}
-                    <Card className="lg:col-span-1 border-0 shadow-xl bg-white overflow-hidden relative">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-apc-green" />
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <Activity className="h-4 w-4 text-apc-green" />
-                                Victory Projection
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pb-4">
-                            <VictoryGauge
-                                percentage={victoryPct}
-                                target={totalRegisteredVoters}
-                                current={totalMembers}
-                                verified={totalVerified}
-                                description="Verified Coverage"
-                                label={`${wardData?.ward || councillor.ward} Progress`}
-                            />
-                        </CardContent>
-                    </Card>
-
-                    {/* Ward Performance panel */}
-                    <Card className="lg:col-span-2 border-0 shadow-xl bg-white overflow-hidden relative">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-blue-600" />
-                        <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <TrendingUp className="h-4 w-4 text-blue-600" />
-                                Ward Performance Summary
-                            </CardTitle>
-                            <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-full uppercase tracking-widest">
-                                {wardData?.ward}
-                            </span>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                {/* Mobilization rate */}
-                                <div className="rounded-xl bg-gradient-to-br from-apc-green/5 to-green-50 border border-apc-green/20 p-4">
-                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Mobilization Rate</p>
-                                    <p className="text-3xl font-black text-apc-green leading-none">
-                                        {totalRegisteredVoters > 0
-                                            ? ((totalMembers / totalRegisteredVoters) * 100).toFixed(1)
-                                            : "0.0"}%
-                                    </p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        {totalMembers.toLocaleString()} members of {totalRegisteredVoters.toLocaleString()} voters
-                                    </p>
-                                    <div className="mt-2 h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-apc-green rounded-full"
-                                            style={{ width: `${totalRegisteredVoters > 0 ? Math.min((totalMembers / totalRegisteredVoters) * 100, 100) : 0}%` }}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Verification rate */}
-                                <div className="rounded-xl bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-200 p-4">
-                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Verification Rate</p>
-                                    <p className="text-3xl font-black text-indigo-600 leading-none">
-                                        {totalMembers > 0
-                                            ? ((totalVerified / totalMembers) * 100).toFixed(1)
-                                            : "0.0"}%
-                                    </p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        {totalVerified.toLocaleString()} verified of {totalMembers.toLocaleString()} registered
-                                    </p>
-                                    <div className="mt-2 h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-indigo-500 rounded-full"
-                                            style={{ width: `${totalMembers > 0 ? Math.min((totalVerified / totalMembers) * 100, 100) : 0}%` }}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Pending breakdown */}
-                                <div className="rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 p-4">
-                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Pending Action</p>
-                                    <p className="text-3xl font-black text-orange-600 leading-none">
-                                        {totalPending.toLocaleString()}
-                                    </p>
-                                    <p className="text-xs text-gray-500 mt-1">Members awaiting field verification</p>
-                                    <div className="mt-2 flex items-center gap-1">
-                                        <Clock className="h-3 w-3 text-orange-400" />
-                                        <span className="text-[10px] text-orange-600 font-semibold">Requires attention</span>
-                                    </div>
-                                </div>
-
-                                {/* Polling units */}
-                                <div className="rounded-xl bg-gradient-to-br from-apc-green/5 to-teal-50 border border-teal-200 p-4">
-                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1">Polling Units</p>
-                                    <p className="text-3xl font-black text-teal-700 leading-none">
-                                        {totalPUs.toLocaleString()}
-                                    </p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                        ~{totalPUs > 0 ? Math.round(totalRegisteredVoters / totalPUs) : 0} avg. voters per unit
-                                    </p>
-                                    <div className="mt-2 flex items-center gap-1">
-                                        <Building2 className="h-3 w-3 text-teal-500" />
-                                        <span className="text-[10px] text-teal-600 font-semibold">Active polling units</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* ── KPI CARDS ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-                    {kpiCards.map(({ label, value, sub, icon: Icon, color, bg, border }, i) => (
-                        <motion.div
-                            key={label}
-                            initial={{ opacity: 0, y: 15 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.08 }}
-                        >
-                            <Card className={`border-l-4 ${border} shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5`}>
-                                <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3 sm:p-4">
-                                    <CardTitle className="text-[11px] sm:text-xs font-semibold text-gray-600 leading-tight">{label}</CardTitle>
-                                    <div className={`rounded-full ${bg} p-1.5 sm:p-2`}>
-                                        <Icon className={`h-3 w-3 sm:h-4 sm:w-4 ${color}`} />
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="p-3 sm:p-4 pt-0">
-                                    <div className={`text-2xl sm:text-3xl font-extrabold ${color} tracking-tight`}>{value}</div>
-                                    <p className={`text-[10px] sm:text-xs ${color} mt-0.5 font-medium opacity-80`}>{sub}</p>
-                                </CardContent>
-                            </Card>
-                        </motion.div>
-                    ))}
-                </div>
-
-                {/* ── ⭐ POLLING UNIT AGENTS PAYMENT & ACCOUNT ROSTER ── */}
-                <AgentPaymentRoster
-                    lga={councillor.lga}
-                    ward={councillor.ward}
-                />
-
-                {/* ── GRANULAR DEMOGRAPHICS ── */}
-                <GranularDemographics
-                    lga={councillor.lga}
-                    ward={councillor.ward}
-                    totalRegisteredVoters={totalRegisteredVoters}
-                />
-
-                {/* ── AGENT PERFORMANCE LEADERBOARD REPORT & PODIUM ── */}
-                <AgentPerformanceReport
-                    lga={wardData?.lga || councillor.lga}
-                    ward={wardData?.ward || councillor.ward}
-                />
-
-                {/* ── POLLING UNITS & FIELD ACTIVITY GRID ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    <div className="lg:col-span-2">
-                        <Card className="border-0 shadow-md overflow-hidden">
-                            <div className="h-1 bg-gradient-to-r from-apc-green via-white to-apc-red" />
-                            <CardHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Building2 className="h-5 w-5 text-apc-green" />
-                                        <div>
-                                            <CardTitle className="text-base sm:text-lg font-bold">
-                                                Polling Units — {wardData?.ward}
-                                            </CardTitle>
-                                            <p className="text-xs text-muted-foreground mt-0.5">
-                                                Registration coverage per polling unit
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Link href="/polling-units-reports">
-                                            <Button size="sm" variant="outline" className="gap-1.5 text-xs font-semibold cursor-pointer">
-                                                <Navigation className="h-3.5 w-3.5" />
-                                                <span>Agent Reports</span>
-                                            </Button>
-                                        </Link>
-                                        <span className="hidden sm:inline-flex items-center gap-1.5 bg-apc-green/10 text-apc-green text-xs font-bold px-3 py-1.5 rounded-full">
-                                            <MapPin className="h-3 w-3" />
-                                            {totalPUs} Units
-                                        </span>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                {wardData?.pollingUnits && wardData.pollingUnits.length > 0 ? (
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow className="bg-gray-50 hover:bg-gray-50">
-                                                    <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider pl-4 sm:pl-6">Polling Unit</TableHead>
-                                                    <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider hidden sm:table-cell">Code</TableHead>
-                                                    <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider">Registered</TableHead>
-                                                    <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider">Verified</TableHead>
-                                                    <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider hidden sm:table-cell">Status</TableHead>
-                                                    <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider">Coverage</TableHead>
-                                                    <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider">Polling Unit Agent</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {wardData.pollingUnits.map((pu: any, idx: number) => {
-                                                    const coverage = pu.registered_voters > 0
-                                                        ? ((pu.verified_members || 0) / pu.registered_voters * 100)
-                                                        : 0;
-                                                    const coverageColor = coverage >= 80 ? "bg-apc-green" :
-                                                        coverage >= 50 ? "bg-blue-500" :
-                                                            coverage >= 20 ? "bg-orange-500" : "bg-red-500";
-                                                    const badgeStyle = pu.status === "complete" ? "bg-green-100 text-green-800" :
-                                                        pu.status === "ready" ? "bg-blue-100 text-blue-800" :
-                                                            pu.status === "active" ? "bg-orange-100 text-orange-800" :
-                                                                "bg-gray-100 text-gray-600";
-
-                                                    return (
-                                                        <motion.tr
-                                                            key={pu.id}
-                                                            initial={{ opacity: 0, x: -10 }}
-                                                            animate={{ opacity: 1, x: 0 }}
-                                                            transition={{ delay: idx * 0.04 }}
-                                                            className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
-                                                        >
-                                                            <TableCell className="pl-4 sm:pl-6 py-3">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="w-1.5 h-1.5 rounded-full bg-apc-green flex-shrink-0" />
-                                                                    <span className="font-semibold text-xs sm:text-sm text-gray-800">{pu.name}</span>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="hidden sm:table-cell">
-                                                                <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-600">
-                                                                    {pu.code || "—"}
-                                                                </span>
-                                                            </TableCell>
-                                                            <TableCell className="text-sm font-semibold text-gray-700">
-                                                                {(pu.registered_voters || 0).toLocaleString()}
-                                                            </TableCell>
-                                                            <TableCell className="font-bold text-apc-green text-sm">
-                                                                {(pu.verified_members || 0).toLocaleString()}
-                                                            </TableCell>
-                                                            <TableCell className="hidden sm:table-cell">
-                                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeStyle}`}>
-                                                                    {pu.status || "forming"}
-                                                                </span>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <div className="flex items-center gap-2 min-w-[80px]">
-                                                                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
-                                                                        <motion.div
-                                                                            initial={{ width: 0 }}
-                                                                            animate={{ width: `${Math.min(coverage, 100)}%` }}
-                                                                            transition={{ duration: 0.8, ease: "easeOut", delay: idx * 0.04 }}
-                                                                            className={`h-full rounded-full ${coverageColor}`}
-                                                                        />
-                                                                    </div>
-                                                                    <span className="text-[11px] font-extrabold text-gray-700 w-8 text-right">
-                                                                        {coverage.toFixed(0)}%
-                                                                    </span>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="py-3">
-                                                                {pu.agent ? (
-                                                                    <div className="flex flex-col gap-1 min-w-[200px] bg-slate-50/50 p-2 rounded-lg border border-slate-100">
-                                                                        <div className="flex justify-between items-center">
-                                                                            <span className="font-semibold text-xs text-slate-800">{pu.agent.name}</span>
-                                                                            <span className="text-[9px] font-mono text-slate-500">{pu.agent.phone}</span>
-                                                                        </div>
-                                                                        <span className="text-[10px] text-muted-foreground">{pu.agent.email}</span>
-                                                                        <div className="flex items-center gap-1.5 mt-0.5 pt-1 border-t border-slate-100">
-                                                                            <span className="text-[10px] font-medium text-slate-500">Pass:</span>
-                                                                            <span className="font-mono text-xs text-slate-700 font-semibold select-all">
-                                                                                {showPasswords[pu.id] ? pu.agent.password || "—" : "••••••••"}
-                                                                            </span>
-                                                                            <div className="flex gap-1 ml-auto">
-                                                                                <Button
-                                                                                    size="icon"
-                                                                                    variant="ghost"
-                                                                                    className="h-5 w-5 text-slate-400 hover:text-slate-600"
-                                                                                    onClick={() => togglePassword(pu.id)}
-                                                                                    title={showPasswords[pu.id] ? "Hide password" : "Show password"}
-                                                                                >
-                                                                                    {showPasswords[pu.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                                                                                </Button>
-                                                                                <Button
-                                                                                    size="icon"
-                                                                                    variant="ghost"
-                                                                                    className="h-5 w-5 text-slate-400 hover:text-slate-600"
-                                                                                    onClick={() => handleCopyPassword(pu.agent.password)}
-                                                                                    disabled={!pu.agent.password}
-                                                                                    title="Copy password"
-                                                                                >
-                                                                                    <Copy className="h-3 w-3" />
-                                                                                </Button>
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    variant="outline"
-                                                                                    className="h-5 text-[9px] px-1 font-semibold text-slate-600 hover:text-indigo-600 cursor-pointer"
-                                                                                    onClick={() => {
-                                                                                        setSelectedPU(pu);
-                                                                                        setIsAssignModalOpen(true);
-                                                                                    }}
-                                                                                >
-                                                                                    Change
-                                                                                </Button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Button
-                                                                            size="sm"
-                                                                            variant="outline"
-                                                                            className="h-7 text-xs font-semibold text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200 cursor-pointer"
-                                                                            onClick={() => {
-                                                                                setSelectedPU(pu);
-                                                                                setIsAssignModalOpen(true);
-                                                                            }}
-                                                                        >
-                                                                            <UserPlus className="h-3.5 w-3.5 mr-1" />
-                                                                            Assign Agent
-                                                                        </Button>
-                                                                    </div>
-                                                                )}
-                                                            </TableCell>
-                                                        </motion.tr>
-                                                    );
-                                                })}
-                                            </TableBody>
-                                        </Table>
-                                    </div>
-                                ) : (
-                                    <div className="text-center py-16 bg-gray-50">
-                                        <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                                            <MapPin className="h-7 w-7 text-gray-400" />
-                                        </div>
-                                        <p className="text-muted-foreground text-sm font-medium">No polling units found in your ward</p>
-                                        <p className="text-xs text-gray-400 mt-1">Data will appear here once assigned</p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    <div className="lg:col-span-1">
-                        <RecentAgentActivity 
-                            lga={wardData?.lga || councillor.lga} 
-                            ward={wardData?.ward || councillor.ward} 
-                        />
-                    </div>
-                </div>
-
-                {councillor && selectedPU && (
-                    <AssignAgentModal
-                        isOpen={isAssignModalOpen}
-                        onClose={() => {
-                            setIsAssignModalOpen(false);
-                            setSelectedPU(null);
-                        }}
-                        onSuccess={() => {
-                            refetchWardData();
-                        }}
-                        councillorId={councillor.id}
-                        pollingUnit={{
-                            id: selectedPU.id || "",
-                            name: selectedPU.name,
-                            ward: wardData?.ward || councillor.ward,
-                            lga: wardData?.lga || councillor.lga,
-                        }}
-                    />
-                )}
-
+      <DashboardLayout title="Ward Executive Command" subtitle="Loading analytics...">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center space-y-4">
+            <div className="relative mx-auto w-16 h-16">
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-emerald-500/20 border-t-emerald-600" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Building2 className="h-6 w-6 text-emerald-600" />
+              </div>
             </div>
-        </DashboardLayout>
+            <p className="text-sm text-muted-foreground font-semibold">
+              Loading Ward Command Dashboard...
+            </p>
+          </div>
+        </div>
+      </DashboardLayout>
     );
-};
+  }
 
-export default CouncillorDashboard;
+  const totalRegisteredVoters = wardData?.totalRegisteredVoters || 0;
+  const totalMembers = wardData?.totalMembers || 0;
+  const totalVerified = wardData?.verifiedMembers || 0;
+  const totalPending = wardData?.pendingVerification || 0;
+  const totalPUs = wardData?.totalPollingUnits || 0;
+  const assignedAgentsCount = wardData?.assignedAgentsCount || 0;
+
+  const victoryPct =
+    totalRegisteredVoters > 0
+      ? Math.min(Math.round((totalMembers / totalRegisteredVoters) * 100), 100)
+      : 0;
+
+  const statCards = [
+    {
+      label: "Polling Units",
+      value: totalPUs.toLocaleString(),
+      sub: "100% Ward Coverage",
+      icon: Building2,
+      border: "border-l-emerald-600",
+      bg: "from-emerald-50 to-white",
+      iconBg: "bg-emerald-100",
+      iconColor: "text-emerald-700",
+      valColor: "text-emerald-800",
+    },
+    {
+      label: "INEC Registered",
+      value: totalRegisteredVoters.toLocaleString(),
+      sub: "Official voter base",
+      icon: Vote,
+      border: "border-l-blue-600",
+      bg: "from-blue-50 to-white",
+      iconBg: "bg-blue-100",
+      iconColor: "text-blue-700",
+      valColor: "text-blue-900",
+    },
+    {
+      label: "Campaign Members",
+      value: totalMembers.toLocaleString(),
+      sub: "Mobilized via APM app",
+      icon: Users,
+      border: "border-l-indigo-600",
+      bg: "from-indigo-50 to-white",
+      iconBg: "bg-indigo-100",
+      iconColor: "text-indigo-700",
+      valColor: "text-indigo-900",
+    },
+    {
+      label: "Field Verified",
+      value: totalVerified.toLocaleString(),
+      sub: "PVC & address confirmed",
+      icon: ShieldCheck,
+      border: "border-l-teal-600",
+      bg: "from-teal-50 to-white",
+      iconBg: "bg-teal-100",
+      iconColor: "text-teal-700",
+      valColor: "text-teal-900",
+    },
+    {
+      label: "PU Agents Assigned",
+      value: `${assignedAgentsCount} / ${totalPUs}`,
+      sub: totalPUs > 0 && assignedAgentsCount >= totalPUs ? "Full Deployment" : "Deployment in Progress",
+      icon: UserCheck,
+      border: "border-l-amber-600",
+      bg: "from-amber-50 to-white",
+      iconBg: "bg-amber-100",
+      iconColor: "text-amber-700",
+      valColor: "text-amber-900",
+    },
+  ];
+
+  const quickActions = [
+    {
+      label: "Polling Units",
+      sub: "View & audit cells",
+      icon: Building2,
+      route: "/polling-units",
+      bg: "bg-emerald-600 hover:bg-emerald-700",
+      text: "text-white",
+    },
+    {
+      label: "Agent Payment Roster",
+      sub: "Bank accounts & pay",
+      icon: CreditCard,
+      onClick: () => setActiveTab("payment-roster"),
+      bg: "bg-blue-600 hover:bg-blue-700",
+      text: "text-white",
+    },
+    {
+      label: "Register Member",
+      sub: "Enroll voter to APM",
+      icon: UserPlus,
+      route: "/members",
+      bg: "bg-indigo-600 hover:bg-indigo-700",
+      text: "text-white",
+    },
+    {
+      label: "Ward Welfare",
+      sub: "Incentive distribution",
+      icon: Gift,
+      route: "/welfare",
+      bg: "bg-teal-600 hover:bg-teal-700",
+      text: "text-white",
+    },
+    {
+      label: "Field Reports",
+      sub: "Election day & alerts",
+      icon: FileText,
+      route: "/polling-units-reports",
+      bg: "bg-purple-600 hover:bg-purple-700",
+      text: "text-white",
+    },
+    {
+      label: "AI Post Generator",
+      sub: "Grassroots outreach",
+      icon: Sparkles,
+      route: "/post-generator",
+      bg: "bg-amber-600 hover:bg-amber-700",
+      text: "text-white",
+    },
+  ];
+
+  return (
+    <DashboardLayout
+      title={`${activeWard} Ward Command`}
+      subtitle={`${activeLga} LGA • Allied Peoples' Movement (APM)`}
+    >
+      <div className="space-y-6 pb-12 animate-fade-in">
+        {/* ── 1. APM HERO COMMAND BANNER ── */}
+        <div className="relative overflow-hidden rounded-2xl shadow-xl border border-emerald-800/40">
+          {/* APM Tri-Color Top Accent Line */}
+          <div className="flex h-2">
+            <div className="flex-1 bg-emerald-600" />
+            <div className="flex-1 bg-sky-500" />
+            <div className="flex-1 bg-slate-900" />
+          </div>
+
+          <div className="relative bg-gradient-to-r from-emerald-950 via-emerald-900 to-slate-950 p-6 md:p-8 text-white">
+            {/* Ambient Background Glow */}
+            <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-sky-500/10 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+              {/* Left Brand & Title */}
+              <div className="flex items-start sm:items-center gap-4">
+                <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white p-2 flex items-center justify-center shadow-2xl border-2 border-emerald-400/40 shrink-0">
+                  <img
+                    src="/apm-logo.png"
+                    alt="APM Logo"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge className="bg-emerald-500/30 text-emerald-300 border-emerald-400/40 text-[11px] font-bold uppercase tracking-wider">
+                      📍 Ward Executive Command
+                    </Badge>
+                    <Badge className="bg-white/10 text-white border-white/20 text-[11px]">
+                      Nigeria First
+                    </Badge>
+                  </div>
+
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+                    {activeWard}
+                  </h1>
+
+                  <p className="text-xs sm:text-sm text-emerald-200/90 font-medium">
+                    {activeLga} Local Government Area • Confluence State
+                  </p>
+                  <p className="text-[11px] text-white/70">
+                    Leader: {councillor?.councillor_name || "Hon. Ward Councillor"} • {councillor?.email || "councillor@kogicms.ng"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Controls: Interactive Ward Switcher & Actions */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-black/30 backdrop-blur p-3 rounded-xl border border-white/10">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] text-emerald-300 font-bold uppercase tracking-wider">
+                    Switch LGA:
+                  </span>
+                  <select
+                    value={activeLga}
+                    onChange={(e) => handleLgaChange(e.target.value)}
+                    className="h-9 px-2.5 rounded-lg bg-slate-900 border border-white/20 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  >
+                    {KOGI_LGAS.map((lga) => (
+                      <option key={lga} value={lga}>
+                        {lga}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] text-emerald-300 font-bold uppercase tracking-wider">
+                    Switch Ward:
+                  </span>
+                  <select
+                    value={activeWard}
+                    onChange={(e) => setSelectedWard(e.target.value)}
+                    className="h-9 px-2.5 rounded-lg bg-slate-900 border border-white/20 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-400 min-w-[140px]"
+                  >
+                    {availableWards.map((w) => (
+                      <option key={w} value={w}>
+                        {w}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-end pt-2 sm:pt-0">
+                  <Button
+                    onClick={() => setIsPasswordModalOpen(true)}
+                    variant="outline"
+                    className="h-9 text-xs gap-1.5 border-white/20 bg-white/10 text-white hover:bg-white/20 font-semibold"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-emerald-300" />
+                    Password
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* APM Tri-Color Bottom Accent Line */}
+          <div className="flex h-1.5">
+            <div className="flex-1 bg-emerald-600" />
+            <div className="flex-1 bg-sky-500" />
+            <div className="flex-1 bg-slate-900" />
+          </div>
+        </div>
+
+        {/* ── 2. MOBILIZATION TRACKER & GENDER DEMOGRAPHICS ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Card 1: Expected Turnout & Campaign Mobilization */}
+          <Card className="border border-emerald-100 shadow-sm bg-gradient-to-br from-emerald-50/40 via-white to-white overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-emerald-100 text-emerald-700">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-bold text-gray-800">
+                      Expected Turnout & Ward Mobilization
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      Campaign member coverage in {activeWard}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                    {wardData?.expectedTurnoutRate || "0%"} Turnout Rate
+                  </span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-1">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-2xs">
+                  <span className="text-[11px] text-gray-500 font-medium block">
+                    INEC Registered
+                  </span>
+                  <strong className="text-lg sm:text-xl font-extrabold text-gray-800">
+                    {totalRegisteredVoters.toLocaleString()}
+                  </strong>
+                </div>
+                <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-100 shadow-2xs">
+                  <span className="text-[11px] text-emerald-700 font-medium block">
+                    Campaign Members
+                  </span>
+                  <strong className="text-lg sm:text-xl font-extrabold text-emerald-700">
+                    {totalMembers.toLocaleString()}
+                  </strong>
+                </div>
+                <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-100 shadow-2xs">
+                  <span className="text-[11px] text-amber-700 font-medium block">
+                    Remaining Voters
+                  </span>
+                  <strong className="text-lg sm:text-xl font-extrabold text-amber-800">
+                    {Math.max(0, totalRegisteredVoters - totalMembers).toLocaleString()}
+                  </strong>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div>
+                <div className="flex justify-between text-xs text-gray-500 mb-1.5 font-medium">
+                  <span>Ward Mobilization Progress</span>
+                  <span className="font-bold text-emerald-700">
+                    {wardData?.expectedTurnoutRate || "0%"}
+                  </span>
+                </div>
+                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden p-0.5">
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-green-600 rounded-full transition-all duration-700"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.max(
+                          1,
+                          totalRegisteredVoters > 0
+                            ? (totalMembers / totalRegisteredVoters) * 100
+                            : 0
+                        )
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 2: Gender Demographics (Male & Female) */}
+          <Card className="border border-blue-100 shadow-sm bg-gradient-to-br from-blue-50/40 via-white to-white overflow-hidden">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-blue-100 text-blue-700">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-base font-bold text-gray-800">
+                    Voter Demographics & Gender Breakdown
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Distribution of male and female registered voters in {activeWard}
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-blue-50/70 p-3.5 rounded-xl border border-blue-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-semibold text-blue-800 flex items-center gap-1.5">
+                      👨 Male Voters
+                    </span>
+                    <div className="text-xl sm:text-2xl font-extrabold text-blue-900 mt-1">
+                      {(wardData?.maleVoters || 0).toLocaleString()}
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300 font-bold">
+                    {wardData?.malePct || "52%"}
+                  </Badge>
+                </div>
+
+                <div className="bg-rose-50/70 p-3.5 rounded-xl border border-rose-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-semibold text-rose-800 flex items-center gap-1.5">
+                      👩 Female Voters
+                    </span>
+                    <div className="text-xl sm:text-2xl font-extrabold text-rose-900 mt-1">
+                      {(wardData?.femaleVoters || 0).toLocaleString()}
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="bg-rose-100 text-rose-800 border-rose-300 font-bold">
+                    {wardData?.femalePct || "48%"}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Split Bar */}
+              <div>
+                <div className="flex justify-between text-xs text-gray-500 mb-1.5 font-medium">
+                  <span className="text-blue-700 font-semibold">
+                    Male: {wardData?.malePct || "52%"}
+                  </span>
+                  <span className="text-rose-700 font-semibold">
+                    Female: {wardData?.femalePct || "48%"}
+                  </span>
+                </div>
+                <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden flex">
+                  <div
+                    className="h-full bg-blue-500 transition-all duration-700"
+                    style={{ width: wardData?.malePct || "52%" }}
+                  />
+                  <div
+                    className="h-full bg-rose-500 transition-all duration-700"
+                    style={{ width: wardData?.femalePct || "48%" }}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── 3. EXECUTIVE KPI METRICS GRID ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {statCards.map((card, i) => (
+            <motion.div
+              key={card.label}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.06 }}
+            >
+              <Card
+                className={`border-l-4 ${card.border} ${card.bg} bg-gradient-to-br shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5`}
+              >
+                <CardHeader className="flex flex-row items-center justify-between pb-1.5 p-3 sm:p-4">
+                  <CardTitle className="text-[11px] sm:text-xs font-semibold text-gray-600 leading-tight">
+                    {card.label}
+                  </CardTitle>
+                  <div className={`rounded-full ${card.iconBg} p-1.5 sm:p-2 flex-shrink-0`}>
+                    <card.icon className={`h-3 w-3 sm:h-4 sm:w-4 ${card.iconColor}`} />
+                  </div>
+                </CardHeader>
+                <CardContent className="p-3 sm:p-4 pt-0">
+                  <div className={`text-2xl sm:text-3xl font-extrabold ${card.valColor} tracking-tight`}>
+                    {card.value}
+                  </div>
+                  <p className={`text-[10px] sm:text-xs ${card.iconColor} mt-0.5 font-medium`}>
+                    {card.sub}
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* ── 4. QUICK ACTIONS GRID ── */}
+        <Card className="border-0 shadow-md overflow-hidden bg-white">
+          <div className="h-1 bg-gradient-to-r from-emerald-500 via-sky-500 to-navy-900" />
+          <CardHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-emerald-600" />
+              <div>
+                <CardTitle className="text-base sm:text-lg font-bold">
+                  Ward Operations & Quick Actions
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Direct tools to manage your ward mobilisation, agents, and activities
+                </p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {quickActions.map((act) => {
+                const Content = (
+                  <div
+                    className={`
+                      group flex flex-col items-center justify-center gap-2 rounded-xl 
+                      py-4 px-3 ${act.bg} ${act.text}
+                      shadow-sm hover:shadow-lg transition-all duration-200 
+                      hover:-translate-y-0.5 active:translate-y-0 active:scale-95 text-center cursor-pointer h-full
+                    `}
+                  >
+                    <div className="rounded-full bg-white/20 p-2.5 group-hover:scale-110 transition-transform">
+                      <act.icon className="h-5 w-5" />
+                    </div>
+                    <span className="text-xs sm:text-sm font-bold leading-tight">
+                      {act.label}
+                    </span>
+                    <span className="text-[10px] opacity-80">{act.sub}</span>
+                  </div>
+                );
+
+                if (act.onClick) {
+                  return (
+                    <div key={act.label} onClick={act.onClick}>
+                      {Content}
+                    </div>
+                  );
+                }
+
+                return (
+                  <Link key={act.label} href={act.route || "#"}>
+                    {Content}
+                  </Link>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* ── 5. MAIN TABBED WORKSPACE ── */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 max-w-2xl bg-muted p-1 rounded-xl">
+            <TabsTrigger value="polling-units" className="flex items-center gap-1.5 text-xs font-bold">
+              <Building2 className="w-4 h-4 text-emerald-600" />
+              <span>Polling Units ({totalPUs})</span>
+            </TabsTrigger>
+            <TabsTrigger value="payment-roster" className="flex items-center gap-1.5 text-xs font-bold">
+              <CreditCard className="w-4 h-4 text-blue-600" />
+              <span>Agent Payments</span>
+            </TabsTrigger>
+            <TabsTrigger value="demographics" className="flex items-center gap-1.5 text-xs font-bold">
+              <Users className="w-4 h-4 text-indigo-600" />
+              <span>Demographics</span>
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="flex items-center gap-1.5 text-xs font-bold">
+              <Activity className="w-4 h-4 text-purple-600" />
+              <span>Live Reports</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ── TAB 1: POLLING UNITS & FIELD AGENTS ── */}
+          <TabsContent value="polling-units" className="space-y-4 mt-4">
+            <Card className="border-0 shadow-md overflow-hidden bg-white">
+              <div className="h-1 bg-gradient-to-r from-emerald-500 via-sky-500 to-indigo-600" />
+              <CardHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5 text-emerald-600" />
+                    <div>
+                      <CardTitle className="text-base sm:text-lg font-bold">
+                        Polling Units in {activeWard}
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        {filteredPollingUnits.length} units found • Real-time voter strength and PU Agent assignment
+                      </CardDescription>
+                    </div>
+                  </div>
+
+                  {/* Search and Filters */}
+                  <div className="flex items-center gap-2 w-full md:w-auto">
+                    <div className="relative flex-1 md:w-64">
+                      <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+                      <Input
+                        placeholder="Search unit name or code..."
+                        value={puSearch}
+                        onChange={(e) => setPuSearch(e.target.value)}
+                        className="pl-9 h-9 text-xs"
+                      />
+                    </div>
+
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="h-9 px-2.5 rounded-lg border border-input bg-background text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="active">Active</option>
+                      <option value="ready">Ready</option>
+                      <option value="forming">Forming</option>
+                      <option value="complete">Complete</option>
+                    </select>
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-0">
+                {filteredPollingUnits.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50/80 hover:bg-gray-50/80">
+                          <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider pl-4 sm:pl-6">
+                            Polling Unit Name
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider hidden sm:table-cell">
+                            INEC Code
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                            Voters
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                            Members
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider">
+                            Coverage
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider hidden md:table-cell">
+                            Status
+                          </TableHead>
+                          <TableHead className="text-xs font-bold text-gray-600 uppercase tracking-wider pr-4 sm:pr-6 text-right">
+                            Assigned Agent
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredPollingUnits.map((pu, idx) => {
+                          const coverage =
+                            pu.registered_voters > 0
+                              ? Math.round(((pu.total_members || 0) / pu.registered_voters) * 100)
+                              : 0;
+                          const coverageColor =
+                            coverage >= 50
+                              ? "bg-emerald-500"
+                              : coverage >= 20
+                              ? "bg-blue-500"
+                              : "bg-amber-500";
+
+                          const statusBadgeStyle =
+                            pu.status === "complete"
+                              ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                              : pu.status === "active"
+                              ? "bg-blue-100 text-blue-800 border-blue-200"
+                              : pu.status === "ready"
+                              ? "bg-purple-100 text-purple-800 border-purple-200"
+                              : "bg-gray-100 text-gray-600 border-gray-200";
+
+                          return (
+                            <TableRow
+                              key={pu.id}
+                              className="hover:bg-emerald-50/20 transition-colors border-b border-gray-100"
+                            >
+                              <TableCell className="pl-4 sm:pl-6 py-3 font-semibold text-xs sm:text-sm text-gray-800">
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  <span>{pu.name}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell">
+                                <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-700 font-semibold border border-gray-200">
+                                  {pu.code || "—"}
+                                </span>
+                              </TableCell>
+                              <TableCell className="text-xs sm:text-sm font-semibold text-gray-700">
+                                {(pu.registered_voters || 0).toLocaleString()}
+                              </TableCell>
+                              <TableCell className="text-xs sm:text-sm font-bold text-emerald-700">
+                                {(pu.total_members || 0).toLocaleString()}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2 min-w-[100px]">
+                                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
+                                    <div
+                                      style={{ width: `${Math.min(coverage, 100)}%` }}
+                                      className={`h-full rounded-full ${coverageColor}`}
+                                    />
+                                  </div>
+                                  <span className="text-[11px] font-bold text-gray-600">
+                                    {coverage}%
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell">
+                                <Badge variant="outline" className={`text-[10px] font-bold uppercase tracking-wider ${statusBadgeStyle}`}>
+                                  {pu.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="pr-4 sm:pr-6 text-right">
+                                {pu.agent ? (
+                                  <div className="flex items-center justify-end gap-2">
+                                    <Badge className="bg-emerald-600 text-white text-[11px] font-semibold gap-1">
+                                      <CheckCircle2 className="w-3 h-3" /> Assigned
+                                    </Badge>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setSelectedPuForAssignment(pu);
+                                        setIsAssignModalOpen(true);
+                                      }}
+                                      className="h-7 text-xs text-emerald-700 hover:text-emerald-800"
+                                    >
+                                      Edit
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSelectedPuForAssignment(pu);
+                                      setIsAssignModalOpen(true);
+                                    }}
+                                    className="h-7 text-xs font-semibold border-emerald-300 text-emerald-700 hover:bg-emerald-50 gap-1"
+                                  >
+                                    <UserPlus className="w-3 h-3" /> Assign Agent
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-gray-50">
+                    <Building2 className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-gray-700">No polling units found</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Try clearing your search query or selecting a different ward above.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ── TAB 2: AGENT PAYMENT ROSTER ── */}
+          <TabsContent value="payment-roster" className="space-y-4 mt-4">
+            <AgentPaymentRoster lga={activeLga} ward={activeWard} />
+          </TabsContent>
+
+          {/* ── TAB 3: GRANULAR DEMOGRAPHICS ── */}
+          <TabsContent value="demographics" className="space-y-4 mt-4">
+            <GranularDemographics
+              lga={activeLga}
+              ward={activeWard}
+              totalRegisteredVoters={totalRegisteredVoters}
+            />
+          </TabsContent>
+
+          {/* ── TAB 4: LIVE FIELD ACTIVITY & LEADERBOARD ── */}
+          <TabsContent value="activity" className="space-y-4 mt-4">
+            <AgentPerformanceReport lga={activeLga} ward={activeWard} />
+          </TabsContent>
+        </Tabs>
+
+        {/* ── ASSIGN AGENT MODAL ── */}
+        {selectedPuForAssignment && (
+          <AssignAgentModal
+            isOpen={isAssignModalOpen}
+            onClose={() => {
+              setIsAssignModalOpen(false);
+              setSelectedPuForAssignment(null);
+            }}
+            onSuccess={() => {
+              refetchWardData();
+              toast.success("Polling unit agent successfully updated!");
+            }}
+            councillorId={councillor?.id || "councillor-default"}
+            pollingUnit={selectedPuForAssignment}
+          />
+        )}
+
+        {/* ── CHANGE PASSWORD MODAL ── */}
+        <ChangePasswordModal
+          isOpen={isPasswordModalOpen}
+          onClose={() => setIsPasswordModalOpen(false)}
+        />
+      </div>
+    </DashboardLayout>
+  );
+}

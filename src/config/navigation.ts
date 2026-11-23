@@ -256,21 +256,21 @@ export const navItems: NavItem[] = [
     icon: CalendarDays,
     path: "/activities",
     group: "Operations",
-    roles: ["super_admin", "org_admin", "member"],
+    roles: ["super_admin", "org_admin", "member", "lga_chairman", "councillor"],
   },
   {
     label: "Attendance",
     icon: CheckCircle,
     path: "/attendance",
     group: "Operations",
-    roles: ["super_admin", "org_admin", "member"],
+    roles: ["super_admin", "org_admin", "member", "lga_chairman", "councillor"],
   },
   {
     label: "Reports",
     icon: BarChart3,
     path: "/reports",
     group: "Operations",
-    roles: ["super_admin", "member"],
+    roles: ["super_admin", "member", "lga_chairman", "councillor"],
   },
   {
     label: "Post Generator",
@@ -308,6 +308,6 @@ export const navItems: NavItem[] = [
     icon: Bell,
     path: "/notifications",
     group: "Tools",
-    roles: ["super_admin", "org_admin", "member"],
+    roles: ["super_admin", "org_admin", "member", "lga_chairman", "councillor"],
   },
 ];

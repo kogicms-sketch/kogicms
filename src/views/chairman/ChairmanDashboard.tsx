@@ -6,6 +6,7 @@ import { GranularDemographics } from "@/components/dashboard/GranularDemographic
 import { Users, MapPin, Plus, Building2, UserCheck, Globe, TrendingUp, Shield, ChevronRight, Star, ShieldCheck, Clock, Vote, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { APCBanner } from "@/components/branding/APCBanner";
 import { useState } from "react";
 import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal";
@@ -402,27 +403,30 @@ const ChairmanDashboard = () => {
                 {/* ── STATS GRID ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-3 sm:gap-4">
                     {statCards.map((item) => {
-                        const { label, value, sub, icon: Icon, bg, border, iconBg, iconColor, valColor } = item as any;
-                        <Card
-                            key={label}
-                            className={`border-l-4 ${border} bg-gradient-to-br ${bg} shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5`}
-                        >
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3 sm:p-4">
-                                <CardTitle className="text-[11px] sm:text-xs font-semibold text-gray-600 leading-tight">
-                                    {label}
-                                </CardTitle>
-                                <div className={`rounded-full ${iconBg} p-1.5 sm:p-2 flex-shrink-0`}>
-                                    <Icon className={`h-3 w-3 sm:h-4 sm:w-4 ${iconColor}`} />
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-3 sm:p-4 pt-0">
-                                <div className={`text-2xl sm:text-3xl font-extrabold ${valColor} tracking-tight`}>
-                                    {typeof value === "number" ? value.toLocaleString() : value}
-                                </div>
-                                <p className={`text-[10px] sm:text-xs ${iconColor} mt-0.5 font-medium`}>{sub}</p>
-                            </CardContent>
-                        </Card>
-                    ))}
+                        const { label, value, sub, icon: Icon, bg, border, iconBg, iconColor, valColor, route } = item as any;
+                        return (
+                            <Card
+                                key={label}
+                                onClick={() => route && navigate(route)}
+                                className={`border-l-4 ${border} bg-gradient-to-br ${bg} shadow-sm hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 ${route ? 'cursor-pointer hover:scale-[1.02]' : ''}`}
+                            >
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5 p-3 sm:p-4">
+                                    <CardTitle className="text-[11px] sm:text-xs font-semibold text-gray-600 leading-tight">
+                                        {label}
+                                    </CardTitle>
+                                    <div className={`rounded-full ${iconBg} p-1.5 sm:p-2 flex-shrink-0`}>
+                                        <Icon className={`h-3 w-3 sm:h-4 sm:w-4 ${iconColor}`} />
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-3 sm:p-4 pt-0">
+                                    <div className={`text-2xl sm:text-3xl font-extrabold ${valColor} tracking-tight`}>
+                                        {typeof value === "number" ? value.toLocaleString() : value}
+                                    </div>
+                                    <p className={`text-[10px] sm:text-xs ${iconColor} mt-0.5 font-medium`}>{sub}</p>
+                                </CardContent>
+                            </Card>
+                        );
+                    })}
                 </div>
 
                 {/* ── QUICK ACTIONS ── */}

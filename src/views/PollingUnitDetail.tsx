@@ -173,6 +173,7 @@ const PollingUnitDetail = () => {
             const targetId = id.replace(/^(virtual-|static-)/, '');
             const legacyStaticUnit = ALL_POLLING_UNITS.find(u => {
                 if (u.id === targetId || u.code === targetId || u.id === id || u.code === id) return true;
+                if (u.id?.toLowerCase() === targetId.toLowerCase() || u.code?.toLowerCase() === targetId.toLowerCase()) return true;
                 if (u.name.toLowerCase() === targetId.toLowerCase()) return true;
                 return false;
             });
@@ -180,7 +181,7 @@ const PollingUnitDetail = () => {
             if (legacyStaticUnit) {
                 const chairmanData = getChairmanByLGA(legacyStaticUnit.lga);
                 return {
-                    id: staticUnit.id,
+                    id: legacyStaticUnit.id,
                     polling_unit_name: legacyStaticUnit.name,
                     ward: legacyStaticUnit.wardName,
                     lga: legacyStaticUnit.lga,
@@ -188,7 +189,7 @@ const PollingUnitDetail = () => {
                     lga_chairman: chairmanData?.chairman || legacyStaticUnit.lgaChairman || null,
                     target_voters: 50,
                     reliable_voters: 0,
-                    registered_voters: staticUnit.registeredVoters || 0,
+                    registered_voters: legacyStaticUnit.registeredVoters || 0,
                     status: 'forming',
                     type: 'static',
                     canvasser_name: null,
@@ -333,7 +334,7 @@ const PollingUnitDetail = () => {
 
             if (staticUnit) {
                 const chairmanData = getChairmanByLGA(staticUnit.lga);
-                const realCount = await fetchRealVoters(legacyStaticUnit.lga, legacyStaticUnit.wardName, legacyStaticUnit.code);
+                const realCount = await fetchRealVoters(staticUnit.lga, staticUnit.wardName, staticUnit.code);
 
                 return {
                     id: id,
@@ -344,7 +345,7 @@ const PollingUnitDetail = () => {
                     lga_chairman: chairmanData?.chairman || staticUnit.lgaChairman || null,
                     target_voters: 50,
                     reliable_voters: 0,
-                    registered_voters: realCount ?? fallbackUnit.registeredVoters ?? 0,
+                    registered_voters: realCount ?? staticUnit.registeredVoters ?? 0,
                     status: 'forming',
                     type: 'static',
                     canvasser_name: null,
