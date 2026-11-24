@@ -510,9 +510,11 @@ const Members = () => {
                 size="sm"
                 className="gap-1.5 h-9 text-xs sm:text-sm"
                 onClick={() => {
-                  const url = `${window.location.origin}/register`;
+                  const url = puAgent?.polling_unit_name
+                    ? `${window.location.origin}/register?lga=${encodeURIComponent(puAgent.lga)}&ward=${encodeURIComponent(puAgent.ward)}&pu=${encodeURIComponent(puAgent.polling_unit_name)}&puId=${encodeURIComponent(puAgent.polling_unit_id || "")}`
+                    : `${window.location.origin}/register`;
                   navigator.clipboard.writeText(url);
-                  toast.success("Registration link copied!");
+                  toast.success("Registration link copied with exact Polling Unit!");
                 }}
                 title="Copy public registration link to clipboard"
               >

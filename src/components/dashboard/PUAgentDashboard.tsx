@@ -275,6 +275,34 @@ const PUAgentDashboard = () => {
                                 </p>
                             </div>
                         </div>
+
+                        {/* Agent Quick Actions: Register & Share Link */}
+                        <div className="flex flex-wrap items-center gap-2 pt-2">
+                            <Button
+                                size="sm"
+                                onClick={() => {
+                                    const regUrl = `/register?lga=${encodeURIComponent(agent.lga)}&ward=${encodeURIComponent(agent.ward)}&pu=${encodeURIComponent(agent.polling_unit_name)}&puId=${encodeURIComponent(agent.polling_unit_id || "")}`;
+                                    window.location.href = regUrl;
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-8 px-3 rounded-lg shadow-md gap-1.5"
+                            >
+                                <Users className="w-3.5 h-3.5" />
+                                Register Voter (This PU)
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                    const regUrl = `${window.location.origin}/register?lga=${encodeURIComponent(agent.lga)}&ward=${encodeURIComponent(agent.ward)}&pu=${encodeURIComponent(agent.polling_unit_name)}&puId=${encodeURIComponent(agent.polling_unit_id || "")}`;
+                                    navigator.clipboard.writeText(regUrl);
+                                    toast.success("Unit registration link copied!");
+                                }}
+                                className="bg-white/10 hover:bg-white/20 text-white border-white/20 font-bold text-xs h-8 px-3 rounded-lg gap-1.5"
+                            >
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                Copy Unit Link
+                            </Button>
+                        </div>
                     </div>
 
                     {/* Progress Gauge Mini Pill */}

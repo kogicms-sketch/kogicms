@@ -569,3 +569,19 @@
     transform: scale(1);
   }
 }
+
+
+/* Hide or offset Next.js dev overlay button so it never covers mobile bottom navigation */
+nextjs-portal,
+[data-nextjs-toast],
+[data-nextjs-dev-overlay] {
+  bottom: 90px !important;
+}
+
+@media (max-width: 640px) {
+  nextjs-portal,
+  [data-nextjs-toast],
+  [data-nextjs-dev-overlay] {
+    display: none !important;
+  }
+}

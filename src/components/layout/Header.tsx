@@ -116,17 +116,17 @@ const Header = ({ title, subtitle }: HeaderProps) => {
 
   return (
     <header className="sticky top-0 z-40 glass border-b border-border/50 safe-area-top">
-      <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between gap-4">
+      <div className="px-3 sm:px-6 lg:px-8 py-2.5 sm:py-4 flex items-center justify-between gap-2 sm:gap-4">
         {/* Left Section - Title */}
-        <div className="flex items-center gap-2.5 flex-1 min-w-0 animate-slide-in-left">
-          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 shadow-sm border border-border/40 bg-white p-0.5 flex items-center justify-center md:hidden">
+        <div className="flex items-center gap-2 sm:gap-2.5 flex-1 min-w-0 animate-slide-in-left">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg overflow-hidden flex-shrink-0 shadow-sm border border-border/40 bg-white p-0.5 flex items-center justify-center md:hidden">
             <img
               src={party.logo}
               alt={`${party.name} logo`}
               className="w-full h-full object-contain"
             />
           </div>
-          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">
+          <h1 className="text-base sm:text-xl lg:text-2xl font-bold text-foreground truncate tracking-tight">
             {title}
           </h1>
           {subtitle && (
@@ -137,11 +137,11 @@ const Header = ({ title, subtitle }: HeaderProps) => {
         </div>
 
         {/* Right Section */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
           {/* Force cache refresh button */}
           <button
             onClick={handleForceRefresh}
-            className="p-2 rounded-lg hover:bg-muted transition-colors flex items-center justify-center text-muted-foreground hover:text-foreground tap-target"
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-muted transition-colors flex items-center justify-center text-muted-foreground hover:text-foreground tap-target"
             title="Force Sync / Refresh Data (Clears local cache)"
           >
             <RefreshCw className="w-4 h-4" />
@@ -184,8 +184,8 @@ const Header = ({ title, subtitle }: HeaderProps) => {
           </div>
 
           {/* Mobile Notifications Bell */}
-          <button className="p-2 rounded-lg hover:bg-muted transition-colors sm:hidden tap-target">
-            <Bell className="w-5 h-5 text-muted-foreground" />
+          <button className="p-1.5 sm:p-2 rounded-lg hover:bg-muted transition-colors sm:hidden tap-target">
+            <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
           </button>
 
           {/* User Profile - Hidden on mobile */}

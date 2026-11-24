@@ -228,26 +228,35 @@ export const useMember = (id: string) => {
     queryKey: ["members", "detail", id],
     queryFn: async () => {
       // 1. Check local cache
-      const cached = await localRepository.getMemberById(id);
-      if (cached) {
-        console.log(`📦 Loaded member details for ${id} from IndexedDB.`);
-        return cached as MemberWithOrganization;
+      try {
+        const cached = await localRepository.getMemberById(id);
+        if (cached) {
+          console.log(`📦 Loaded member details for ${id} from IndexedDB.`);
+          return cached as MemberWithOrganization;
+        }
+      } catch (_) {}
+
+      // 2. Fallback to Supabase with safe timeout
+      try {
+        const fetchPromise = supabase
+          .from("members")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle();
+
+        const timeoutPromise = new Promise<{ data: null; error: null }>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: null }), 2000)
+        );
+
+        const res: any = await Promise.race([fetchPromise, timeoutPromise]);
+        if (res && res.data) {
+          await localRepository.saveMember(res.data);
+          return (res.data as any) as MemberWithOrganization;
+        }
+      } catch (err) {
+        console.warn("Error fetching member:", err);
       }
-
-      // 2. Fallback to Supabase
-      console.log(`🌐 Member not found in cache. Fetching from Supabase...`);
-      const { data, error } = await supabase
-        .from("members")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data) {
-        await localRepository.saveMember(data);
-      }
-      return (data as any) as MemberWithOrganization | null;
+      return null;
     },
     enabled: !!id,
   });

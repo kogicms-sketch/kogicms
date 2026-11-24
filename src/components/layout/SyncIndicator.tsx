@@ -29,7 +29,7 @@ export const SyncIndicator = () => {
       onClick={handleManualSync}
       disabled={status === 'Syncing...'}
       className={cn(
-        "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm border transition-all duration-300 select-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2",
+        "flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold shadow-sm border transition-all duration-300 select-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 shrink-0",
         status === 'Offline' && "bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/20 focus:ring-destructive",
         status === 'Syncing...' && "bg-amber-500/10 text-amber-500 border-amber-500/30 focus:ring-amber-500",
         status === 'Synced' && "bg-emerald-500/10 text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/15 focus:ring-emerald-500"
@@ -45,21 +45,21 @@ export const SyncIndicator = () => {
       {status === 'Offline' && (
         <>
           <WifiOff className="w-3.5 h-3.5 animate-pulse text-destructive" />
-          <span>Offline</span>
+          <span className="hidden sm:inline">Offline</span>
         </>
       )}
 
       {status === 'Syncing...' && (
         <>
           <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-500" />
-          <span>Syncing...</span>
+          <span className="hidden sm:inline">Syncing...</span>
         </>
       )}
 
       {status === 'Synced' && (
         <>
           <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-          <span>Synced</span>
+          <span className="hidden sm:inline">Synced</span>
         </>
       )}
     </button>

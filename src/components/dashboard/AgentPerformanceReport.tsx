@@ -367,7 +367,7 @@ export const AgentPerformanceReport = ({ lga, ward }: { lga: string; ward: strin
                     <div className="hidden print:block mb-6 p-4 border-b-2 border-slate-900">
                         <div className="flex justify-between items-center">
                             <div>
-                                <h1 className="text-2xl font-black text-slate-900">ALL PROGRESSIVES CONGRESS (APC)</h1>
+                                <h1 className="text-2xl font-black text-slate-900">ALLIED PEOPLES' MOVEMENT (APM)</h1>
                                 <h2 className="text-lg font-bold text-emerald-700">WARD AGENT PERFORMANCE LEADERBOARD REPORT</h2>
                                 <p className="text-xs text-slate-600">Ward: {ward} | LGA: {lga} | Generated on: {new Date().toLocaleDateString('en-GB')}</p>
                             </div>

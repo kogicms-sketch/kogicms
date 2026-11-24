@@ -60,27 +60,86 @@ const LGA_TO_ZONE: Record<string, string> = {
   "Yagba West": "Kogi West",
 };
 
+function getInitialDemographics(): SuperAdminDemographicsData {
+  if (typeof window !== "undefined") {
+    try {
+      const cached = localStorage.getItem("super_admin_demographics_v2");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed?.lgaHeatmap && parsed?.summary) return parsed;
+      }
+    } catch (_) {}
+  }
+
+  // Pre-seed from static INEC data
+  let totalTarget = 0;
+  ALL_POLLING_UNITS.forEach(pu => {
+    totalTarget += (pu.registeredVoters || 0);
+  });
+
+  const lgaHeatmap = Object.keys(LGA_TO_ZONE).map(lga => {
+    const zone = LGA_TO_ZONE[lga];
+    let target = 0;
+    ALL_POLLING_UNITS.forEach(pu => {
+      if (pu.lga === lga) target += (pu.registeredVoters || 0);
+    });
+    return {
+      lga,
+      zone,
+      registered: 0,
+      verified: 0,
+      target: target || 1000,
+      coverage: 0
+    };
+  });
+
+  return {
+    weeklyGrowth: [],
+    zoneWeights: [
+      { zone: "Kogi Central", youth: 0, senior: 0 },
+      { zone: "Kogi East", youth: 0, senior: 0 },
+      { zone: "Kogi West", youth: 0, senior: 0 }
+    ],
+    lgaHeatmap,
+    summary: {
+      totalRegistered: 0,
+      totalVerified: 0,
+      totalDeceased: 0,
+      totalTarget
+    }
+  };
+}
+
 export const useSuperAdminDemographics = () => {
   return useQuery<SuperAdminDemographicsData>({
     queryKey: ["super-admin", "demographics"],
+    initialData: getInitialDemographics,
     queryFn: async () => {
-      // 1. Fetch real campaign members from Supabase / IndexedDB
+      // 1. Fetch real campaign members from IndexedDB first (0ms, offline ready)
       let members: any[] = [];
       try {
-        const { data, error } = await supabase
+        const localMembers = await localRepository.getMembers();
+        if (Array.isArray(localMembers) && localMembers.length > 0) {
+          members = localMembers;
+        }
+      } catch (_) {}
+
+      // 2. Fetch from Supabase with safe 1800ms timeout
+      try {
+        const supabasePromise = supabase
           .from("members")
           .select("created_at, date_of_birth, lga, is_verified, status");
-        if (!error && data) {
-          members = data;
+
+        const timeoutPromise = new Promise<null>((resolve) =>
+          setTimeout(() => resolve(null), 1800)
+        );
+
+        const result = await Promise.race([supabasePromise, timeoutPromise]);
+        if (result && "data" in result && !result.error && Array.isArray(result.data) && result.data.length > 0) {
+          members = result.data;
         }
       } catch (e) {
-        console.warn("Could not load members from Supabase:", e);
-      }
-
-      if (members.length === 0) {
-        try {
-          members = await localRepository.getMembers();
-        } catch {}
+        console.warn("Could not load members from Supabase, using local data:", e);
       }
 
       // 2. Compute LGA voter targets directly from local INEC dataset (3,512 PUs, 21 LGAs)
@@ -215,7 +274,7 @@ export const useSuperAdminDemographics = () => {
         };
       }).sort((a, b) => b.coverage - a.coverage);
 
-      return {
+      const payload: SuperAdminDemographicsData = {
         weeklyGrowth: weeklyGrowthData,
         zoneWeights,
         lgaHeatmap,
@@ -226,6 +285,14 @@ export const useSuperAdminDemographics = () => {
           totalTarget
         }
       };
+
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("super_admin_demographics_v2", JSON.stringify(payload));
+        } catch (_) {}
+      }
+
+      return payload;
     },
     staleTime: 1000 * 60 * 5,
   });

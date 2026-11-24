@@ -1,0 +1,24 @@
+{
+  "name": "Kogi State APM Campaign Management System",
+  "short_name": "Kogi APM",
+  "description": "Official Campaign Management System for Allied Peoples' Movement (APM), Kogi State",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#059669",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/parties/apm-logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/parties/apm-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

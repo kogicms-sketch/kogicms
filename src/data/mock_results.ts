@@ -27,7 +27,7 @@ export const MOCK_RESULTS: ResultSheet[] = [
         imageUrl: '/samples/ec8a-clean.png',
         digitalResults: [
             { partyCode: 'APM', score: 254 },
-            { partyCode: 'APC', score: 120 },
+            { partyCode: 'APM', score: 120 },
             { partyCode: 'PDP', score: 85 },
             { partyCode: 'LP', score: 40 }
         ],
@@ -44,7 +44,7 @@ export const MOCK_RESULTS: ResultSheet[] = [
         imageUrl: '/samples/ec8a-clean.png',
         digitalResults: [
             { partyCode: 'APM', score: 310 },
-            { partyCode: 'APC', score: 145 },
+            { partyCode: 'APM', score: 145 },
             { partyCode: 'PDP', score: 62 },
             { partyCode: 'LP', score: 18 }
         ],
@@ -61,7 +61,7 @@ export const MOCK_RESULTS: ResultSheet[] = [
         imageUrl: '/samples/ec8a-messy.png',
         digitalResults: [
             { partyCode: 'APM', score: 442 },
-            { partyCode: 'APC', score: 340 },
+            { partyCode: 'APM', score: 340 },
             { partyCode: 'PDP', score: 216 },
             { partyCode: 'LP', score: 92 }
         ],

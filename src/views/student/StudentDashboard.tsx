@@ -334,7 +334,7 @@ export default function StudentDashboard() {
                 </Badge>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white leading-tight">
-                Dikko Radda Student Affairs & Campus Monitor
+                Kogi State APM Student Affairs & Campus Monitor
               </h1>
               <p className="text-emerald-100/90 text-sm leading-relaxed">
                 Strictly filtered real-time database analytics monitoring ONLY registered student members across Kogi State institutions, campus chapters, and student voter mobilization.
