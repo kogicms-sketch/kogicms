@@ -130,7 +130,7 @@ const fetchRealVoters = async (lgaName: string, wardName: string, puCode: string
             }
         }
     } catch (e) {
-        console.error("Error fetching real voters:", e);
+        console.warn("Notice: real voters fetch fallback:", e);
     }
     return null;
 };
@@ -422,7 +422,7 @@ const PollingUnitDetail = () => {
                     .eq("id", realId)
                     .maybeSingle();
 
-                if (puError) console.error("Error fetching polling unit:", puError);
+                if (puError) console.warn("Notice: polling unit fetch fallback:", puError.message || puError);
 
                 if (puData) {
                     // Auto-assign LGA chairman from static data
@@ -546,25 +546,48 @@ const PollingUnitDetail = () => {
         }
     });
 
-    // Fetch members registered under this polling unit
+    // Fetch members registered under this polling unit (with instant offline cache fallback)
     const { data: members, isLoading: membersLoading } = useQuery({
         queryKey: ["polling-unit-members", unit?.lga, unit?.ward, unit?.polling_unit_name],
         queryFn: async () => {
             if (!unit?.lga || !unit?.polling_unit_name) return [];
 
-            const { data, error } = await supabase
-                .from("members")
-                .select("id, full_name, phone, gender, membership_id, status, polling_unit, ward, lga, created_at, occupation, whatsapp_number, voters_card_id")
-                .eq("lga", unit.lga)
-                .eq("ward", unit.ward)
-                .eq("polling_unit", unit.polling_unit_name)
-                .order("created_at", { ascending: false });
+            try {
+                // 1. Check local offline repository members first (<10ms)
+                const localMembers = await localRepository.getMembers();
+                const matchedLocal = (localMembers || []).filter(m => 
+                    m.lga?.toLowerCase() === unit.lga?.toLowerCase() &&
+                    m.ward?.toLowerCase() === unit.ward?.toLowerCase() &&
+                    m.polling_unit?.toLowerCase() === unit.polling_unit_name?.toLowerCase()
+                );
 
-            if (error) {
-                console.error("Error fetching members:", error);
+                // 2. Fetch from Supabase
+                const { data, error } = await supabase
+                    .from("members")
+                    .select("id, full_name, phone, gender, membership_id, status, polling_unit, ward, lga, created_at, occupation, whatsapp_number, voters_card_id")
+                    .eq("lga", unit.lga)
+                    .eq("ward", unit.ward)
+                    .eq("polling_unit", unit.polling_unit_name)
+                    .order("created_at", { ascending: false });
+
+                if (error) {
+                    console.warn("Notice: members fetch fallback to local cache:", error.message || error);
+                    return matchedLocal;
+                }
+
+                // Merge server and local members
+                const merged = [...(data || [])];
+                const existingIds = new Set(merged.map(m => m.id || m.membership_id));
+                for (const lm of matchedLocal) {
+                    if (!existingIds.has(lm.id || lm.membership_id)) {
+                        merged.push(lm);
+                    }
+                }
+                return merged;
+            } catch (err) {
+                console.warn("Polling unit members query fallback:", err);
                 return [];
             }
-            return data || [];
         },
         enabled: !!unit?.lga && !!unit?.polling_unit_name,
     });
@@ -607,7 +630,7 @@ const PollingUnitDetail = () => {
                     .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
                     
                 if (error) {
-                    console.error("Error fetching registry voters:", error);
+                    console.warn("Notice: registry voters fetch fallback:", error.message || error);
                     return allVoters.length > 0 ? allVoters : [];
                 }
                 

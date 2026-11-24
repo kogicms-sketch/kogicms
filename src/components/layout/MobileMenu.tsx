@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useParty } from "@/contexts/PartyContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useState } from "react";
+import { getRoleDashboardPath } from "./MobileBottomNav";
 
 interface MobileMenuProps {
   onClose: () => void;
@@ -78,12 +79,17 @@ const MobileMenu = ({ onClose }: MobileMenuProps) => {
     (item) => !item.roles || (role && item.roles.includes(role as any))
   );
 
-  const bottomNavPaths = permittedItems
-    .filter((item) => item.inBottomNav)
-    .slice(0, 3)
-    .map((item) => item.path);
+  const dashboardPath = getRoleDashboardPath(role);
 
-  // Exclude bottom nav items
+  // Exclude items already placed on mobile bottom bar
+  const bottomNavPaths = [
+    dashboardPath,
+    "/dashboard",
+    "/members",
+    "/polling-units",
+    "/situation-room"
+  ];
+
   const menuItems = permittedItems.filter(
     (item) => !bottomNavPaths.includes(item.path)
   );
@@ -182,8 +188,8 @@ const MobileMenu = ({ onClose }: MobileMenuProps) => {
       {/* App Info */}
       <div className="px-4 py-3 text-center">
         <div className="flex items-center justify-center gap-2 text-muted-foreground">
-          <Shield className="w-4 h-4" />
-          <span className="text-xs">DR Campaign v1.0</span>
+          <Shield className="w-4 h-4 text-emerald-600" />
+          <span className="text-xs">Kogi State APM Campaign v2.0 • Online & Offline</span>
         </div>
       </div>
     </div>
