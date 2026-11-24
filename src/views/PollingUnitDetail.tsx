@@ -38,6 +38,8 @@ import {
     useUpdatePollingUnitCell 
 } from "@/hooks/usePollingUnitCells";
 import { useCouncillor } from "@/hooks/useCouncillors";
+import { usePUAgent } from "@/hooks/usePUAgent";
+import { localRepository } from "@/services/LocalRepository";
 import { localVoterService } from "@/services/LocalVoterService";
 import { useAuth } from "@/contexts/AuthContext";
 import { useParty } from "@/contexts/PartyContext";
@@ -59,6 +61,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+
+const quickTimeout = <T,>(promise: Promise<T>, ms: number = 1000): Promise<T | { data: null, error: null }> =>
+    Promise.race([promise, new Promise<any>((resolve) => setTimeout(() => resolve({ data: null, error: null }), ms))]);
 
 const getPollingUnitCode = (lga: string, ward: string, name: string, fallbackCode?: string) => {
     if (fallbackCode) return fallbackCode;
@@ -130,35 +135,115 @@ const fetchRealVoters = async (lgaName: string, wardName: string, puCode: string
     return null;
 };
 
-export const getAssignedLocalAgent = (puId: string, puCode?: string, puName?: string, lga?: string, ward?: string) => {
+export const getAssignedLocalAgent = (puId?: string | null, puCode?: string | null, puName?: string | null, lga?: string | null, ward?: string | null) => {
     if (typeof window === "undefined") return null;
     try {
-        const assignedMap = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
         const cleanId = puId ? puId.replace(/^(virtual-|static-)/, '') : '';
-        const normName = (puName || "").toLowerCase().trim();
-        const code = (puCode || "").toLowerCase().trim();
+        const norm = (s: any) => (s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+        const normName = norm(puName);
+        const normCode = norm(puCode);
+        const normPuId = norm(puId);
+        const normCleanId = norm(cleanId);
+        const normLga = norm(lga);
+        const normWard = norm(ward);
 
-        let found: any =
-            assignedMap[puId] ||
-            assignedMap[cleanId] ||
-            (code ? assignedMap[code] : null) ||
-            (normName ? assignedMap[normName] : null);
+        // 1. Check assigned_pu_agents in localStorage
+        try {
+            const rawAssigned = localStorage.getItem("assigned_pu_agents");
+            if (rawAssigned) {
+                const assignedMap = JSON.parse(rawAssigned);
+                if (puId && assignedMap[puId]) return assignedMap[puId];
+                if (cleanId && assignedMap[cleanId]) return assignedMap[cleanId];
+                if (puCode && assignedMap[puCode]) return assignedMap[puCode];
+                if (puName && assignedMap[puName.toLowerCase().trim()]) return assignedMap[puName.toLowerCase().trim()];
 
-        if (!found) {
-            found = Object.values(assignedMap).find((a: any) =>
-                (a.pu_id && (a.pu_id === puId || a.pu_id === cleanId)) ||
-                (a.id && (a.id === puId || a.id === cleanId)) ||
-                (a.pu_code && code && a.pu_code.toLowerCase().trim() === code) ||
-                (a.pu_code && cleanId && a.pu_code.toLowerCase().trim() === cleanId.toLowerCase()) ||
-                (a.pu_name && normName && a.pu_name.toLowerCase().trim() === normName) ||
-                (a.lga && a.ward && lga && ward &&
-                 a.lga.toLowerCase() === lga.toLowerCase() &&
-                 a.ward.toLowerCase() === ward.toLowerCase() &&
-                 (a.pu_name?.toLowerCase().includes(normName) || normName.includes(a.pu_name?.toLowerCase() || "")))
-            );
-        }
+                for (const [, agentInfo] of Object.entries(assignedMap) as [string, any][]) {
+                    if (!agentInfo) continue;
+                    const aName = norm(agentInfo.pu_name || agentInfo.polling_unit_name);
+                    const aCode = norm(agentInfo.pu_code || agentInfo.code);
+                    const aId = norm(agentInfo.pu_id || agentInfo.id);
+                    const aLga = norm(agentInfo.lga);
+                    const aWard = norm(agentInfo.ward);
 
-        return found || null;
+                    if (
+                        (normPuId && (aId === normPuId || aCode === normPuId)) ||
+                        (normCleanId && (aId === normCleanId || aCode === normCleanId)) ||
+                        (normCode && (aCode === normCode || aId === normCode)) ||
+                        (normName && aName && (normName === aName || normName.includes(aName) || aName.includes(normName))) ||
+                        (normLga && normWard && aLga === normLga && aWard === normWard && normName && aName && (normName.includes(aName) || aName.includes(normName)))
+                    ) {
+                        return {
+                            id: agentInfo.id || cleanId || puId,
+                            agent_name: agentInfo.agent_name || agentInfo.full_name || agentInfo.name,
+                            phone: agentInfo.phone || '',
+                            email: agentInfo.email || '',
+                            password: agentInfo.password || '',
+                            user_id: agentInfo.user_id || null,
+                        };
+                    }
+                }
+            }
+        } catch (e) {}
+
+        // 2. Check mock_users in localStorage
+        try {
+            const rawMock = localStorage.getItem("mock_users");
+            if (rawMock) {
+                const mockUsers = JSON.parse(rawMock);
+                for (const user of mockUsers) {
+                    if (!user) continue;
+                    const uRole = (user.role || '').toLowerCase();
+                    const uName = norm(user.polling_unit_name || user.pu_name);
+                    const uCode = norm(user.pu_code || user.code);
+                    const uId = norm(user.polling_unit_id || user.pu_id || user.id);
+                    const uLga = norm(user.lga);
+                    const uWard = norm(user.ward);
+
+                    const isMatch =
+                        (normPuId && (uId === normPuId || uCode === normPuId)) ||
+                        (normCleanId && (uId === normCleanId || uCode === normCleanId)) ||
+                        (normCode && (uCode === normCode || uId === normCode)) ||
+                        (normName && uName && (normName === uName || normName.includes(uName) || uName.includes(normName))) ||
+                        (normLga && normWard && uLga === normLga && uWard === normWard && (uRole === 'polling_unit_agent' || uRole === 'agent'));
+
+                    if (isMatch) {
+                        return {
+                            id: user.id || cleanId || puId,
+                            agent_name: user.full_name || user.name || user.agent_name,
+                            phone: user.phone || '',
+                            email: user.email || '',
+                            password: user.password || '',
+                            user_id: user.id || null,
+                        };
+                    }
+                }
+            }
+        } catch (e) {}
+
+        // 3. Check pu_starred_agents_store in localStorage
+        try {
+            const rawStarred = localStorage.getItem("pu_starred_agents_store");
+            if (rawStarred) {
+                const starredMap = JSON.parse(rawStarred);
+                for (const [memberId, rec] of Object.entries(starredMap) as [string, any][]) {
+                    if (rec && rec.is_starred && rec.polling_unit) {
+                        const recName = norm(rec.polling_unit);
+                        if (normName && (normName === recName || normName.includes(recName) || recName.includes(normName))) {
+                            return {
+                                id: memberId,
+                                agent_name: rec.agent_name || rec.name || "Assigned Officer",
+                                phone: rec.phone || '',
+                                email: rec.email || '',
+                                password: rec.password || '',
+                                user_id: memberId,
+                            };
+                        }
+                    }
+                }
+            }
+        } catch (e) {}
+
+        return null;
     } catch {
         return null;
     }
@@ -178,6 +263,18 @@ const PollingUnitDetail = () => {
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const { data: councillor } = useCouncillor();
     const { role: userRole } = useAuth();
+    const { data: loggedInPuAgent } = usePUAgent();
+    const { data: repoCells } = useQuery({
+        queryKey: ["local-repo-pu-cells"],
+        queryFn: async () => {
+            try {
+                return await localRepository.getPollingUnitCells();
+            } catch {
+                return [];
+            }
+        },
+        staleTime: 5000,
+    });
     const isApc = partyId === "apc";
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
@@ -201,10 +298,47 @@ const PollingUnitDetail = () => {
     const { data: unit, isLoading, refetch: refetchUnit } = useQuery({
         queryKey: ["polling-unit-detail", id],
         queryFn: async () => {
-                        if (!id) return null;
+            if (!id) return null;
+
+            const targetId = id.replace(/^(virtual-|static-)/, '');
+            let cachedCells: any[] = [];
+            try {
+                cachedCells = await localRepository.getPollingUnitCells();
+            } catch (e) {
+                cachedCells = [];
+            }
+
+            const findRepoAgent = (checkId: string, checkCode?: string, checkName?: string) => {
+                const norm = (s: any) => (s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+                const nId = norm(checkId);
+                const nCode = norm(checkCode);
+                const nName = norm(checkName);
+                const matched = (cachedCells || []).find((c: any) => {
+                    if (!c) return false;
+                    const cId = norm(c.id);
+                    const cPuId = norm(c.pu_id);
+                    const cCode = norm(c.pu_code);
+                    const cName = norm(c.polling_unit_name);
+                    return (
+                        (nId && (cId === nId || cPuId === nId || cCode === nId)) ||
+                        (nCode && (cCode === nCode || cId === nCode)) ||
+                        (nName && cName && (nName === cName || nName.includes(cName) || cName.includes(nName)))
+                    );
+                });
+                if (matched && (matched.polling_unit_agent_name || matched.canvasser_name)) {
+                    return {
+                        id: matched.id || checkId,
+                        agent_name: matched.polling_unit_agent_name || matched.canvasser_name,
+                        phone: matched.polling_unit_agent_phone || matched.canvasser_phone || '',
+                        email: matched.agent_email || '',
+                        password: matched.agent_password || '',
+                        user_id: null,
+                    };
+                }
+                return null;
+            };
 
             // 1. Direct local lookup from ALL_POLLING_UNITS (offline & online instant resolution)
-            const targetId = id.replace(/^(virtual-|static-)/, '');
             const legacyStaticUnit = ALL_POLLING_UNITS.find(u => {
                 if (u.id === targetId || u.code === targetId || u.id === id || u.code === id) return true;
                 if (u.id?.toLowerCase() === targetId.toLowerCase() || u.code?.toLowerCase() === targetId.toLowerCase()) return true;
@@ -214,7 +348,7 @@ const PollingUnitDetail = () => {
 
             if (legacyStaticUnit) {
                 const chairmanData = getChairmanByLGA(legacyStaticUnit.lga);
-                const assignedLocal = getAssignedLocalAgent(id, legacyStaticUnit.code, legacyStaticUnit.name, legacyStaticUnit.lga, legacyStaticUnit.wardName);
+                const assignedLocal = getAssignedLocalAgent(id, legacyStaticUnit.code, legacyStaticUnit.name, legacyStaticUnit.lga, legacyStaticUnit.wardName) || findRepoAgent(id, legacyStaticUnit.code, legacyStaticUnit.name);
 
                 return {
                     id: legacyStaticUnit.id,
@@ -229,7 +363,9 @@ const PollingUnitDetail = () => {
                     status: assignedLocal ? 'active' : 'forming',
                     type: 'static',
                     canvasser_name: assignedLocal?.agent_name || null,
-                    canvasser_phone: assignedLocal?.phone || null
+                    canvasser_phone: assignedLocal?.phone || null,
+                    agent_email: assignedLocal?.email || null,
+                    agent_password: assignedLocal?.password || null
                 };
             }
 
@@ -264,14 +400,18 @@ const PollingUnitDetail = () => {
                     const chairmanData = getChairmanByLGA(dbCell.lga || '');
                     const puCode = dbCell.polling_unit?.code || getPollingUnitCode(dbCell.lga, dbCell.ward, dbCell.polling_unit_name);
                     const realCount = await fetchRealVoters(dbCell.lga || '', dbCell.ward, puCode);
+                    const assignedLocal = getAssignedLocalAgent(dbCell.polling_unit_id || realId, puCode, dbCell.polling_unit_name, dbCell.lga, dbCell.ward) || findRepoAgent(dbCell.polling_unit_id || realId, puCode, dbCell.polling_unit_name);
 
                     return {
                         ...dbCell,
                         pu_code: puCode,
                         type: 'database',
                         registered_voters: realCount ?? dbCell.registered_voters ?? 0,
-                        canvasser_name: dbCell.canvasser?.full_name || dbCell.canvasser_name || null,
-                        canvasser_phone: dbCell.canvasser?.phone || dbCell.canvasser_phone || null,
+                        canvasser_name: dbCell.canvasser?.full_name || dbCell.canvasser_name || assignedLocal?.agent_name || null,
+                        canvasser_phone: dbCell.canvasser?.phone || dbCell.canvasser_phone || assignedLocal?.phone || null,
+                        agent_email: assignedLocal?.email || null,
+                        agent_password: assignedLocal?.password || null,
+                        status: (dbCell.status && dbCell.status !== 'forming') ? dbCell.status : (assignedLocal ? 'active' : 'forming'),
                         lga_chairman: dbCell.lga_chairman || chairmanData?.chairman || null,
                     };
                 }
@@ -288,6 +428,7 @@ const PollingUnitDetail = () => {
                     // Auto-assign LGA chairman from static data
                     const chairmanData = getChairmanByLGA(puData.lga_name);
                     const realCount = await fetchRealVoters(puData.lga_name, puData.ward_name, puData.code);
+                    const assignedLocal = getAssignedLocalAgent(realId, puData.code, puData.name, puData.lga_name, puData.ward_name) || findRepoAgent(realId, puData.code, puData.name);
 
                     return {
                         id: id,
@@ -298,10 +439,12 @@ const PollingUnitDetail = () => {
                         target_voters: puData.target_voters || 50,
                         registered_voters: realCount ?? (puData as any).registered_voters ?? 0,
                         reliable_voters: 0,
-                        status: 'forming',
+                        status: assignedLocal ? 'active' : 'forming',
                         type: 'virtual',
-                        canvasser_name: null,
-                        canvasser_phone: null,
+                        canvasser_name: assignedLocal?.agent_name || null,
+                        canvasser_phone: assignedLocal?.phone || null,
+                        agent_email: assignedLocal?.email || null,
+                        agent_password: assignedLocal?.password || null,
                         lga_chairman: chairmanData?.chairman || null,
                     };
                 }
@@ -331,20 +474,24 @@ const PollingUnitDetail = () => {
                 const chairmanData = getChairmanByLGA(dbUnit.lga || '');
                 const puCode = dbUnit.polling_unit?.code || getPollingUnitCode(dbUnit.lga, dbUnit.ward, dbUnit.polling_unit_name);
                 const realCount = await fetchRealVoters(dbUnit.lga || '', dbUnit.ward, puCode);
+                const assignedLocal = getAssignedLocalAgent(id, puCode, dbUnit.polling_unit_name, dbUnit.lga, dbUnit.ward) || findRepoAgent(id, puCode, dbUnit.polling_unit_name);
 
                 return {
                     ...dbUnit,
                     pu_code: puCode,
                     type: 'database',
                     registered_voters: realCount ?? dbUnit.registered_voters ?? 0,
-                    canvasser_name: dbUnit.canvasser?.full_name || dbUnit.canvasser_name || null,
-                    canvasser_phone: dbUnit.canvasser?.phone || dbUnit.canvasser_phone || null,
+                    canvasser_name: dbUnit.canvasser?.full_name || dbUnit.canvasser_name || assignedLocal?.agent_name || null,
+                    canvasser_phone: dbUnit.canvasser?.phone || dbUnit.canvasser_phone || assignedLocal?.phone || null,
+                    agent_email: assignedLocal?.email || null,
+                    agent_password: assignedLocal?.password || null,
+                    status: (dbUnit.status && dbUnit.status !== 'forming') ? dbUnit.status : (assignedLocal ? 'active' : 'forming'),
                     lga_chairman: dbUnit.lga_chairman || chairmanData?.chairman || null,
                 };
             }
 
             // If not in DB, look up in static data
-            cleanId = id;
+            let cleanId = id;
             let targetLga = '';
             let targetCode = '';
 
@@ -372,33 +519,7 @@ const PollingUnitDetail = () => {
                 const chairmanData = getChairmanByLGA(staticUnit.lga);
                 const realCount = await fetchRealVoters(staticUnit.lga, staticUnit.wardName, staticUnit.code);
 
-                // Check local storage caches for assigned agent
-                let assignedName: string | null = null;
-                let assignedPhone: string | null = null;
-                let cellStatus = 'forming';
-
-                if (typeof window !== "undefined") {
-                    try {
-                        const assignedMap = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
-                        const normName = staticUnit.name.toLowerCase().trim();
-                        const found: any =
-                            assignedMap[id] ||
-                            assignedMap[cleanId] ||
-                            assignedMap[staticUnit.code] ||
-                            assignedMap[normName] ||
-                            Object.values(assignedMap).find((a: any) =>
-                                (a.pu_id && (a.pu_id === id || a.pu_id === cleanId)) ||
-                                (a.pu_code && a.pu_code === staticUnit.code) ||
-                                (a.pu_name && a.pu_name.toLowerCase().trim() === normName)
-                            );
-
-                        if (found) {
-                            assignedName = found.agent_name;
-                            assignedPhone = found.phone;
-                            cellStatus = 'active';
-                        }
-                    } catch (e) {}
-                }
+                const assignedLocal = getAssignedLocalAgent(id, staticUnit.code, staticUnit.name, staticUnit.lga, staticUnit.wardName) || findRepoAgent(id, staticUnit.code, staticUnit.name);
 
                 return {
                     id: id,
@@ -410,10 +531,12 @@ const PollingUnitDetail = () => {
                     target_voters: 50,
                     reliable_voters: 0,
                     registered_voters: realCount ?? staticUnit.registeredVoters ?? 0,
-                    status: cellStatus,
+                    status: assignedLocal ? 'active' : 'forming',
                     type: 'static',
-                    canvasser_name: assignedName,
-                    canvasser_phone: assignedPhone
+                    canvasser_name: assignedLocal?.agent_name || null,
+                    canvasser_phone: assignedLocal?.phone || null,
+                    agent_email: assignedLocal?.email || null,
+                    agent_password: assignedLocal?.password || null
                 };
             } else {
                 console.warn("Static unit not found for:", cleanId);
@@ -510,15 +633,15 @@ const PollingUnitDetail = () => {
             let lgaChairman = null;
             let wardChairman = null;
             try {
-                const { data } = await supabase
+                const { data } = await quickTimeout(supabase
                     .from("political_excos")
                     .select("*")
                     .or(`lga.eq.${unit.lga},lga.is.null`)
-                    .eq("is_active", true);
+                    .eq("is_active", true), 1000) as any;
 
                 if (data) {
-                    lgaChairman = data.find(e => e.level === 'lga' && e.position === 'lga_chairman' && e.lga === unit.lga);
-                    wardChairman = data.find(e => e.level === 'ward' && e.position === 'ward_chairman' && e.lga === unit.lga && e.ward === unit.ward);
+                    lgaChairman = data.find((e: any) => e.level === 'lga' && e.position === 'lga_chairman' && e.lga === unit.lga);
+                    wardChairman = data.find((e: any) => e.level === 'ward' && e.position === 'ward_chairman' && e.lga === unit.lga && e.ward === unit.ward);
                 }
             } catch (excoErr) {
                 console.warn("Notice: political_excos query fallback:", excoErr);
@@ -527,13 +650,13 @@ const PollingUnitDetail = () => {
             // Fetch Ward Councillor from councillors table
             let wardCouncilor = null;
             try {
-                const { data: councillorData } = await (supabase as any)
+                const { data: councillorData } = await quickTimeout((supabase as any)
                     .from("councillors")
                     .select("councillor_name, phone")
                     .eq("lga", unit.lga)
                     .eq("ward", unit.ward)
                     .eq("is_active", true)
-                    .maybeSingle();
+                    .maybeSingle(), 1000) as any;
 
                 if (councillorData) {
                     wardCouncilor = {
@@ -548,11 +671,11 @@ const PollingUnitDetail = () => {
             // 1. Fetch polling unit agent from polling_unit_agents table
             let agentData = null;
             try {
-                const { data } = await (supabase as any)
+                const { data } = await quickTimeout((supabase as any)
                     .from("polling_unit_agents")
                     .select("id, user_id, agent_name, phone, email, password, polling_unit_name, polling_unit_id")
                     .or(`polling_unit_id.eq.${realId},polling_unit_id.eq.${id},polling_unit_name.eq.${unit.polling_unit_name}`)
-                    .maybeSingle();
+                    .maybeSingle(), 1000) as any;
                 agentData = data;
             } catch (err) {
                 console.warn("Notice during polling_unit_agents query:", err);
@@ -676,15 +799,71 @@ const PollingUnitDetail = () => {
         );
     }
 
-    const effectiveAgent = leadership?.puAgent || (unit.canvasser_name ? {
-        id: unit.id,
-        name: unit.canvasser_name,
-        phone: unit.canvasser_phone || "",
-        email: "",
-        password: ""
-    } : null);
+    const directLocalAgent = getAssignedLocalAgent(id, unit.pu_code, unit.polling_unit_name, unit.lga, unit.ward);
 
-    const effectiveStatus = (effectiveAgent && unit.status === 'forming') ? 'active' : (unit.status || 'forming');
+    const norm = (s: any) => (s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+    const unitNameNorm = norm(unit?.polling_unit_name);
+    const unitCodeNorm = norm(unit?.pu_code);
+    const idNorm = norm(id);
+
+    // Find agent from IndexedDB repoCells
+    const matchedRepoCell = repoCells?.find((c: any) => {
+        if (!c) return false;
+        const cId = norm(c.id);
+        const cPuId = norm(c.pu_id);
+        const cCode = norm(c.pu_code);
+        const cName = norm(c.polling_unit_name);
+        return (
+            (idNorm && (cId === idNorm || cPuId === idNorm || cCode === idNorm)) ||
+            (unitCodeNorm && (cCode === unitCodeNorm || cId === unitCodeNorm)) ||
+            (unitNameNorm && cName && (unitNameNorm === cName || unitNameNorm.includes(cName) || cName.includes(unitNameNorm)))
+        );
+    });
+    const repoAgent = (matchedRepoCell && (matchedRepoCell.polling_unit_agent_name || matchedRepoCell.canvasser_name)) ? {
+        id: matchedRepoCell.id || id,
+        name: matchedRepoCell.polling_unit_agent_name || matchedRepoCell.canvasser_name,
+        phone: matchedRepoCell.polling_unit_agent_phone || matchedRepoCell.canvasser_phone || "",
+        email: matchedRepoCell.agent_email || "",
+        password: matchedRepoCell.agent_password || "",
+        user_id: null,
+    } : null;
+
+    // Check if logged-in user or loggedInPuAgent matches this unit
+    const isMatchingLoggedInAgent = loggedInPuAgent && (
+        (unitCodeNorm && norm(loggedInPuAgent.polling_unit_id) === unitCodeNorm) ||
+        (idNorm && norm(loggedInPuAgent.polling_unit_id) === idNorm) ||
+        (unitNameNorm && norm(loggedInPuAgent.polling_unit_name) && (norm(loggedInPuAgent.polling_unit_name) === unitNameNorm || unitNameNorm.includes(norm(loggedInPuAgent.polling_unit_name))))
+    );
+    const loggedInAgentObj = isMatchingLoggedInAgent ? {
+        id: loggedInPuAgent.id || id,
+        name: loggedInPuAgent.agent_name,
+        phone: loggedInPuAgent.phone || "",
+        email: loggedInPuAgent.email || "",
+        password: "",
+        user_id: loggedInPuAgent.user_id,
+    } : null;
+
+    const effectiveAgent =
+        leadership?.puAgent ||
+        (unit.canvasser_name ? {
+            id: unit.id,
+            name: unit.canvasser_name,
+            phone: unit.canvasser_phone || "",
+            email: unit.agent_email || "",
+            password: unit.agent_password || ""
+        } : null) ||
+        (directLocalAgent ? {
+            id: directLocalAgent.id || id,
+            name: directLocalAgent.agent_name,
+            phone: directLocalAgent.phone || "",
+            email: directLocalAgent.email || "",
+            password: directLocalAgent.password || "",
+            user_id: directLocalAgent.user_id || null
+        } : null) ||
+        repoAgent ||
+        loggedInAgentObj;
+
+    const effectiveStatus = (effectiveAgent && (!unit.status || unit.status === 'forming')) ? 'active' : (unit.status || 'forming');
     const statusConfig = CELL_STATUS_LABELS[effectiveStatus as keyof typeof CELL_STATUS_LABELS] || CELL_STATUS_LABELS.forming;
     const memberCount = members?.length || 0;
     const targetVoters = unit.target_voters || 50;
@@ -1024,10 +1203,10 @@ const PollingUnitDetail = () => {
                                             <Badge variant="outline">{statusConfig.label}</Badge>
                                         </div>
                                         <p className="text-sm text-muted-foreground">
-                                            {unit.status === 'forming' && "This cell is in the initial formation stage. Assign a polling unit agent to begin."}
-                                            {unit.status === 'mobilizing' && "Polling unit agent is actively registering members."}
-                                            {unit.status === 'ready' && "Cell has reached sufficient capacity."}
-                                            {unit.status === 'active' && "Fully operational cell."}
+                                            {effectiveStatus === 'forming' && "This cell is in the initial formation stage. Assign a polling unit agent to begin."}
+                                            {effectiveStatus === 'mobilizing' && "Polling unit agent is actively registering members."}
+                                            {effectiveStatus === 'ready' && "Cell has reached sufficient capacity."}
+                                            {effectiveStatus === 'active' && "Fully operational cell with assigned field agent."}
                                         </p>
                                     </div>
 
