@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/loose-client";
+import { MOCK_USERS } from "@/data/mock_users";
 
 type AppRole = "super_admin" | "org_admin" | "lga_chairman" | "councillor" | "ward_chairman" | "ward_leader" | "senatorial_leader" | "federal_rep" | "house_assembly_member" | "polling_unit_agent" | "student" | "member" | null;
 
@@ -414,39 +415,86 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (typeof window !== "undefined") {
       try {
         const rawMock = localStorage.getItem("mock_users");
-        if (rawMock) {
-          const mockUsers = JSON.parse(rawMock);
-          const found = mockUsers.find(
-            (u: any) => u.email?.toLowerCase().trim() === normEmail && u.password === password
-          );
-          if (found) {
-            console.log("Logged in via mock_users:", found);
-            const mockUser: any = {
-              id: found.id || `user_${Date.now()}`,
-              email: found.email,
-              user_metadata: {
-                full_name: found.full_name,
-                role: found.role,
-                lga: found.lga,
-                ward: found.ward,
-                polling_unit_id: found.polling_unit_id,
-                polling_unit_name: found.polling_unit_name,
-                phone: found.phone,
-              },
-            };
-            setUser(mockUser);
-            setSession({ user: mockUser } as any);
-            const roleNorm = (found.role === "agent" || found.role === "pu_agent") ? "polling_unit_agent" : found.role;
-            setRole(roleNorm as AppRole);
-            setAccountStatus("active");
-            localStorage.setItem("auth_role", roleNorm || "polling_unit_agent");
-            localStorage.setItem("auth_account_status", "active");
-            if (found.organization_id) {
-              setOrganizationId(found.organization_id);
-              localStorage.setItem("auth_organization_id", found.organization_id);
-            }
-            return { error: null };
+        let mockUsers: any[] = rawMock ? JSON.parse(rawMock) : [];
+        const currentEmails = new Set(mockUsers.map((u: any) => u.email?.toLowerCase().trim()));
+        for (const mu of MOCK_USERS) {
+          if (!currentEmails.has(mu.email.toLowerCase().trim())) {
+            mockUsers.push(mu);
           }
+        }
+        localStorage.setItem("mock_users", JSON.stringify(mockUsers));
+
+        const found = mockUsers.find(
+          (u: any) => u.email?.toLowerCase().trim() === normEmail && u.password === password
+        );
+        if (found) {
+          console.log("Logged in via mock_users:", found);
+          const mockUser: any = {
+            id: found.id || `user_${Date.now()}`,
+            email: found.email,
+            user_metadata: {
+              full_name: found.full_name || found.name,
+              role: found.role,
+              lga: found.lga,
+              ward: found.ward,
+              polling_unit_id: found.polling_unit_id,
+              polling_unit_name: found.polling_unit_name,
+              phone: found.phoneNumber || found.phone,
+              zone_code: found.zone_code,
+              zone_name: found.zone_name,
+              constituency_code: found.constituency_code,
+              constituency_name: found.constituency_name,
+              lga_list: found.lga_list,
+            },
+          };
+          setUser(mockUser);
+          setSession({ user: mockUser } as any);
+          const roleNorm = (found.role === "agent" || found.role === "pu_agent") ? "polling_unit_agent" : found.role;
+          setRole(roleNorm as AppRole);
+          setAccountStatus("active");
+          localStorage.setItem("auth_role", roleNorm || "polling_unit_agent");
+          localStorage.setItem("auth_account_status", "active");
+          localStorage.setItem("auth_email", found.email);
+
+          if (found.role === "senatorial_leader") {
+            localStorage.setItem("senatorial_leader_profile", JSON.stringify({
+              id: found.id,
+              user_id: found.id,
+              zone_name: found.zone_name || "Kogi Central Senatorial District",
+              zone_code: found.zone_code || "KGI-CENTRAL",
+              lga_list: found.lga_list || ["Adavi", "Ajaokuta", "Ogori/Magongo", "Okehi", "Okene"],
+              leader_name: found.full_name || found.name,
+              phone: found.phoneNumber || found.phone || null,
+              email: found.email,
+              is_active: true,
+              must_change_password: found.must_change_password !== false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }));
+          }
+
+          if (found.role === "federal_rep") {
+            localStorage.setItem("federal_rep_profile", JSON.stringify({
+              id: found.id,
+              user_id: found.id,
+              constituency_name: found.constituency_name || "Federal Constituency",
+              constituency_code: found.constituency_code || "FED-01",
+              lga_list: found.lga_list || ["Lokoja", "Kogi (Koton Karfe)"],
+              rep_name: found.full_name || found.name,
+              phone: found.phoneNumber || found.phone || null,
+              email: found.email,
+              is_active: true,
+              must_change_password: found.must_change_password !== false,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            }));
+          }
+
+          if (found.organization_id) {
+            setOrganizationId(found.organization_id);
+            localStorage.setItem("auth_organization_id", found.organization_id);
+          }
+          return { error: null };
         }
 
         // Also check assigned_pu_agents directly

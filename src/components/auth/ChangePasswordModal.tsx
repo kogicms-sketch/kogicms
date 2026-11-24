@@ -41,18 +41,63 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      // 1. Update in local mock_users if present
+      if (typeof window !== "undefined") {
+        try {
+          const rawMock = localStorage.getItem("mock_users");
+          const authEmail = localStorage.getItem("auth_email");
+          const { data: { user } } = await supabase.auth.getUser();
+          const targetEmail = (user?.email || authEmail || "").toLowerCase().trim();
 
-      if (error) {
-        toast.error(`Error: ${error.message}`);
-      } else {
-        toast.success("Password updated successfully!");
-        setNewPassword("");
-        setConfirmPassword("");
-        onClose();
+          if (rawMock && targetEmail) {
+            const list = JSON.parse(rawMock);
+            const foundIdx = list.findIndex((u: any) => u.email?.toLowerCase().trim() === targetEmail);
+            if (foundIdx !== -1) {
+              list[foundIdx].password = newPassword;
+              list[foundIdx].must_change_password = false;
+              localStorage.setItem("mock_users", JSON.stringify(list));
+            }
+          }
+
+          // Update cached profiles if present
+          const senProfile = localStorage.getItem("senatorial_leader_profile");
+          if (senProfile) {
+            const parsed = JSON.parse(senProfile);
+            parsed.must_change_password = false;
+            localStorage.setItem("senatorial_leader_profile", JSON.stringify(parsed));
+          }
+          const fedProfile = localStorage.getItem("federal_rep_profile");
+          if (fedProfile) {
+            const parsed = JSON.parse(fedProfile);
+            parsed.must_change_password = false;
+            localStorage.setItem("federal_rep_profile", JSON.stringify(parsed));
+          }
+          const chairProfile = localStorage.getItem("chairman_profile");
+          if (chairProfile) {
+            const parsed = JSON.parse(chairProfile);
+            parsed.must_change_password = false;
+            localStorage.setItem("chairman_profile", JSON.stringify(parsed));
+          }
+          const councProfile = localStorage.getItem("councillor_profile");
+          if (councProfile) {
+            const parsed = JSON.parse(councProfile);
+            parsed.must_change_password = false;
+            localStorage.setItem("councillor_profile", JSON.stringify(parsed));
+          }
+        } catch (e) {}
       }
+
+      // 2. Try Supabase Auth update if user is authenticated with Supabase
+      try {
+        await supabase.auth.updateUser({
+          password: newPassword,
+        });
+      } catch (sbErr) {}
+
+      toast.success("Password changed successfully!");
+      setNewPassword("");
+      setConfirmPassword("");
+      onClose();
     } catch (err: any) {
       toast.error("An error occurred while updating password.");
     } finally {

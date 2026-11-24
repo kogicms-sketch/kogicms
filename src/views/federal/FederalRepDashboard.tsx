@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CandidateSupportGroupsTab } from "@/components/support-groups/CandidateSupportGroupsTab";
+import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal";
+import { KeyRound } from "lucide-react";
 
 const FederalRepDashboard = () => {
     const { partyId } = useParty();
@@ -31,6 +33,7 @@ const FederalRepDashboard = () => {
     const { data: trendData, isLoading: trendLoading } = useJurisdictionTrends(rep?.lga_list || []);
     const [search, setSearch] = useState("");
     const [lgaFilter, setLgaFilter] = useState("All");
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
     const isLoading = repLoading || (!!rep && (constLoading || trendLoading));
 
@@ -48,7 +51,8 @@ const FederalRepDashboard = () => {
                         <p className="text-muted-foreground font-medium">Loading Constituency Dashboard...</p>
                     </div>
                 </div>
-            </DashboardLayout>
+                <ChangePasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} />
+        </DashboardLayout>
         );
     }
 

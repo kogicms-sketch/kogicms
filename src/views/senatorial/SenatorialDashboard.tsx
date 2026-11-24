@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CandidateSupportGroupsTab } from "@/components/support-groups/CandidateSupportGroupsTab";
+import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal";
+import { KeyRound } from "lucide-react";
 
 const ZONE_GRADIENTS: Record<string, { from: string; to: string; accent: string }> = {
     KC: { from: "#006600", to: "#004d00", accent: "#00cc44" },
@@ -40,6 +42,7 @@ const SenatorialDashboard = () => {
     const [lgaFilter, setLgaFilter] = useState("All");
     const [expandedLGA, setExpandedLGA] = useState<string | null>(null);
     const [isPUOpen, setIsPUOpen] = useState(false);
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
     const isLoading = leaderLoading || (!!leader && (zoneLoading || trendLoading));
 
@@ -57,7 +60,8 @@ const SenatorialDashboard = () => {
                         <p className="text-muted-foreground font-medium">Loading Senatorial Dashboard...</p>
                     </div>
                 </div>
-            </DashboardLayout>
+                <ChangePasswordModal isOpen={isPasswordModalOpen} onClose={() => setIsPasswordModalOpen(false)} />
+        </DashboardLayout>
         );
     }
 
