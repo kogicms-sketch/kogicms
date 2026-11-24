@@ -52,12 +52,35 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
+import { useAuth } from "@/contexts/AuthContext";
+import { KOGI_LGAS } from "@/lib/campaign-data";
+
 const ManageCouncillors = () => {
+    const { role } = useAuth();
     const { data: chairman } = useChairman();
-    const { data: councillors = [], isLoading: councillorsLoading } = useChairmanCouncillors();
-    const { data: wards = [], isLoading: wardsLoading } = useChairmanWards();
-    const createCouncillor = useCreateCouncillor();
-    const deleteCouncillor = useDeleteCouncillor();
+
+    const isSuperAdmin = role === "super_admin" || role === "org_admin";
+
+    const [selectedLga, setSelectedLga] = useState<string>(() => {
+        if (typeof window !== "undefined") {
+            return localStorage.getItem("admin_selected_lga") || localStorage.getItem("councillor_lga") || "Lokoja";
+        }
+        return "Lokoja";
+    });
+
+    const activeLga = (!isSuperAdmin && chairman?.lga) ? chairman.lga : (selectedLga || chairman?.lga || "Lokoja");
+
+    const { data: councillors = [], isLoading: councillorsLoading } = useChairmanCouncillors(activeLga);
+    const { data: wards = [], isLoading: wardsLoading } = useChairmanWards(activeLga);
+    const createCouncillor = useCreateCouncillor(activeLga);
+    const deleteCouncillor = useDeleteCouncillor(activeLga);
+
+    const handleLgaChange = (newLga: string) => {
+        setSelectedLga(newLga);
+        if (typeof window !== "undefined") {
+            localStorage.setItem("admin_selected_lga", newLga);
+        }
+    };
 
     const [open, setOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
@@ -83,7 +106,7 @@ const ManageCouncillors = () => {
     // Auto-generate password and email based on selected ward
     const handleWardSelect = (ward: string) => {
         const cleanWard = ward.toLowerCase().replace(/[^a-z0-9]/g, "");
-        const cleanLga = (chairman?.lga || "kogi").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const cleanLga = activeLga.toLowerCase().replace(/[^a-z0-9]/g, "");
         const suggestedEmail = `${cleanWard}.${cleanLga}@apm.ng`;
         const suggestedPassword = `${cleanWard}@2026`;
 
@@ -106,12 +129,16 @@ const ManageCouncillors = () => {
         toast.info(`Generated: ${generated}`);
     };
 
+    const normKey = (s: string) => (s || "").toLowerCase().replace(/ward/gi, "").replace(/[^a-z0-9]/g, "");
+
     const openAssignForWard = (wardName: string) => {
-        const existing = councillors.find(
-            c => c.ward.toLowerCase().trim() === wardName.toLowerCase().trim()
-        );
+        const normW = normKey(wardName);
+        const existing = councillors.find(c => {
+            const cW = normKey(c.ward);
+            return cW === normW || cW.includes(normW) || normW.includes(cW);
+        });
         const cleanWard = wardName.toLowerCase().replace(/[^a-z0-9]/g, "");
-        const cleanLga = (chairman?.lga || "kogi").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const cleanLga = activeLga.toLowerCase().replace(/[^a-z0-9]/g, "");
 
         setFormData({
             ward: wardName,
@@ -132,7 +159,10 @@ const ManageCouncillors = () => {
         }
 
         try {
-            const result = await createCouncillor.mutateAsync(formData);
+            const result = await createCouncillor.mutateAsync({
+                ...formData,
+                lga: activeLga,
+            });
 
             if (result.success && result.credentials) {
                 setSavedCredentials(result.credentials);
@@ -179,10 +209,11 @@ const ManageCouncillors = () => {
     // Build unified ward list with assigned councillor info
     const wardStatusList = useMemo(() => {
         return wards.map((wardName) => {
-            const normW = wardName.toLowerCase().trim();
-            const assigned = councillors.find(
-                c => c.ward.toLowerCase().trim() === normW
-            );
+            const normW = normKey(wardName);
+            const assigned = councillors.find(c => {
+                const cW = normKey(c.ward);
+                return cW === normW || cW.includes(normW) || normW.includes(cW);
+            });
             return {
                 wardName,
                 isAssigned: !!assigned,
@@ -222,21 +253,39 @@ const ManageCouncillors = () => {
                 {/* ── HEADER ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-gradient-to-r from-emerald-50/70 via-white to-blue-50/50 p-6 sm:p-8 rounded-2xl border border-emerald-100 shadow-sm relative overflow-hidden group">
                     <div className="relative z-10">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
                             <span className="text-xs font-bold text-emerald-700 tracking-wider uppercase bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1.5">
                                 <ShieldCheck className="w-3.5 h-3.5" />
-                                LGA Executive Portal
+                                {isSuperAdmin ? "State Command Portal" : "LGA Executive Portal"}
                             </span>
-                            <Badge variant="outline" className="border-emerald-300 text-emerald-800 bg-white font-semibold">
-                                {chairman?.lga || "Kogi"} LGA
-                            </Badge>
+                            {isSuperAdmin ? (
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-xs text-muted-foreground font-semibold">LGA:</span>
+                                    <Select value={activeLga} onValueChange={handleLgaChange}>
+                                        <SelectTrigger className="h-8 text-xs font-bold border-emerald-300 text-emerald-800 bg-white shadow-sm w-36">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent className="max-h-60">
+                                            {KOGI_LGAS.map((lga) => (
+                                                <SelectItem key={lga} value={lga} className="text-xs font-medium">
+                                                    {lga} LGA
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            ) : (
+                                <Badge variant="outline" className="border-emerald-300 text-emerald-800 bg-white font-semibold">
+                                    {activeLga} LGA
+                                </Badge>
+                            )}
                         </div>
                         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-gray-900">
                             Manage Ward Admins (Councillors)
                         </h1>
                         <p className="text-muted-foreground font-medium mt-1.5 flex items-center gap-2 text-sm">
                             <MapPin className="w-4 h-4 text-emerald-600" />
-                            Official Ward Leadership & Administrative Assignment for {chairman?.lga} LGA
+                            Official Ward Leadership & Administrative Assignment for {activeLga} LGA
                         </p>
                     </div>
 
@@ -257,7 +306,7 @@ const ManageCouncillors = () => {
                                         <div>
                                             <span>Assign Ward Admin</span>
                                             <p className="text-xs font-normal text-muted-foreground mt-0.5">
-                                                Jurisdiction: <strong className="text-emerald-700">{chairman?.lga} LGA</strong>
+                                                Jurisdiction: <strong className="text-emerald-700">{activeLga} LGA</strong>
                                             </p>
                                         </div>
                                     </DialogTitle>
@@ -268,7 +317,7 @@ const ManageCouncillors = () => {
                                         <form onSubmit={handleSubmit} className="space-y-4">
                                             <div className="space-y-2">
                                                 <Label htmlFor="ward" className="text-xs font-bold uppercase text-gray-700">
-                                                    Ward * ({chairman?.lga} LGA)
+                                                    Ward * ({activeLga} LGA)
                                                 </Label>
                                                 <Select
                                                     value={formData.ward}
@@ -279,9 +328,11 @@ const ManageCouncillors = () => {
                                                     </SelectTrigger>
                                                     <SelectContent className="max-h-64">
                                                         {wards.map((ward) => {
-                                                            const isAssigned = councillors.some(
-                                                                c => c.ward.toLowerCase().trim() === ward.toLowerCase().trim()
-                                                            );
+                                                            const isAssigned = councillors.some(c => {
+                                                                const cW = normKey(c.ward);
+                                                                const wN = normKey(ward);
+                                                                return cW === wN || cW.includes(wN) || wN.includes(cW);
+                                                            });
                                                             return (
                                                                 <SelectItem key={ward} value={ward}>
                                                                     <div className="flex items-center justify-between gap-4 w-full">
@@ -561,10 +612,10 @@ const ManageCouncillors = () => {
                         <div>
                             <CardTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
                                 <MapPin className="w-5 h-5 text-emerald-600" />
-                                {chairman?.lga} LGA Wards & Assigned Administrators
+                                {activeLga} LGA Wards & Assigned Administrators
                             </CardTitle>
                             <CardDescription className="text-xs mt-0.5">
-                                Every ward strictly mapped to {chairman?.lga} LGA with real-time assignment controls
+                                Every ward strictly mapped to {activeLga} LGA with real-time assignment controls
                             </CardDescription>
                         </div>
                         <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300 font-bold hidden sm:inline-flex">

@@ -153,8 +153,9 @@ const Login = () => {
     </div>
   );
 
-  if (isRedirecting || (loading && user)) {
-    return <BrandedSplash message={isRedirecting ? "Signing you in…" : "Loading your dashboard…"} />;
+  // Prevent SSR hydration mismatch: render consistent BrandedSplash until mounted on client
+  if (!mounted || isRedirecting || (loading && user)) {
+    return <BrandedSplash message={isRedirecting ? "Signing you in…" : "Loading…"} />;
   }
 
   if (loading) {

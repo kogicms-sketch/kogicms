@@ -8,6 +8,10 @@ const nextConfig = {
     root: __dirname,
   },
   devIndicators: false,
+  experimental: {
+    cpus: 1,
+    workerThreads: false,
+  },
 };
 
 module.exports = nextConfig;

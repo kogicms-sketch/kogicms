@@ -12,6 +12,16 @@ const db = supabase as any;
 
 const LOCAL_COUNCILLORS_STORAGE_KEY = "kogi_apm_councillors";
 
+export const normalizeWardKey = (ward: string | null | undefined): string => {
+    if (!ward) return "";
+    return ward.toLowerCase().replace(/ward/gi, "").replace(/[^a-z0-9]/g, "");
+};
+
+export const normalizeLgaKey = (lga: string | null | undefined): string => {
+    if (!lga) return "";
+    return lga.toLowerCase().replace(/lga/gi, "").replace(/[^a-z0-9]/g, "");
+};
+
 export interface CouncillorRecord {
     id: string;
     user_id: string;
@@ -32,12 +42,40 @@ export const getLocalCouncillors = (lga?: string): CouncillorRecord[] => {
     if (typeof window === "undefined") return [];
     try {
         const raw = localStorage.getItem(LOCAL_COUNCILLORS_STORAGE_KEY);
-        const list: CouncillorRecord[] = raw ? JSON.parse(raw) : [];
+        let list: CouncillorRecord[] = raw ? JSON.parse(raw) : [];
+
+        // Also check if single councillor_profile is cached
+        try {
+            const cachedSingle = localStorage.getItem("councillor_profile");
+            if (cachedSingle) {
+                const p = JSON.parse(cachedSingle);
+                if (p && (p.ward || p.lga)) {
+                    const normSingleWard = normalizeWardKey(p.ward);
+                    const alreadyExists = list.some(item => normalizeWardKey(item.ward) === normSingleWard);
+                    if (!alreadyExists && p.ward) {
+                        list.push({
+                            id: p.id || ("councillor_" + Date.now()),
+                            user_id: p.user_id || p.id || "",
+                            chairman_id: p.chairman_id || "",
+                            lga: p.lga || "Lokoja",
+                            ward: p.ward,
+                            councillor_name: p.councillor_name || p.full_name || "Assigned Councillor",
+                            phone: p.phone || p.phone_number || null,
+                            email: p.email || "",
+                            is_active: true,
+                            created_at: p.created_at || new Date().toISOString(),
+                            updated_at: p.updated_at || new Date().toISOString(),
+                        });
+                    }
+                }
+            }
+        } catch {}
+
         if (!lga) return list;
-        const normLga = lga.toLowerCase().replace(/[^a-z]/g, "");
+        const normLga = normalizeLgaKey(lga);
         return list.filter(c => {
-            const cLga = (c.lga || "").toLowerCase().replace(/[^a-z]/g, "");
-            return cLga === normLga || cLga.includes(normLga) || normLga.includes(cLga);
+            const cLga = normalizeLgaKey(c.lga);
+            return !cLga || cLga === normLga || cLga.includes(normLga) || normLga.includes(cLga);
         });
     } catch {
         return [];
@@ -49,17 +87,23 @@ export const saveLocalCouncillor = (councillor: CouncillorRecord): void => {
     try {
         const raw = localStorage.getItem(LOCAL_COUNCILLORS_STORAGE_KEY);
         let list: CouncillorRecord[] = raw ? JSON.parse(raw) : [];
-        const normLga = (councillor.lga || "").toLowerCase().replace(/[^a-z]/g, "");
-        const normWard = (councillor.ward || "").toLowerCase().trim();
+        const normLga = normalizeLgaKey(councillor.lga);
+        const normWard = normalizeWardKey(councillor.ward);
+
         // Remove existing councillor for same ward in this LGA or same id
         list = list.filter(c => {
-            if (c.id === councillor.id) return false;
-            const cLga = (c.lga || "").toLowerCase().replace(/[^a-z]/g, "");
-            const cWard = (c.ward || "").toLowerCase().trim();
+            if (c.id === councillor.id || (c.user_id && c.user_id === councillor.user_id)) return false;
+            const cLga = normalizeLgaKey(c.lga);
+            const cWard = normalizeWardKey(c.ward);
             return !(cLga === normLga && cWard === normWard);
         });
         list.push(councillor);
         localStorage.setItem(LOCAL_COUNCILLORS_STORAGE_KEY, JSON.stringify(list));
+
+        // Also save to councillor_profile so other views immediately recognize it
+        localStorage.setItem("councillor_profile", JSON.stringify(councillor));
+        localStorage.setItem("councillor_lga", councillor.lga);
+        localStorage.setItem("councillor_ward", councillor.ward);
     } catch (e) {
         console.error("Failed to save councillor to localStorage", e);
     }
@@ -71,7 +115,7 @@ export const deleteLocalCouncillor = (id: string): void => {
         const raw = localStorage.getItem(LOCAL_COUNCILLORS_STORAGE_KEY);
         if (!raw) return;
         const list: CouncillorRecord[] = JSON.parse(raw);
-        const filtered = list.filter(c => c.id !== id);
+        const filtered = list.filter(c => c.id !== id && c.user_id !== id);
         localStorage.setItem(LOCAL_COUNCILLORS_STORAGE_KEY, JSON.stringify(filtered));
     } catch (e) {
         console.error("Failed to delete councillor from localStorage", e);
@@ -126,48 +170,70 @@ export interface ChairmanDashboardStats {
 
 // Get current chairman profile
 export const useChairman = () => {
-    const { role } = useAuth();
+    const { role, user } = useAuth();
 
     return useQuery({
-        queryKey: ["chairman-profile"],
+        queryKey: ["chairman-profile", role, user?.id],
         queryFn: async () => {
             // 1. Check local storage cache first
             if (typeof window !== "undefined") {
                 const cached = localStorage.getItem("chairman_profile");
                 if (cached) {
-                    console.log("📦 Loaded chairman profile from local storage cache.");
-                    // Background refresh
-                    supabase.auth.getUser().then(({ data: { user } }) => {
-                        if (user) {
-                            db.from("lga_chairmen").select("*").eq("user_id", user.id).single()
-                                .then(({ data, error }: any) => {
-                                    if (data && !error) {
-                                        localStorage.setItem("chairman_profile", JSON.stringify(data));
-                                    }
-                                });
+                    try {
+                        const parsed = JSON.parse(cached);
+                        if (parsed && parsed.lga) {
+                            return parsed as LGAChairman;
                         }
-                    });
-                    return JSON.parse(cached) as LGAChairman;
+                    } catch {}
                 }
             }
 
-            // 2. Fallback to Supabase
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("Not authenticated");
+            // 2. If user is authenticated, check lga_chairmen table
+            if (user) {
+                try {
+                    const { data, error } = await db
+                        .from("lga_chairmen")
+                        .select("*")
+                        .eq("user_id", user.id)
+                        .maybeSingle();
 
-            const { data, error } = await db
-                .from("lga_chairmen")
-                .select("*")
-                .eq("user_id", user.id)
-                .single();
-
-            if (error) throw error;
-            if (typeof window !== "undefined") {
-                localStorage.setItem("chairman_profile", JSON.stringify(data));
+                    if (data && !error) {
+                        if (typeof window !== "undefined") {
+                            localStorage.setItem("chairman_profile", JSON.stringify(data));
+                        }
+                        return data as unknown as LGAChairman;
+                    }
+                } catch (e) {
+                    console.warn("Could not query lga_chairmen table:", e);
+                }
             }
-            return data as unknown as LGAChairman;
+
+            // 3. Fallback for super_admin, org_admin, or default view
+            const fallbackLga = (typeof window !== "undefined" ? localStorage.getItem("admin_selected_lga") : null) || "Lokoja";
+            const adminFallback: LGAChairman = {
+                id: "chair-admin-" + (user?.id || "default"),
+                user_id: user?.id || "super-admin",
+                lga: fallbackLga,
+                chairman_name: user?.user_metadata?.full_name || "LGA Executive Admin",
+                phone: null,
+                email: user?.email || "chairman.lokoja@apm.ng",
+                party: "APM",
+                election_date: null,
+                sworn_in_date: null,
+                must_change_password: false,
+                last_password_change: null,
+                is_active: true,
+                photo_url: null,
+                bio: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+
+            if (typeof window !== "undefined" && !localStorage.getItem("chairman_profile")) {
+                localStorage.setItem("chairman_profile", JSON.stringify(adminFallback));
+            }
+            return adminFallback;
         },
-        enabled: role === "lga_chairman", // Only run for lga_chairman role
         staleTime: 1000 * 60 * 5, // 5 minutes
         gcTime: 1000 * 60 * 30, // 30 minutes
     });
@@ -179,8 +245,8 @@ const fetchFreshChairmanDashboardStats = async (chairman: LGAChairman): Promise<
     const allLgaWards = getWardsForLga(chairman.lga);
     const totalWards = allLgaWards.length > 0 ? allLgaWards.length : (summary?.total_wards || 0);
     const totalPollingUnits = summary?.total_polling_units || ALL_POLLING_UNITS.filter(pu => {
-        const normP = pu.lga.toLowerCase().replace(/[^a-z]/g, "");
-        const normC = chairman.lga.toLowerCase().replace(/[^a-z]/g, "");
+        const normP = normalizeLgaKey(pu.lga);
+        const normC = normalizeLgaKey(chairman.lga);
         return normP === normC;
     }).length;
     const totalRegisteredVoters = summary?.total_voters_extracted || 0;
@@ -201,10 +267,10 @@ const fetchFreshChairmanDashboardStats = async (chairman: LGAChairman): Promise<
             .select("id, status, is_verified, ward, gender, lga");
 
         if (!error && data) {
-            const normLga = chairman.lga.toLowerCase().replace(/[^a-z]/g, "");
+            const normLga = normalizeLgaKey(chairman.lga);
             membersData = data.filter((m: any) => {
                 if (!m.lga) return false;
-                const mNorm = m.lga.toLowerCase().replace(/[^a-z]/g, "");
+                const mNorm = normalizeLgaKey(m.lga);
                 return mNorm === normLga || mNorm.includes(normLga) || normLga.includes(mNorm);
             });
             totalMembers = membersData.length;
@@ -220,8 +286,41 @@ const fetchFreshChairmanDashboardStats = async (chairman: LGAChairman): Promise<
         ? ((totalMembers / totalRegisteredVoters) * 100).toFixed(1) + "%"
         : "0%";
 
-    // 3. Count assigned councillors for this LGA
-    const councillorsList = getLocalCouncillors(chairman.lga);
+    // 3. Count assigned councillors for this LGA (combining local storage & Supabase profiles)
+    let councillorsList = getLocalCouncillors(chairman.lga);
+    try {
+        const { data: remoteProfiles } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("role", "councillor");
+        if (remoteProfiles && remoteProfiles.length > 0) {
+            const normChairmanLga = normalizeLgaKey(chairman.lga);
+            const matchingRemote: CouncillorRecord[] = remoteProfiles
+                .filter((p: any) => {
+                    if (!p.lga) return false;
+                    const pLga = normalizeLgaKey(p.lga);
+                    return pLga === normChairmanLga || pLga.includes(normChairmanLga) || normChairmanLga.includes(pLga);
+                })
+                .map((p: any) => ({
+                    id: p.id,
+                    user_id: p.id,
+                    chairman_id: chairman.id,
+                    lga: p.lga,
+                    ward: p.ward || "",
+                    councillor_name: p.full_name || p.email,
+                    phone: p.phone || p.phone_number || null,
+                    email: p.email,
+                    is_active: p.account_status !== "suspended",
+                    created_at: p.created_at || new Date().toISOString(),
+                    updated_at: p.updated_at || new Date().toISOString(),
+                }));
+            const map = new Map<string, CouncillorRecord>();
+            councillorsList.forEach(c => map.set(normalizeWardKey(c.ward), c));
+            matchingRemote.forEach(c => map.set(normalizeWardKey(c.ward), c));
+            councillorsList = Array.from(map.values());
+        }
+    } catch {}
+
     const councillorCount = councillorsList.length;
 
     let sgCount = 0;
@@ -233,23 +332,26 @@ const fetchFreshChairmanDashboardStats = async (chairman: LGAChairman): Promise<
         sgCount = count || 0;
     } catch {}
 
-    // 4. Calculate ward breakdown
-    const wardMapFromSummary = new Map((summary?.wards || []).map(w => [w.ward_name.toLowerCase().trim(), w]));
+    // 4. Calculate ward breakdown with normalized ward matching
+    const wardMapFromSummary = new Map((summary?.wards || []).map(w => [normalizeWardKey(w.ward_name), w]));
 
     const wardStats = allLgaWards.map((wardName) => {
-        const normW = wardName.toLowerCase().trim();
+        const normW = normalizeWardKey(wardName);
         const wardSummary = wardMapFromSummary.get(normW);
         const wardMembers = membersData.filter((m) =>
-            m.ward && m.ward.toLowerCase().trim() === normW
+            m.ward && normalizeWardKey(m.ward) === normW
         ).length;
         const totalVoters = wardSummary?.total_voters || 0;
         const pollingUnitsCount = wardSummary?.polling_units_count || ALL_POLLING_UNITS.filter(pu => {
-            const normL = pu.lga.toLowerCase().replace(/[^a-z]/g, "");
-            const normC = chairman.lga.toLowerCase().replace(/[^a-z]/g, "");
-            return normL === normC && pu.wardName.toLowerCase().trim() === normW;
+            const normL = normalizeLgaKey(pu.lga);
+            const normC = normalizeLgaKey(chairman.lga);
+            return normL === normC && normalizeWardKey(pu.wardName) === normW;
         }).length;
         const perf = totalVoters > 0 ? (wardMembers / totalVoters) * 100 : 0;
-        const assignedCouncillor = councillorsList.find(c => c.ward.toLowerCase().trim() === normW);
+        const assignedCouncillor = councillorsList.find(c => {
+            const cW = normalizeWardKey(c.ward);
+            return cW === normW || cW.includes(normW) || normW.includes(cW);
+        });
 
         return {
             ward: wardName,
@@ -282,15 +384,33 @@ const fetchFreshChairmanDashboardStats = async (chairman: LGAChairman): Promise<
 };
 
 // Get dashboard statistics for chairman's LGA
-export const useChairmanDashboardStats = () => {
+export const useChairmanDashboardStats = (overrideLga?: string) => {
     const { data: chairman } = useChairman();
+    const targetLga = overrideLga || chairman?.lga || "Lokoja";
 
     return useQuery({
-        queryKey: ["chairman-dashboard-stats", chairman?.lga],
+        queryKey: ["chairman-dashboard-stats", targetLga],
         queryFn: async () => {
-            if (!chairman) throw new Error("Chairman not loaded");
+            const activeChairman: LGAChairman = chairman && chairman.lga === targetLga ? chairman : {
+                id: "chair-" + targetLga.toLowerCase(),
+                user_id: "admin",
+                lga: targetLga,
+                chairman_name: `${targetLga} LGA Chairman`,
+                phone: null,
+                email: `chairman.${targetLga.toLowerCase()}@apm.ng`,
+                party: "APM",
+                election_date: null,
+                sworn_in_date: null,
+                must_change_password: false,
+                last_password_change: null,
+                is_active: true,
+                photo_url: null,
+                bio: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
 
-            const cacheKey = `chairman_dashboard_stats_${chairman.lga}`;
+            const cacheKey = `chairman_dashboard_stats_${targetLga}`;
 
             // 1. Check local cache first
             if (typeof window !== "undefined") {
@@ -299,7 +419,7 @@ export const useChairmanDashboardStats = () => {
                     // Background refresh
                     (async () => {
                         try {
-                            const freshData = await fetchFreshChairmanDashboardStats(chairman);
+                            const freshData = await fetchFreshChairmanDashboardStats(activeChairman);
                             localStorage.setItem(cacheKey, JSON.stringify(freshData));
                         } catch (e) {
                             console.error("Error refreshing chairman dashboard stats in background:", e);
@@ -309,47 +429,48 @@ export const useChairmanDashboardStats = () => {
                 }
             }
 
-            const freshData = await fetchFreshChairmanDashboardStats(chairman);
+            const freshData = await fetchFreshChairmanDashboardStats(activeChairman);
             if (typeof window !== "undefined") {
                 localStorage.setItem(cacheKey, JSON.stringify(freshData));
             }
             return freshData;
         },
-        enabled: !!chairman,
+        enabled: !!targetLga,
         staleTime: 1000 * 60 * 5, // 5 minutes
         gcTime: 1000 * 60 * 30, // 30 minutes
     });
 };
 
 // Get polling units in chairman's LGA
-export const useChairmanPollingUnits = (filters?: { ward?: string }) => {
+export const useChairmanPollingUnits = (filters?: { ward?: string; lga?: string }) => {
     const { data: chairman } = useChairman();
+    const targetLga = filters?.lga || chairman?.lga || "Lokoja";
 
     return useQuery({
-        queryKey: ["chairman-polling-units", chairman?.lga, filters],
+        queryKey: ["chairman-polling-units", targetLga, filters],
         queryFn: async () => {
-            if (!chairman?.lga) return [];
+            if (!targetLga) return [];
 
-            const normLga = chairman.lga.toLowerCase().replace(/[^a-z]/g, "");
+            const normLga = normalizeLgaKey(targetLga);
             let pus = ALL_POLLING_UNITS.filter(pu => {
-                const puLga = pu.lga.toLowerCase().replace(/[^a-z]/g, "");
+                const puLga = normalizeLgaKey(pu.lga);
                 return puLga === normLga || puLga.includes(normLga) || normLga.includes(puLga);
             });
 
             if (filters?.ward && filters.ward !== "all") {
-                const normWard = filters.ward.toLowerCase().trim();
-                pus = pus.filter(pu => pu.wardName.toLowerCase().trim() === normWard);
+                const normWard = normalizeWardKey(filters.ward);
+                pus = pus.filter(pu => normalizeWardKey(pu.wardName) === normWard);
             }
 
             // Fetch member counts from members table / local cache to enrich
             let members: any[] = [];
             try {
-                const { data } = await supabase.from("members").select("id, polling_unit, ward, is_verified, status").ilike("lga", `%${chairman.lga}%`);
+                const { data } = await supabase.from("members").select("id, polling_unit, ward, is_verified, status").ilike("lga", `%${targetLga}%`);
                 if (data) members = data;
             } catch {}
 
             return pus.map(pu => {
-                const puMembers = members.filter(m => (m.polling_unit && m.polling_unit.toLowerCase().trim() === pu.name.toLowerCase().trim()) || m.ward?.toLowerCase().trim() === pu.wardName.toLowerCase().trim());
+                const puMembers = members.filter(m => (m.polling_unit && m.polling_unit.toLowerCase().trim() === pu.name.toLowerCase().trim()) || normalizeWardKey(m.ward) === normalizeWardKey(pu.wardName));
                 const verified = puMembers.filter(m => m.is_verified || m.status === 'active').length;
                 return {
                     id: pu.id,
@@ -364,26 +485,27 @@ export const useChairmanPollingUnits = (filters?: { ward?: string }) => {
                 };
             });
         },
-        enabled: !!chairman?.lga,
+        enabled: !!targetLga,
     });
 };
 
 // Get wards in chairman's LGA
-export const useChairmanWards = () => {
+export const useChairmanWards = (overrideLga?: string) => {
     const { data: chairman } = useChairman();
+    const targetLga = overrideLga || chairman?.lga || "Lokoja";
 
     return useQuery({
-        queryKey: ["chairman-wards", chairman?.lga],
+        queryKey: ["chairman-wards", targetLga],
         queryFn: async () => {
-            if (!chairman?.lga) return [];
-            return getWardsForLga(chairman.lga);
+            if (!targetLga) return [];
+            return getWardsForLga(targetLga);
         },
-        enabled: !!chairman?.lga,
+        enabled: !!targetLga,
     });
 };
 
 // Create or assign councillor for a ward
-export const useCreateCouncillor = () => {
+export const useCreateCouncillor = (overrideLga?: string) => {
     const queryClient = useQueryClient();
     const { data: chairman } = useChairman();
 
@@ -394,8 +516,10 @@ export const useCreateCouncillor = () => {
             email: string;
             password: string;
             phone?: string;
+            lga?: string;
         }) => {
-            if (!chairman) throw new Error("Chairman not loaded");
+            const activeLga = councillorData.lga || overrideLga || chairman?.lga || "Lokoja";
+            const chairmanId = chairman?.id || `chair_${activeLga.toLowerCase()}`;
 
             const id = 'councillor_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
             const now = new Date().toISOString();
@@ -403,8 +527,8 @@ export const useCreateCouncillor = () => {
             const newCouncillor: CouncillorRecord = {
                 id,
                 user_id: id,
-                chairman_id: chairman.id,
-                lga: chairman.lga,
+                chairman_id: chairmanId,
+                lga: activeLga,
                 ward: councillorData.ward,
                 councillor_name: councillorData.councillor_name,
                 email: councillorData.email,
@@ -431,16 +555,37 @@ export const useCreateCouncillor = () => {
                         data: {
                             full_name: councillorData.councillor_name,
                             role: "councillor",
-                            lga: chairman.lga,
+                            lga: activeLga,
                             ward: councillorData.ward,
                         }
                     }
                 });
 
-                if (authData?.user) {
-                    newCouncillor.user_id = authData.user.id;
-                    saveLocalCouncillor(newCouncillor);
+                const userId = authData?.user?.id || newCouncillor.id;
+                newCouncillor.user_id = userId;
+
+                // Also persist directly into public.profiles & user_roles
+                try {
+                    await supabase.from("profiles").upsert({
+                        id: userId,
+                        email: councillorData.email,
+                        full_name: councillorData.councillor_name,
+                        phone: councillorData.phone || null,
+                        role: "councillor",
+                        lga: activeLga,
+                        ward: councillorData.ward,
+                        account_status: "active",
+                    });
+
+                    await supabase.from("user_roles").upsert({
+                        user_id: userId,
+                        role: "councillor",
+                    });
+                } catch (profErr) {
+                    console.warn("Could not upsert profile directly to Supabase:", profErr);
                 }
+
+                saveLocalCouncillor(newCouncillor);
             } catch (authErr) {
                 console.warn("Background auth creation notice (saved locally):", authErr);
             }
@@ -452,7 +597,7 @@ export const useCreateCouncillor = () => {
                     email: councillorData.email,
                     password: councillorData.password,
                     ward: councillorData.ward,
-                    lga: chairman.lga,
+                    lga: activeLga,
                     name: councillorData.councillor_name,
                 }
             };
@@ -460,6 +605,7 @@ export const useCreateCouncillor = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["councillors"] });
             queryClient.invalidateQueries({ queryKey: ["chairman-dashboard-stats"] });
+            queryClient.invalidateQueries({ queryKey: ["chairman-wards"] });
             toast.success("Ward Admin assigned successfully!");
         },
         onError: (error: Error) => {
@@ -470,12 +616,18 @@ export const useCreateCouncillor = () => {
 };
 
 // Delete / unassign councillor
-export const useDeleteCouncillor = () => {
+export const useDeleteCouncillor = (overrideLga?: string) => {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: async (id: string) => {
             deleteLocalCouncillor(id);
+            try {
+                await supabase.from("profiles").delete().eq("id", id);
+                await supabase.from("user_roles").delete().eq("user_id", id);
+            } catch (e) {
+                console.warn("Could not remove councillor profile from Supabase:", e);
+            }
             return { success: true };
         },
         onSuccess: () => {
@@ -487,16 +639,17 @@ export const useDeleteCouncillor = () => {
 };
 
 // Get all councillors for chairman's LGA
-export const useChairmanCouncillors = () => {
+export const useChairmanCouncillors = (overrideLga?: string) => {
     const { data: chairman } = useChairman();
+    const targetLga = overrideLga || chairman?.lga || "Lokoja";
 
     return useQuery({
-        queryKey: ["councillors", chairman?.lga],
+        queryKey: ["councillors", targetLga],
         queryFn: async () => {
-            if (!chairman?.lga) return [];
+            if (!targetLga) return [];
 
             // 1. Get from local storage
-            const localList = getLocalCouncillors(chairman.lga);
+            const localList = getLocalCouncillors(targetLga);
 
             // 2. Try fetching from Supabase profiles where role = 'councillor'
             try {
@@ -506,17 +659,17 @@ export const useChairmanCouncillors = () => {
                     .eq("role", "councillor");
 
                 if (!error && profiles && profiles.length > 0) {
-                    const normChairmanLga = chairman.lga.toLowerCase().replace(/[^a-z]/g, "");
+                    const normChairmanLga = normalizeLgaKey(targetLga);
                     const remoteCouncillors: CouncillorRecord[] = profiles
                         .filter((p: any) => {
                             if (!p.lga) return false;
-                            const pLga = p.lga.toLowerCase().replace(/[^a-z]/g, "");
+                            const pLga = normalizeLgaKey(p.lga);
                             return pLga === normChairmanLga || pLga.includes(normChairmanLga) || normChairmanLga.includes(pLga);
                         })
                         .map((p: any) => ({
                             id: p.id,
                             user_id: p.id,
-                            chairman_id: chairman.id,
+                            chairman_id: chairman?.id || "chair_" + targetLga.toLowerCase(),
                             lga: p.lga,
                             ward: p.ward || "",
                             councillor_name: p.full_name || p.email,
@@ -528,16 +681,17 @@ export const useChairmanCouncillors = () => {
                             updated_at: p.updated_at || new Date().toISOString(),
                         }));
 
-                    // Merge remote with local
+                    // Merge remote with local using normalized ward keys
                     const mergedMap = new Map<string, CouncillorRecord>();
-                    localList.forEach(c => mergedMap.set(`${c.lga.toLowerCase()}|${c.ward.toLowerCase()}`, c));
-                    remoteCouncillors.forEach(c => mergedMap.set(`${c.lga.toLowerCase()}|${c.ward.toLowerCase()}`, c));
+                    localList.forEach(c => mergedMap.set(normalizeWardKey(c.ward), c));
+                    remoteCouncillors.forEach(c => mergedMap.set(normalizeWardKey(c.ward), c));
                     const combined = Array.from(mergedMap.values());
 
                     if (typeof window !== "undefined") {
                         const allRaw = localStorage.getItem(LOCAL_COUNCILLORS_STORAGE_KEY);
                         let allList: CouncillorRecord[] = allRaw ? JSON.parse(allRaw) : [];
-                        allList = allList.filter(c => c.lga.toLowerCase() !== chairman.lga.toLowerCase());
+                        const targetNorm = normalizeLgaKey(targetLga);
+                        allList = allList.filter(c => normalizeLgaKey(c.lga) !== targetNorm);
                         allList.push(...combined);
                         localStorage.setItem(LOCAL_COUNCILLORS_STORAGE_KEY, JSON.stringify(allList));
                     }
@@ -550,7 +704,7 @@ export const useChairmanCouncillors = () => {
 
             return localList;
         },
-        enabled: !!chairman?.lga,
+        enabled: !!targetLga,
     });
 };
 

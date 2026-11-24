@@ -283,7 +283,7 @@ const ChairmanPollingUnits = () => {
                     </Card>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                        {filteredUnits.map((pu: any) => {
+                        {filteredUnits.map((pu: any, idx: number) => {
                             const coverage = pu.registered_voters > 0
                                 ? Math.min((pu.verified_members || 0) / pu.registered_voters * 100, 100)
                                 : 0;
@@ -293,7 +293,7 @@ const ChairmanPollingUnits = () => {
 
                             return (
                                 <Card
-                                    key={`${pu.id}-${index}`}
+                                    key={`${pu.id}-${idx}`}
                                     className="group hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 border border-gray-100 hover:border-apc-green/30 overflow-hidden"
                                 >
                                     {/* Top accent bar */}
