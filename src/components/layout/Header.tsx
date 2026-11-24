@@ -20,7 +20,7 @@ interface HeaderProps {
 }
 
 const Header = ({ title, subtitle }: HeaderProps) => {
-  const { partyId } = useParty();
+  const { party, partyId } = useParty();
   const { user, role } = useAuth();
   const [userLga, setUserLga] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -110,7 +110,14 @@ const Header = ({ title, subtitle }: HeaderProps) => {
     <header className="sticky top-0 z-40 glass border-b border-border/50 safe-area-top">
       <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex items-center justify-between gap-4">
         {/* Left Section - Title */}
-        <div className="flex-1 min-w-0 animate-slide-in-left">
+        <div className="flex items-center gap-2.5 flex-1 min-w-0 animate-slide-in-left">
+          <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 shadow-sm border border-border/40 bg-white p-0.5 flex items-center justify-center md:hidden">
+            <img
+              src={party.logo}
+              alt={`${party.name} logo`}
+              className="w-full h-full object-contain"
+            />
+          </div>
           <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground truncate">
             {title}
           </h1>

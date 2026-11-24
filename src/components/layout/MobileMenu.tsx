@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { navItems as allNavItems } from "@/config/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useParty } from "@/contexts/PartyContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useState } from "react";
 
@@ -18,6 +19,7 @@ interface MobileMenuProps {
 
 const MobileMenu = ({ onClose }: MobileMenuProps) => {
   const { user, role, signOut } = useAuth();
+  const { party } = useParty();
   const router = useRouter();
   const navigate = (path: any, options?: any) => { if (path === -1) router.back(); else router.push(path); };
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -91,7 +93,26 @@ const MobileMenu = ({ onClose }: MobileMenuProps) => {
   return (
     <div className="flex flex-col h-full pt-2 mobile-fade-in">
       {/* Handle bar */}
-      <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-6" />
+      <div className="w-12 h-1.5 bg-muted rounded-full mx-auto mb-4" />
+
+      {/* Party / APM Branding Header */}
+      <div className="flex items-center gap-3 px-4 pb-4 mb-2 border-b border-border/40">
+        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 border border-border/50 bg-white p-1 flex items-center justify-center shadow-sm">
+          <img
+            src={party.logo}
+            alt={`${party.name} logo`}
+            className="w-full h-full object-contain"
+          />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-sm font-bold text-foreground truncate">
+            Kogi State {party.shortName}
+          </h2>
+          <p className="text-xs text-muted-foreground truncate">
+            {party.fullName}
+          </p>
+        </div>
+      </div>
 
       {/* User Profile Section */}
       <div className="flex items-center gap-4 px-4 pb-6 border-b border-border">
