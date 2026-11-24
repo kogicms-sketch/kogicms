@@ -56,6 +56,14 @@ const MobileMenu = ({ onClose }: MobileMenuProps) => {
         return "LGA Chairman";
       case "councillor":
         return "Councillor";
+      case "senatorial_leader":
+        return "Senatorial Leader";
+      case "federal_rep":
+        return "Federal Rep";
+      case "house_assembly_member":
+        return "Assembly Member";
+      case "polling_unit_agent":
+        return "PU Field Agent";
       case "student":
         return "Student Monitor";
       case "member":

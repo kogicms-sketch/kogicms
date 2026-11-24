@@ -39,7 +39,7 @@ const FederalRepDashboard = () => {
 
     if (isLoading) {
         return (
-            <DashboardLayout>
+            <DashboardLayout title="Federal Rep Command" subtitle={rep?.constituency_name || "House of Representatives"}>
                 <div className="flex items-center justify-center min-h-[60vh]">
                     <div className="text-center space-y-4">
                         <div className="relative mx-auto w-16 h-16">
