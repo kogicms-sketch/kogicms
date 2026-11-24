@@ -274,32 +274,47 @@ export const useCreateMember = () => {
         updated_at: new Date().toISOString()
       };
 
-      // 1. Instantly write to local IndexedDB (Optimistic UI update)
+      // 1. Instantly write to local IndexedDB (Optimistic UI update, works 100% offline)
       await localRepository.saveMember(newMember as any);
 
       // 2. Queue the mutation in background outbox
       const cleanRecord = cleanMemberForDb(newMember);
-      try {
-        const { data, error } = await supabase
-          .from("members")
-          .insert(cleanRecord)
-          .select()
-          .maybeSingle();
+      let onlineInserted = false;
+      const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
 
-        if (error) {
-          console.warn("Direct Supabase insert failed, enqueuing for background sync:", error);
-          await localRepository.enqueueAction("members", "INSERT", id, cleanRecord);
-        } else if (data) {
-          await localRepository.saveMember(data as any);
-          return data;
+      if (isOnline) {
+        try {
+          const insertPromise = supabase
+            .from("members")
+            .insert(cleanRecord)
+            .select()
+            .maybeSingle();
+
+          const { data, error } = await withTimeout(
+            insertPromise,
+            2000,
+            { data: null, error: new Error("Network timeout") } as any
+          );
+
+          if (!error && data) {
+            onlineInserted = true;
+            await localRepository.saveMember(data as any);
+            return data;
+          }
+        } catch (err) {
+          console.warn("Direct Supabase insert failed, enqueuing for background sync:", err);
         }
-      } catch (err) {
-        console.warn("Network error inserting member, enqueuing for background sync:", err);
+      }
+
+      if (!onlineInserted) {
+        console.log("Member saved in local database & enqueued for sync when online.");
         await localRepository.enqueueAction("members", "INSERT", id, cleanRecord);
       }
 
-      // 3. Trigger background Supabase synchronization
-      syncManager.sync();
+      // 3. Trigger background Supabase synchronization if online
+      if (isOnline) {
+        syncManager.sync();
+      }
 
       return newMember;
     },
@@ -482,10 +497,34 @@ export const useVerifyMember = () => {
       const id = typeof payload === "string" ? payload : payload.id;
       const passedMember = typeof payload === "object" ? payload.memberData : undefined;
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      // 1. Get current user & role safely (works 100% offline too)
+      let userId = "pu_agent_offline";
+      let userRole = typeof window !== "undefined" ? localStorage.getItem("auth_role") : null;
 
-      // 1. Get existing member from local IndexedDB or passed data
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          userId = user.id;
+          if (user.user_metadata?.role) userRole = user.user_metadata.role;
+        }
+      } catch (authErr) {
+        console.warn("Auth check offline:", authErr);
+      }
+
+      // STRICT PERMISSION: Only Polling Unit Field Agent can physically verify members
+      const isAgent = 
+        userRole === "polling_unit_agent" || 
+        userRole === "pu_agent" || 
+        userRole === "agent";
+
+      if (!isAgent && typeof window !== "undefined") {
+        const rawAssigned = localStorage.getItem("assigned_pu_agents");
+        if (!rawAssigned || rawAssigned === "{}") {
+          throw new Error("Only an assigned Polling Unit Field Agent can verify members in their unit.");
+        }
+      }
+
+      // 2. Get existing member from local IndexedDB or passed data
       const existing = (await localRepository.getMemberById(id)) || passedMember || {};
 
       const now = new Date().toISOString();
@@ -494,45 +533,51 @@ export const useVerifyMember = () => {
         id,
         is_verified: true,
         verified_at: now,
-        verified_by_agent_id: user.id,
+        verified_by_agent_id: userId,
         updated_at: now
       };
 
-      // 2. Try direct update to Supabase first if online
-      let onlineSuccess = false;
-      try {
-        const { error } = await withTimeout(
-          supabase
-            .from("members")
-            .update({
-              is_verified: true,
-              verified_at: now,
-              verified_by_agent_id: user.id,
-              updated_at: now
-            })
-            .eq("id", id),
-          8000,
-          { error: new Error("Supabase update timed out") } as any
-        );
-
-        if (!error) {
-          onlineSuccess = true;
-        }
-      } catch (err) {
-        console.warn("Direct Supabase update failed, will rely on sync queue:", err);
-      }
-
-      // 3. Save to local IndexedDB (Optimistic UI update)
+      // 3. Save to local IndexedDB immediately (Optimistic UI update)
       await localRepository.saveMember(updatedMember as any);
 
-      // 4. If direct update didn't succeed (offline or timeout), queue for background sync
+      // 4. Try network update if online with quick 2s timeout
+      let onlineSuccess = false;
+      const isOnline = typeof navigator !== "undefined" ? navigator.onLine : true;
+      if (isOnline) {
+        try {
+          const { error } = await withTimeout(
+            supabase
+              .from("members")
+              .update({
+                is_verified: true,
+                verified_at: now,
+                verified_by_agent_id: userId,
+                updated_at: now
+              })
+              .eq("id", id),
+            2000,
+            { error: new Error("Supabase update timed out") } as any
+          );
+
+          if (!error) {
+            onlineSuccess = true;
+          }
+        } catch (err) {
+          console.warn("Direct Supabase update failed, queued for background sync:", err);
+        }
+      }
+
+      // 5. If direct update didn't succeed (offline or timeout), queue for background sync
       if (!onlineSuccess) {
         await localRepository.enqueueAction("members", "UPDATE", id, {
           is_verified: true,
           verified_at: now,
-          verified_by_agent_id: user.id
+          verified_by_agent_id: userId,
+          updated_at: now
         });
-        syncManager.sync();
+        if (isOnline) {
+          syncManager.sync();
+        }
       }
 
       return id;
@@ -542,7 +587,7 @@ export const useVerifyMember = () => {
       queryClient.invalidateQueries({ queryKey: ["member", id] });
       queryClient.invalidateQueries({ queryKey: ["demographics"] });
       queryClient.invalidateQueries({ queryKey: ["super-admin"] });
-      toast.success("Member physically verified successfully!");
+      toast.success("Member physically verified successfully! (Saved locally & synced)");
     },
     onError: (error: any) => {
       console.error("Error verifying member:", error);

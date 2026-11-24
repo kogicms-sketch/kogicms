@@ -167,27 +167,41 @@ const Members = () => {
   const { data: authorizedLgas = [] } = useAuthorizedLgas();
   const { data: councillor } = useCouncillor({ enabled: role === "councillor" });
 
-  const allowedLgas = role === "polling_unit_agent" ? undefined : (authorizedLgas.length > 0 ? authorizedLgas : undefined);
-  const allowedWard = role === "councillor" ? councillor?.ward : undefined;
+  const isPuAgent = role === "polling_unit_agent" || (role as string) === "pu_agent" || (role as string) === "agent";
+  const allowedLgas = isPuAgent ? (puAgent?.lga ? [puAgent.lga] : undefined) : (authorizedLgas.length > 0 ? authorizedLgas : undefined);
+  const allowedWard = isPuAgent ? puAgent?.ward : (role === "councillor" ? councillor?.ward : undefined);
 
-  const membersScope = role === "polling_unit_agent" ? "polling_unit" : organizationId ? "organization" : "all";
+  const membersScope = isPuAgent ? "polling_unit" : organizationId ? "organization" : "all";
 
   const { data: members = [], isLoading } = useMembers(
-    role === "polling_unit_agent" ? undefined : organizationId || undefined,
-    role === "polling_unit_agent" ? puAgent?.polling_unit_id || undefined : undefined,
-    role === "polling_unit_agent" ? puAgent?.polling_unit_name || undefined : undefined,
+    isPuAgent ? undefined : organizationId || undefined,
+    isPuAgent ? puAgent?.polling_unit_id || undefined : undefined,
+    isPuAgent ? puAgent?.polling_unit_name || undefined : undefined,
     membersScope,
     allowedLgas,
     allowedWard
   );
   const { data: stats } = useMemberStats(
-    role === "polling_unit_agent" ? null : organizationId,
-    role === "polling_unit_agent" ? puAgent?.polling_unit_id || undefined : undefined,
-    role === "polling_unit_agent" ? puAgent?.polling_unit_name || undefined : undefined,
+    isPuAgent ? null : organizationId,
+    isPuAgent ? puAgent?.polling_unit_id || undefined : undefined,
+    isPuAgent ? puAgent?.polling_unit_name || undefined : undefined,
     membersScope,
     allowedLgas,
     allowedWard
   );
+
+  const norm = (s: any) => (s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+  const agentPuId = norm(puAgent?.polling_unit_id);
+  const agentPuName = norm(puAgent?.polling_unit_name);
+
+  const isMemberInAgentPU = (member: any) => {
+    if (!isPuAgent) return false;
+    const mPuId = norm(member.polling_unit_id);
+    const mPu = norm(member.polling_unit || member.polling_unit_name);
+    if (agentPuId && (mPuId === agentPuId || mPuId.includes(agentPuId) || agentPuId.includes(mPuId))) return true;
+    if (agentPuName && mPu && (mPu === agentPuName || mPu.includes(agentPuName) || agentPuName.includes(mPu))) return true;
+    return false;
+  };
   const { mutate: verifyMember, isPending: isVerifying } = useVerifyMember();
 
   // Filter members based on search, selected occupation and sub-occupation
@@ -818,11 +832,7 @@ const Members = () => {
                                 <span>Pending Visit</span>
                               </div>
                             )}
-                            {(role === "polling_unit_agent" || role === "councillor") && !member.is_verified && (
-                              role === "councillor" ||
-                              puAgent?.polling_unit_id === member.polling_unit_id || 
-                              puAgent?.polling_unit_name === member.polling_unit
-                            ) && (
+                            {isPuAgent && !member.is_verified && isMemberInAgentPU(member) && (
                               <Button 
                                 size="sm" 
                                 variant="ghost" 

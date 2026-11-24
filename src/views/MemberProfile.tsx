@@ -69,6 +69,17 @@ const MemberProfile = () => {
 
     // Get agent profile if applicable
     const { data: puAgent, isLoading: puAgentLoading } = usePUAgent();
+    const isPuAgent = userProfile?.role === "polling_unit_agent" || userProfile?.role === "pu_agent" || userProfile?.role === "agent";
+    const norm = (s: any) => (s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+    const agentPuId = norm(puAgent?.polling_unit_id);
+    const agentPuName = norm(puAgent?.polling_unit_name);
+    const memberPuId = norm(member?.polling_unit_id);
+    const memberPuName = norm(member?.polling_unit);
+
+    const isMemberInAgentPU = isPuAgent && (
+        (agentPuId && (memberPuId === agentPuId || memberPuId.includes(agentPuId) || agentPuId.includes(memberPuId))) ||
+        (agentPuName && memberPuName && (memberPuName === agentPuName || memberPuName.includes(agentPuName) || agentPuName.includes(memberPuName)))
+    );
 
     const handleDownloadIdCard = useCallback(async () => {
         if (!idCardRef.current) {
@@ -242,10 +253,7 @@ const MemberProfile = () => {
                         <User className="w-4 h-4" />
                         Edit Profile
                     </Button>
-                    {(!member.is_verified && !member.is_deceased && (
-                        userProfile?.role === "super_admin" || 
-                        (userProfile?.role === "polling_unit_agent" && (puAgent?.polling_unit_id === member.polling_unit_id || puAgent?.polling_unit_name === member.polling_unit))
-                    )) && (
+                    {(!member.is_verified && !member.is_deceased && isPuAgent && isMemberInAgentPU) && (
                         <Button 
                             onClick={handleVerify}
                             disabled={isVerifying}
@@ -262,10 +270,7 @@ const MemberProfile = () => {
                 {/* Left Column: ID Card & Info */}
                 <div className="space-y-6">
                     {/* Verification Box for Agents */}
-                    {(!member.is_verified && !member.is_deceased && (
-                        userProfile?.role === "super_admin" || 
-                        (userProfile?.role === "polling_unit_agent" && (puAgent?.polling_unit_id === member.polling_unit_id || puAgent?.polling_unit_name === member.polling_unit))
-                    )) && (
+                    {(!member.is_verified && !member.is_deceased && isPuAgent && isMemberInAgentPU) && (
                         <Card className="border-l-4 border-l-apc-green bg-green-50/50">
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-base flex items-center gap-2 text-green-800">
@@ -289,7 +294,7 @@ const MemberProfile = () => {
                         </Card>
                     )}
                     
-                    {!member.is_verified && userProfile?.role === "polling_unit_agent" && puAgent?.polling_unit_id !== member.polling_unit_id && puAgent?.polling_unit_name !== member.polling_unit && (
+                    {!member.is_verified && (!isPuAgent || !isMemberInAgentPU) && (
                         <Card className="border-l-4 border-l-orange-400 bg-orange-50/30">
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-sm font-bold flex items-center gap-2 text-orange-800">

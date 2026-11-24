@@ -49,6 +49,18 @@ class SyncManager {
       console.log('📶 Network status changed:', status.connected ? 'Connected' : 'Disconnected');
       this.updateStatus(status.connected);
     });
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        console.log('📶 Browser online event detected: Auto-syncing outbox...');
+        this.updateStatus(true);
+        this.sync();
+      });
+      window.addEventListener('offline', () => {
+        console.log('📶 Browser offline event detected');
+        this.updateStatus(false);
+      });
+    }
   }
 
   private async updateStatus(connected: boolean) {
