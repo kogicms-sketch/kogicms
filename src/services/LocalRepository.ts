@@ -89,6 +89,22 @@ class LocalRepository {
 
   public async getMembers(): Promise<LocalMember[]> {
     const members = await offlineDb.members.toArray();
+    try {
+      const queue = await offlineDb.sync_queue.where("table_name").equals("members").toArray();
+      const existingIds = new Set(members.map(m => m.id));
+      for (const item of queue) {
+        if (item.action === "INSERT" && item.payload && !existingIds.has(item.record_id)) {
+          try {
+            const parsed = JSON.parse(item.payload);
+            if (parsed && (parsed.id || parsed.full_name)) {
+              members.push(parsed);
+              existingIds.add(parsed.id || item.record_id);
+              await offlineDb.members.put(parsed);
+            }
+          } catch (e) {}
+        }
+      }
+    } catch (err) {}
     return members.filter(m => m.deleted !== 1);
   }
 

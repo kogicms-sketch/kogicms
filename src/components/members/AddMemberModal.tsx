@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { SchoolSelect } from "@/components/common/SchoolSelect";
 import { STUDENT_INSTITUTIONS } from "@/data/student_institutions";
 import { NIGERIAN_BANKS as FULL_NIGERIAN_BANKS } from "@/data/nigerian_banks";
+import { ALL_POLLING_UNITS } from "@/data/aggregated_lga_data";
 
 interface AddMemberModalProps {
   isOpen: boolean;
@@ -603,6 +604,21 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
           if (!puError && puData) {
             resolvedPollingUnitId = puData.id;
             finalPollingUnitName = puData.name;
+          }
+        }
+        if (!resolvedPollingUnitId && formData.polling_unit) {
+          const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+          const normName = norm(formData.polling_unit);
+          const staticPu = ALL_POLLING_UNITS.find(pu => 
+            norm(pu.name) === normName ||
+            norm(pu.name).includes(normName) ||
+            normName.includes(norm(pu.name))
+          );
+          if (staticPu) {
+            resolvedPollingUnitId = staticPu.id;
+            finalPollingUnitName = staticPu.name;
+          } else if (isPUAgent && puAgent?.polling_unit_id) {
+            resolvedPollingUnitId = puAgent.polling_unit_id;
           }
         }
       }

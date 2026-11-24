@@ -57,7 +57,9 @@ const PUAgentDashboard = () => {
         undefined, 
         agent?.polling_unit_id || undefined, 
         agent?.polling_unit_name || undefined, 
-        "polling_unit"
+        "polling_unit",
+        agent?.lga ? [agent.lga] : undefined,
+        agent?.ward || undefined
     );
     const { mutate: verifyMember, isPending: isVerifying } = useVerifyMember();
 

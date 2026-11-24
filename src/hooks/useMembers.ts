@@ -164,36 +164,9 @@ export const useMembers = (
         );
 
         const { data, error } = networkResult as any;
-        if (!error && data) {
-          // Sync local cache: delete cached records for this scope before saving fresh ones
-          let cachedList = await localRepository.getMembers();
-          if (scope === "polling_unit") {
-            if (pollingUnitId && pollingUnitName) {
-              cachedList = cachedList.filter(m => m.polling_unit_id === pollingUnitId || m.polling_unit === pollingUnitName);
-            } else if (pollingUnitId) {
-              cachedList = cachedList.filter(m => m.polling_unit_id === pollingUnitId);
-            } else if (pollingUnitName) {
-              cachedList = cachedList.filter(m => m.polling_unit === pollingUnitName);
-            }
-          } else if (scope === "organization" && organizationId) {
-            cachedList = cachedList.filter(m => m.organization_id === organizationId || m.support_group_id === organizationId);
-          } else if (scope === "all") {
-            if (allowedWard) {
-              cachedList = cachedList.filter(m => m.ward && m.ward.toLowerCase() === allowedWard.toLowerCase());
-            }
-            if (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) {
-              cachedList = cachedList.filter(m => m.lga && allowedLgas.some(al => al.toLowerCase() === m.lga.toLowerCase()));
-            }
-          }
-          
-          for (const m of cachedList) {
-            await offlineDb.members.delete(m.id);
-          }
-
-          if (data.length > 0) {
-            for (const member of data) {
-              await localRepository.saveMember(member);
-            }
+        if (!error && Array.isArray(data) && data.length > 0) {
+          for (const member of data) {
+            await localRepository.saveMember(member);
           }
         }
       } catch (err) {
@@ -203,15 +176,36 @@ export const useMembers = (
       // 2. Load from local cache (IndexedDB)
       let list = await localRepository.getMembers();
       
+      const norm = (s: any) => (s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+      const normPuId = norm(pollingUnitId);
+      const normPuName = norm(pollingUnitName);
+      const normWard = norm(allowedWard);
+      const normLga = (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) ? norm(allowedLgas[0]) : '';
+
       // Apply filters locally
       if (scope === "polling_unit") {
-        if (pollingUnitId && pollingUnitName) {
-          list = list.filter(m => m.polling_unit_id === pollingUnitId || m.polling_unit === pollingUnitName);
-        } else if (pollingUnitId) {
-          list = list.filter(m => m.polling_unit_id === pollingUnitId);
-        } else if (pollingUnitName) {
-          list = list.filter(m => m.polling_unit === pollingUnitName);
-        }
+        list = list.filter(m => {
+          if (!m) return false;
+          const mPuId = norm(m.polling_unit_id);
+          const mPu = norm(m.polling_unit || (m as any).polling_unit_name);
+          const mWard = norm(m.ward);
+          const mLga = norm(m.lga);
+
+          // 1. Direct ID match
+          if (normPuId && (mPuId === normPuId || mPuId.includes(normPuId) || normPuId.includes(mPuId))) return true;
+
+          // 2. Name match (case-insensitive, normalized, substring)
+          if (normPuName && mPu && (mPu === normPuName || mPu.includes(normPuName) || normPuName.includes(mPu))) return true;
+
+          // 3. Fallback to ward & LGA if member is in this ward and polling_unit matches loosely
+          if (normWard && mWard === normWard && (!normLga || mLga === normLga)) {
+            if (!normPuName || (mPu && (mPu.includes(normPuName) || normPuName.includes(mPu)))) {
+              return true;
+            }
+          }
+
+          return false;
+        });
       } else if (scope === "organization" && organizationId) {
         list = list.filter(m => m.organization_id === organizationId || m.support_group_id === organizationId);
       }
@@ -381,15 +375,36 @@ export const useMemberStats = (
       // 1. Check local cache first
       let list = await localRepository.getMembers();
       
+      const norm = (s: any) => (s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, '') : '');
+      const normPuId = norm(pollingUnitId);
+      const normPuName = norm(pollingUnitName);
+      const normWard = norm(allowedWard);
+      const normLga = (allowedLgas && allowedLgas.length > 0 && !allowedLgas.includes("ALL")) ? norm(allowedLgas[0]) : '';
+
       // Apply filters locally
       if (scope === "polling_unit") {
-        if (pollingUnitId && pollingUnitName) {
-          list = list.filter(m => m.polling_unit_id === pollingUnitId || m.polling_unit === pollingUnitName);
-        } else if (pollingUnitId) {
-          list = list.filter(m => m.polling_unit_id === pollingUnitId);
-        } else if (pollingUnitName) {
-          list = list.filter(m => m.polling_unit === pollingUnitName);
-        }
+        list = list.filter(m => {
+          if (!m) return false;
+          const mPuId = norm(m.polling_unit_id);
+          const mPu = norm(m.polling_unit || (m as any).polling_unit_name);
+          const mWard = norm(m.ward);
+          const mLga = norm(m.lga);
+
+          // 1. Direct ID match
+          if (normPuId && (mPuId === normPuId || mPuId.includes(normPuId) || normPuId.includes(mPuId))) return true;
+
+          // 2. Name match (case-insensitive, normalized, substring)
+          if (normPuName && mPu && (mPu === normPuName || mPu.includes(normPuName) || normPuName.includes(mPu))) return true;
+
+          // 3. Fallback to ward & LGA if member is in this ward and polling_unit matches loosely
+          if (normWard && mWard === normWard && (!normLga || mLga === normLga)) {
+            if (!normPuName || (mPu && (mPu.includes(normPuName) || normPuName.includes(mPu)))) {
+              return true;
+            }
+          }
+
+          return false;
+        });
       } else if (scope === "organization" && organizationId) {
         list = list.filter(m => m.organization_id === organizationId || m.support_group_id === organizationId);
       }
