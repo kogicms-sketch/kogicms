@@ -587,6 +587,10 @@ export const useVerifyMember = () => {
       queryClient.invalidateQueries({ queryKey: ["member", id] });
       queryClient.invalidateQueries({ queryKey: ["demographics"] });
       queryClient.invalidateQueries({ queryKey: ["super-admin"] });
+      queryClient.invalidateQueries({ queryKey: ["councillor-ward-data"] });
+      queryClient.invalidateQueries({ queryKey: ["polling-unit-cells"] });
+      queryClient.invalidateQueries({ queryKey: ["polling-unit-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["councillor-members"] });
       toast.success("Member physically verified successfully! (Saved locally & synced)");
     },
     onError: (error: any) => {

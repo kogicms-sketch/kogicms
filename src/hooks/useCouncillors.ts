@@ -43,6 +43,19 @@ export interface CouncillorWardData {
     pollingUnits: any[];
 }
 
+export const isMemberVerifiedRecord = (m: any): boolean => {
+    if (!m) return false;
+    return (
+        m.is_verified === true ||
+        m.is_verified === 1 ||
+        m.is_verified === "true" ||
+        m.status === "verified" ||
+        m.status === "active" ||
+        m.verification_status === "verified" ||
+        !!m.verified_at
+    );
+};
+
 // Get current councillor profile with resilient fallback
 export const useCouncillor = (options?: { enabled?: boolean }) => {
     return useQuery({
@@ -192,81 +205,190 @@ export const fetchFreshWardData = async (councillor: Councillor): Promise<Counci
         }
     }
 
-    // 2. Fetch members of this ward
-    let wardMembers: any[] = [];
+    // 2. Gather Assigned PU Agents from ALL sources (localRepository cells, assigned_pu_agents in localStorage, starred agents)
+    const assignedAgentMap = new Map<string, { id: string; name: string; phone?: string; designation: string }>();
+
+    // Source A: localRepository polling unit cells (IndexedDB)
     try {
-        const { data: memberRows } = await supabase
+        const cachedCells = await localRepository.getPollingUnitCells();
+        cachedCells.forEach((c: any) => {
+            const agentName = c.polling_unit_agent_name || c.canvasser_name;
+            if (agentName && String(agentName).trim()) {
+                const entry = {
+                    id: c.id || c.pu_code || `agent_${c.polling_unit_name}`,
+                    name: String(agentName).trim(),
+                    phone: c.polling_unit_agent_phone || c.canvasser_phone,
+                    designation: "Lead PU Agent",
+                };
+                if (c.id) assignedAgentMap.set(String(c.id).toLowerCase().trim(), entry);
+                if (c.pu_code) assignedAgentMap.set(String(c.pu_code).toLowerCase().trim(), entry);
+                if (c.polling_unit_name) assignedAgentMap.set(String(c.polling_unit_name).toLowerCase().trim(), entry);
+            }
+        });
+    } catch (e) {}
+
+    // Source B: localStorage assigned_pu_agents
+    if (typeof window !== "undefined") {
+        try {
+            const assignedLocal = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
+            Object.entries(assignedLocal).forEach(([key, val]: [string, any]) => {
+                if (val && typeof val === "object") {
+                    const agentName = val.agent_name || val.name;
+                    if (agentName && String(agentName).trim()) {
+                        const entry = {
+                            id: val.id || val.pu_id || key,
+                            name: String(agentName).trim(),
+                            phone: val.phone,
+                            designation: "Lead PU Agent",
+                        };
+                        assignedAgentMap.set(String(key).toLowerCase().trim(), entry);
+                        if (val.pu_id) assignedAgentMap.set(String(val.pu_id).toLowerCase().trim(), entry);
+                        if (val.pu_code) assignedAgentMap.set(String(val.pu_code).toLowerCase().trim(), entry);
+                        if (val.pu_name) assignedAgentMap.set(String(val.pu_name).toLowerCase().trim(), entry);
+                    }
+                }
+            });
+        } catch (e) {}
+    }
+
+    // Source C: starred agents
+    try {
+        const starredAgents = getLocalStarredAgents();
+        Object.entries(starredAgents).forEach(([memberId, val]) => {
+            if (val.is_starred && val.polling_unit) {
+                const entry = {
+                    id: memberId,
+                    name: val.agent_name || "Assigned Agent",
+                    phone: val.phone,
+                    designation: val.designation || "Lead PU Agent",
+                };
+                assignedAgentMap.set(String(val.polling_unit).toLowerCase().trim(), entry);
+            }
+        });
+    } catch (e) {}
+
+    // 3. Fetch and Merge members of this ward from both Local IndexedDB & Supabase
+    const memberMap = new Map<string, any>();
+
+    // Step 3A: Load local members (Dexie + sync_queue)
+    try {
+        const allLocal = await localRepository.getMembers();
+        allLocal.forEach((m: any) => {
+            if (m.deleted === 1) return;
+            const mLga = (m.lga || "").toLowerCase().replace(/[^a-z]/g, "");
+            const mWard = (m.ward || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+            const lgaMatches = !normLga || !mLga || mLga === normLga || mLga.includes(normLga) || normLga.includes(mLga);
+            const wardMatches = !normWard || !mWard || mWard === normWard || mWard.includes(normWard) || normWard.includes(mWard);
+
+            if (lgaMatches && wardMatches && m.id) {
+                memberMap.set(m.id, { ...m });
+            }
+        });
+    } catch (e) {
+        console.warn("Could not load local members for ward data:", e);
+    }
+
+    // Step 3B: Fetch from Supabase and merge
+    try {
+        const { data: memberRows, error } = await supabase
             .from("members")
-            .select("id, full_name, email, phone, state, lga, ward, polling_unit, polling_unit_id, gender, is_verified, status")
+            .select("id, full_name, email, phone, state, lga, ward, polling_unit, polling_unit_id, gender, is_verified, status, verified_at, verification_status")
             .ilike("lga", `%${targetLga}%`);
 
-        if (memberRows && memberRows.length > 0) {
-            wardMembers = memberRows.filter((m: any) => {
+        if (!error && memberRows && memberRows.length > 0) {
+            memberRows.forEach((m: any) => {
                 const mW = (m.ward || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-                return mW === normWard || mW.includes(normWard) || normWard.includes(mW);
+                if (!normWard || mW === normWard || mW.includes(normWard) || normWard.includes(mW)) {
+                    if (m.id) {
+                        const local = memberMap.get(m.id);
+                        if (local) {
+                            // Merge: preserve local verification if member is verified locally
+                            const isLocalVerified = isMemberVerifiedRecord(local);
+                            const isRemoteVerified = isMemberVerifiedRecord(m);
+                            memberMap.set(m.id, {
+                                ...m,
+                                ...local,
+                                is_verified: isLocalVerified || isRemoteVerified,
+                                status: isLocalVerified ? (local.status || "verified") : (m.status || local.status)
+                            });
+                        } else {
+                            memberMap.set(m.id, { ...m });
+                        }
+                    }
+                }
             });
         }
-    } catch {
-        try {
-            wardMembers = await localRepository.getMembersByWard(targetLga, targetWard);
-        } catch {}
+    } catch (err) {
+        console.warn("Network error fetching ward members from Supabase:", err);
     }
 
-    if (wardMembers.length === 0) {
-        try {
-            wardMembers = await localRepository.getMembersByWard(targetLga, targetWard);
-        } catch {}
-    }
+    const wardMembers = Array.from(memberMap.values());
 
-    // 3. Map members count and assigned agents per polling unit
+    // 4. Map members count and assigned agents per polling unit
     const memberCountMap = new Map<string, number>();
     const verifiedCountMap = new Map<string, number>();
-    let totalMembers = wardMembers.length;
+    const totalMembers = wardMembers.length;
     let verifiedMembers = 0;
 
     wardMembers.forEach((m) => {
-        if (m.is_verified || m.status === 'active') verifiedMembers++;
+        const isVer = isMemberVerifiedRecord(m);
+        if (isVer) {
+            verifiedMembers++;
+        }
+
         const puKey = (m.polling_unit || "").toLowerCase().trim();
+        const puId = (m.polling_unit_id || "").toLowerCase().trim();
+
         if (puKey) {
             memberCountMap.set(puKey, (memberCountMap.get(puKey) || 0) + 1);
-            if (m.is_verified || m.status === 'active') {
+            if (isVer) {
                 verifiedCountMap.set(puKey, (verifiedCountMap.get(puKey) || 0) + 1);
+            }
+        }
+        if (puId) {
+            memberCountMap.set(puId, (memberCountMap.get(puId) || 0) + 1);
+            if (isVer) {
+                verifiedCountMap.set(puId, (verifiedCountMap.get(puId) || 0) + 1);
             }
         }
     });
 
-    const starredAgents = getLocalStarredAgents();
     let assignedAgentsCount = 0;
 
     const pollingUnits = matchedPUs.map((pu) => {
         const key = pu.name.toLowerCase().trim();
         const codeKey = (pu.code || "").toLowerCase().trim();
+        const idKey = (pu.id || "").toLowerCase().trim();
         const registered = pu.registeredVoters || 0;
-        const verified = verifiedCountMap.get(key) || verifiedCountMap.get(codeKey) || 0;
-        const total = memberCountMap.get(key) || memberCountMap.get(codeKey) || 0;
 
-        // Check if an agent is assigned
+        const verified = verifiedCountMap.get(idKey) || verifiedCountMap.get(codeKey) || verifiedCountMap.get(key) || 0;
+        const total = memberCountMap.get(idKey) || memberCountMap.get(codeKey) || memberCountMap.get(key) || 0;
+
+        // Check if an agent is assigned from our unified map
         let assignedAgent: any = null;
-        Object.entries(starredAgents).forEach(([memberId, val]) => {
-            if (val.is_starred && val.polling_unit && (
-                val.polling_unit.toLowerCase() === key ||
-                val.polling_unit.toLowerCase() === codeKey ||
-                val.polling_unit.toLowerCase().includes(key) ||
-                key.includes(val.polling_unit.toLowerCase())
-            )) {
-                assignedAgent = {
-                    id: memberId,
-                    designation: val.designation || "lead_agent",
-                };
+        if (assignedAgentMap.has(idKey)) {
+            assignedAgent = assignedAgentMap.get(idKey);
+        } else if (assignedAgentMap.has(codeKey)) {
+            assignedAgent = assignedAgentMap.get(codeKey);
+        } else if (assignedAgentMap.has(key)) {
+            assignedAgent = assignedAgentMap.get(key);
+        } else {
+            for (const [mapKey, agent] of assignedAgentMap.entries()) {
+                if (key && mapKey && (key.includes(mapKey) || mapKey.includes(key))) {
+                    assignedAgent = agent;
+                    break;
+                }
             }
-        });
+        }
 
-        if (assignedAgent) assignedAgentsCount++;
+        if (assignedAgent) {
+            assignedAgentsCount++;
+        }
 
         let status = "forming";
         if (verified >= registered && registered > 0) {
             status = "complete";
-        } else if (verified >= 5 || total >= 10) {
+        } else if (verified >= 5 || total >= 10 || assignedAgent) {
             status = "active";
         } else if (total > 0) {
             status = "ready";
@@ -343,28 +465,27 @@ export const useCouncillorWardData = (overrideLga?: string, overrideWard?: strin
                 ward: activeWard,
             };
 
-            const cacheKey = `ward_data_v5_${activeLga}_${activeWard}`;
-            if (typeof window !== "undefined") {
-                const cached = localStorage.getItem(cacheKey);
-                if (cached) {
-                    try {
-                        const parsed = JSON.parse(cached) as CouncillorWardData;
-                        fetchFreshWardData(tempCouncillor).then(fresh => {
-                            localStorage.setItem(cacheKey, JSON.stringify(fresh));
-                        }).catch(() => {});
-                        return parsed;
-                    } catch {}
-                }
-            }
-
             const freshData = await fetchFreshWardData(tempCouncillor);
             if (typeof window !== "undefined") {
+                const cacheKey = `ward_data_v6_${activeLga}_${activeWard}`;
                 localStorage.setItem(cacheKey, JSON.stringify(freshData));
             }
             return freshData;
         },
+        initialData: () => {
+            if (typeof window !== "undefined") {
+                const cacheKey = `ward_data_v6_${activeLga}_${activeWard}`;
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    try {
+                        return JSON.parse(cached) as CouncillorWardData;
+                    } catch {}
+                }
+            }
+            return undefined;
+        },
         enabled: true,
-        staleTime: 1000 * 60 * 5, // 5 minutes
+        staleTime: 1000 * 5, // 5 seconds fresh
         gcTime: 1000 * 60 * 30, // 30 minutes
     });
 };
@@ -391,15 +512,35 @@ export const useCouncillorMembers = () => {
         queryFn: async () => {
             if (!councillor) return [];
 
-            const { data, error } = await supabase
-                .from("members")
-                .select("*")
-                .ilike("lga", `%${councillor.lga}%`)
-                .order("created_at", { ascending: false });
+            const map = new Map<string, any>();
+            try {
+                const local = await localRepository.getMembersByWard(councillor.lga, councillor.ward);
+                local.forEach(m => {
+                    if (m && m.id) map.set(m.id, m);
+                });
+            } catch (e) {}
 
-            if (error) return [];
-            const normWard = councillor.ward.toLowerCase().trim();
-            return (data || []).filter((m: any) => m.ward && m.ward.toLowerCase().trim() === normWard);
+            try {
+                const { data, error } = await supabase
+                    .from("members")
+                    .select("*")
+                    .ilike("lga", `%${councillor.lga}%`)
+                    .order("created_at", { ascending: false });
+
+                if (!error && data) {
+                    const normWard = councillor.ward.toLowerCase().trim();
+                    data.forEach((m: any) => {
+                        if (m.ward && m.ward.toLowerCase().trim() === normWard) {
+                            if (m.id) {
+                                const existing = map.get(m.id);
+                                map.set(m.id, { ...m, ...(existing || {}) });
+                            }
+                        }
+                    });
+                }
+            } catch (e) {}
+
+            return Array.from(map.values());
         },
         enabled: !!councillor,
     });

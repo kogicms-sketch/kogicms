@@ -16,6 +16,9 @@ export interface LocalMember {
   date_of_birth: string | null;
   voters_card_id: string | null;
   voters_card_image_url: string | null;
+  is_verified?: boolean;
+  status?: string;
+  verified_at?: string | null;
   created_at: string;
   updated_at: string;
   deleted: number; // 0 for active, 1 for soft-deleted
@@ -109,8 +112,20 @@ class LocalRepository {
   }
 
   public async getMembersByWard(lga: string, ward: string): Promise<LocalMember[]> {
-    const members = await offlineDb.members.where('ward').equals(ward).toArray();
-    return members.filter(m => m.deleted !== 1 && m.lga === lga);
+    const all = await this.getMembers();
+    const normLga = (lga || "").toLowerCase().replace(/[^a-z]/g, "");
+    const normWard = (ward || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    return all.filter(m => {
+      if (m.deleted === 1) return false;
+      const mLga = (m.lga || "").toLowerCase().replace(/[^a-z]/g, "");
+      const mWard = (m.ward || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      const matchLga = !normLga || !mLga || mLga === normLga || mLga.includes(normLga) || normLga.includes(mLga);
+      const matchWard = !normWard || !mWard || mWard === normWard || mWard.includes(normWard) || normWard.includes(mWard);
+
+      return matchLga && matchWard;
+    });
   }
 
   public async saveMember(member: Omit<LocalMember, 'created_at' | 'updated_at' | 'deleted'>): Promise<LocalMember> {

@@ -796,7 +796,7 @@ export default function CouncillorDashboard() {
                                   {pu.agent ? (
                                     <div className="flex items-center gap-1.5">
                                       <Badge className="bg-emerald-600 text-white text-[11px] font-semibold gap-1">
-                                        <CheckCircle2 className="w-3 h-3" /> Assigned
+                                        <CheckCircle2 className="w-3 h-3 shrink-0" /> <span className="truncate max-w-[140px]">{pu.agent?.name ? `Agent: ${pu.agent.name}` : "Assigned"}</span>
                                       </Badge>
                                       <Button
                                         size="sm"
