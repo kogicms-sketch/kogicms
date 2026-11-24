@@ -17,7 +17,12 @@ const normKey = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "")
 const PU_BY_WARD_INDEX = new Map<string, typeof ALL_POLLING_UNITS>();
 const PU_BY_LGA_INDEX = new Map<string, typeof ALL_POLLING_UNITS>();
 
+const seenPuKeys = new Set<string>();
 ALL_POLLING_UNITS.forEach((pu) => {
+  const puKey = `${pu.id}-${pu.code}`;
+  if (seenPuKeys.has(puKey)) return;
+  seenPuKeys.add(puKey);
+
   const wKey = normKey(pu.wardName);
   if (!PU_BY_WARD_INDEX.has(wKey)) PU_BY_WARD_INDEX.set(wKey, []);
   PU_BY_WARD_INDEX.get(wKey)!.push(pu);

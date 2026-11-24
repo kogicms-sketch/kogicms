@@ -1,7 +1,7 @@
 "use client";
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -31,7 +31,9 @@ import {
 import QRCode from "react-qr-code";
 import { CAMPAIGN_NAME } from "@/lib/campaign-data";
 import { useParty } from "@/contexts/PartyContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/loose-client";
+import { localRepository } from "@/services/LocalRepository";
 import { format } from "date-fns";
 import { EditMemberModal } from "@/components/members/EditMemberModal";
 import { PrintableIDCard } from "@/components/members/PrintableIDCard";
@@ -45,10 +47,32 @@ import { StarAgentButton } from "@/components/members/StarAgentButton";
 
 const MemberProfile = () => {
     const { partyId } = useParty();
+    const { user, role: authRole } = useAuth();
+    const queryClient = useQueryClient();
     const searchParams = useSearchParams();
-    const id = searchParams.get('id');
+    const rawId = searchParams.get('id') || searchParams.get('memberId');
+    const [resolvedId, setResolvedId] = useState<string | null>(() => {
+        if (rawId) return rawId;
+        if (typeof window !== "undefined") {
+            return localStorage.getItem("last_viewed_member_id") || null;
+        }
+        return null;
+    });
+
+    useEffect(() => {
+        if (rawId && rawId !== resolvedId) {
+            setResolvedId(rawId);
+            if (typeof window !== "undefined") {
+                try {
+                    localStorage.setItem("last_viewed_member_id", rawId);
+                } catch (_) {}
+            }
+        }
+    }, [rawId, resolvedId]);
+
+    const id = resolvedId;
     const router = useRouter();
-    const navigate = (path, options?: any) => { if (path === -1) router.back(); else router.push(path); };
+    const navigate = (path: any, options?: any) => { if (path === -1) router.back(); else router.push(path); };
     const idCardRef = useRef<HTMLDivElement>(null);
     const [downloadName, setDownloadName] = useState<string>("member");
     const { mutateAsync: verifyMember, isPending: isVerifying } = useVerifyMember();
@@ -56,20 +80,153 @@ const MemberProfile = () => {
     const { data: incentives = [], isLoading: incentivesLoading } = useMemberIncentives({
         member_id: id || undefined
     });
-    // Get current user role
-    const { data: userProfile, isLoading: userRoleLoading } = useQuery({
-        queryKey: ["current-user-role"],
-        queryFn: async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return null;
-            const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-            return data;
+
+    // Get agent profile non-blockingly (if applicable)
+    const { data: puAgent } = usePUAgent();
+
+    // Synchronous memory & local storage cache resolver for 0ms instant display
+    const getCachedMemberSynchronously = useCallback((targetId: string | null): any => {
+        if (typeof window === "undefined") return null;
+        try {
+            // 1. Session storage active member (set upon clicking in Members table or search)
+            const stored = sessionStorage.getItem("active_member_detail");
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                if (parsed && (!targetId || parsed.id === targetId)) {
+                    return parsed;
+                }
+            }
+            // 2. Offline members list in localStorage
+            const offline = JSON.parse(localStorage.getItem("offline_members") || "[]");
+            if (targetId) {
+                const foundOffline = offline.find((m: any) => m.id === targetId);
+                if (foundOffline) return foundOffline;
+            }
+            // 3. QueryClient cache of any active members queries
+            const cachedQueries = queryClient.getQueriesData<any[]>({ queryKey: ["members"] });
+            for (const [, list] of cachedQueries) {
+                if (Array.isArray(list)) {
+                    const match = list.find((m: any) => m?.id === targetId);
+                    if (match) return match;
+                }
+            }
+        } catch (_) {}
+        return null;
+    }, [queryClient]);
+
+    const handleDownloadIdCard = useCallback(async () => {
+        if (!idCardRef.current) {
+            toast.error("ID card not ready yet, please wait a moment");
+            return;
         }
+
+        try {
+            toast.loading("Generating official ID card...", { id: "download-id" });
+            // Small pause to guarantee font and SVG render
+            await new Promise((resolve) => setTimeout(resolve, 150));
+
+            const dataUrl = await toPng(idCardRef.current, {
+                quality: 0.95,
+                pixelRatio: 2,
+                cacheBust: false,
+                skipFonts: true,
+            });
+
+            const link = document.createElement("a");
+            const cleanName = (downloadName || "member").trim().replace(/\s+/g, "_");
+            link.download = `APM-${cleanName}-ID-Card.png`;
+            link.href = dataUrl;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            toast.success("Official ID card downloaded!", { id: "download-id" });
+        } catch (error) {
+            console.error("ID card download primary error:", error);
+            try {
+                if (idCardRef.current) {
+                    const fallbackUrl = await toPng(idCardRef.current, {
+                        quality: 0.9,
+                        pixelRatio: 1,
+                        skipFonts: true,
+                    });
+                    const link = document.createElement("a");
+                    link.download = `APM-${(downloadName || "member").replace(/\s+/g, "_")}-ID-Card.png`;
+                    link.href = fallbackUrl;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    toast.success("Official ID card downloaded!", { id: "download-id" });
+                    return;
+                }
+            } catch (fallbackErr) {
+                console.error("Fallback download error:", fallbackErr);
+            }
+            toast.error("Failed to download ID card. Please try again.", { id: "download-id" });
+        }
+    }, [downloadName]);
+
+    const { data: member, isLoading, error: memberError } = useQuery({
+        queryKey: ["member", id],
+        initialData: () => getCachedMemberSynchronously(id),
+        queryFn: async () => {
+            if (!id) {
+                // If no ID specified, try to find logged-in user's member record
+                if (user?.id || user?.email) {
+                    try {
+                        const local = await localRepository.getMembers();
+                        const myMember = local.find(m => 
+                            (m.user_id && m.user_id === user.id) || 
+                            (user.email && m.email && m.email.toLowerCase() === user.email.toLowerCase())
+                        );
+                        if (myMember) return myMember;
+                    } catch (_) {}
+                }
+                return null;
+            }
+
+            // 1. Instant local IndexedDB lookup (0-2ms, offline ready)
+            try {
+                const localMember = await localRepository.getMemberById(id);
+                if (localMember) return localMember as any;
+            } catch (_) {}
+
+            if (typeof window !== "undefined") {
+                try {
+                    const offline = JSON.parse(localStorage.getItem("offline_members") || "[]");
+                    const found = offline.find((m: any) => m.id === id);
+                    if (found) return found;
+                } catch (_) {}
+            }
+
+            // 2. Fallback to Supabase with fast timeout
+            try {
+                let query = supabase
+                    .from("members")
+                    .select("*")
+                    .eq("id", id);
+
+                const timeoutPromise = new Promise<{ data: any; error: any }>((resolve) =>
+                    setTimeout(() => resolve({ data: null, error: null }), 2500)
+                );
+                const { data, error } = await Promise.race([query.maybeSingle(), timeoutPromise]);
+
+                if (!error && data) {
+                    await localRepository.saveMember(data);
+                    return data as any;
+                }
+            } catch (err) {
+                console.warn("Supabase member fetch error:", err);
+            }
+
+            return null;
+        },
+        staleTime: 1000 * 60 * 5,
+        retry: 1,
     });
 
-    // Get agent profile if applicable
-    const { data: puAgent, isLoading: puAgentLoading } = usePUAgent();
-    const isPuAgent = userProfile?.role === "polling_unit_agent" || userProfile?.role === "pu_agent" || userProfile?.role === "agent";
+    // Compute PU agent scope AFTER member is declared
+    const isPuAgent = authRole === "polling_unit_agent" || authRole === "pu_agent" || authRole === "agent";
     const norm = (s: any) => (s ? String(s).toLowerCase().replace(/[^a-z0-9]/g, '') : '');
     const agentPuId = norm(puAgent?.polling_unit_id);
     const agentPuName = norm(puAgent?.polling_unit_name);
@@ -81,71 +238,9 @@ const MemberProfile = () => {
         (agentPuName && memberPuName && (memberPuName === agentPuName || memberPuName.includes(agentPuName) || agentPuName.includes(memberPuName)))
     );
 
-    const handleDownloadIdCard = useCallback(async () => {
-        if (!idCardRef.current) {
-            toast.error("ID card not ready");
-            return;
-        }
-
-        try {
-            toast.loading("Generating ID card...", { id: "download-id" });
-            const dataUrl = await toPng(idCardRef.current, {
-                quality: 1,
-                pixelRatio: 2,
-            });
-
-            const link = document.createElement("a");
-            link.download = `${downloadName.replace(/\s+/g, "_")}-id-card.png`;
-            link.href = dataUrl;
-            link.click();
-
-            toast.success("ID card downloaded!", { id: "download-id" });
-        } catch (error) {
-            console.error("ID card download error:", error);
-            toast.error("Failed to download ID card", { id: "download-id" });
-        }
-    }, [downloadName]);
-
-    const { data: member, isLoading, error: memberError } = useQuery({
-        queryKey: ["member", id, userProfile?.role, puAgent?.polling_unit_id, puAgent?.polling_unit_name],
-        queryFn: async () => {
-            if (!id) throw new Error("No member ID");
-
-            let query = supabase
-                .from("members")
-                .select("*")
-                .eq("id", id);
-
-            if (userProfile?.role === "polling_unit_agent") {
-                if (puAgent?.polling_unit_id && puAgent?.polling_unit_name) {
-                    query = query.or(`polling_unit_id.eq.${puAgent.polling_unit_id},polling_unit.eq.${puAgent.polling_unit_name}`);
-                } else if (puAgent?.polling_unit_id) {
-                    query = query.eq("polling_unit_id", puAgent.polling_unit_id);
-                } else if (puAgent?.polling_unit_name) {
-                    query = query.eq("polling_unit", puAgent.polling_unit_name);
-                } else {
-                    return null;
-                }
-            }
-
-            const { data, error } = await query.maybeSingle();
-
-            if (error) {
-                console.error("Error fetching member:", error);
-                throw error;
-            }
-            return data as any;
-        },
-        enabled: !!id && !userRoleLoading && (userProfile?.role !== "polling_unit_agent" || !!puAgent?.polling_unit_id || !!puAgent?.polling_unit_name),
-        retry: 1,
-    });
-
     const campaignName = partyId === "apc" 
         ? CAMPAIGN_NAME 
         : `${member?.lga || "Kogi State"} Campaign`;
-
-    // Debug log
-    console.log("Member query result:", { member, isLoading, memberError, id });
 
     // Update download name when member loads
     useEffect(() => {
@@ -158,16 +253,21 @@ const MemberProfile = () => {
         queryKey: ["member-attendance", id],
         queryFn: async () => {
             if (!id) return [];
-            const { data, error } = await supabase
-                .from("activity_attendance")
-                .select("*, activities(title, scheduled_date)")
-                .eq("member_id", id)
-                .order("checked_in_at", { ascending: false })
-                .limit(10);
-            if (error) throw error;
-            return data;
+            try {
+                const { data, error } = await supabase
+                    .from("activity_attendance")
+                    .select("*, activities(title, scheduled_date)")
+                    .eq("member_id", id)
+                    .order("checked_in_at", { ascending: false })
+                    .limit(10);
+                if (error) return [];
+                return data || [];
+            } catch {
+                return [];
+            }
         },
         enabled: !!id,
+        staleTime: 1000 * 60 * 5,
     });
 
     const handleVerify = async () => {
@@ -179,11 +279,18 @@ const MemberProfile = () => {
         }
     };
 
-    if (isLoading || userRoleLoading || (userProfile?.role === "polling_unit_agent" && puAgentLoading)) {
+    // Only show loading screen if we have absolutely NO member data yet
+    if (isLoading && !member) {
         return (
-            <DashboardLayout title="Member Profile" subtitle="Loading...">
-                <div className="flex items-center justify-center h-64">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <DashboardLayout title="Member Profile" subtitle="Loading member details...">
+                <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+                    <div className="relative w-16 h-16">
+                        <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary/20 border-t-primary" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <User className="h-6 w-6 text-primary" />
+                        </div>
+                    </div>
+                    <p className="text-muted-foreground font-medium text-sm">Opening member profile...</p>
                 </div>
             </DashboardLayout>
         );
@@ -192,10 +299,18 @@ const MemberProfile = () => {
     if (!member) {
         return (
             <DashboardLayout title="Member Profile" subtitle="Member not found">
-                <div className="text-center py-12">
-                    <p className="text-muted-foreground">Member not found</p>
-                    <Button variant="outline" className="mt-4" onClick={() => navigate(-1)}>
-                        Go Back
+                <div className="text-center py-16 space-y-4 max-w-md mx-auto">
+                    <div className="w-16 h-16 rounded-full bg-muted/60 flex items-center justify-center mx-auto text-muted-foreground">
+                        <User className="w-8 h-8 opacity-60" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-foreground">Member Not Found</h2>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            The requested member profile could not be found in local storage or the database.
+                        </p>
+                    </div>
+                    <Button variant="default" className="btn-action gap-2 mt-2" onClick={() => navigate("/members")}>
+                        <ArrowLeft className="w-4 h-4" /> Back to Members Directory
                     </Button>
                 </div>
             </DashboardLayout>
@@ -607,11 +722,56 @@ const MemberProfile = () => {
                         </Card>
                     </div>
 
-                    <Tabs defaultValue="attendance" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
+                    <Tabs defaultValue="id-card" className="w-full">
+                        <TabsList className="grid w-full grid-cols-3">
+                            <TabsTrigger value="id-card" className="gap-2">
+                                <CreditCard className="w-4 h-4" /> Official ID Card
+                            </TabsTrigger>
                             <TabsTrigger value="attendance">Attendance Records</TabsTrigger>
                             <TabsTrigger value="welfare">Received Incentives</TabsTrigger>
                         </TabsList>
+
+                        <TabsContent value="id-card" className="mt-6">
+                            <Card className="border-navy-deep/20 shadow-sm overflow-hidden">
+                                <CardHeader className="flex flex-row items-center justify-between pb-3 bg-muted/30">
+                                    <div>
+                                        <CardTitle className="text-base font-bold flex items-center gap-2">
+                                            <CreditCard className="w-5 h-5 text-primary" />
+                                            Official Membership ID Card
+                                        </CardTitle>
+                                        <CardDescription className="text-xs">
+                                            High-resolution member credential card ready for download.
+                                        </CardDescription>
+                                    </div>
+                                    {!member.is_deceased && (
+                                        <Button
+                                            onClick={handleDownloadIdCard}
+                                            className="btn-action gap-2 shadow-md"
+                                            size="sm"
+                                        >
+                                            <Download className="w-4 h-4" />
+                                            Download Card (PNG)
+                                        </Button>
+                                    )}
+                                </CardHeader>
+                                <CardContent className="p-4 sm:p-6 flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/40">
+                                    <div className="overflow-x-auto max-w-full py-2 flex justify-center">
+                                        <PrintableIDCard member={member as any} />
+                                    </div>
+                                    <div className="mt-4 flex items-center justify-center gap-3">
+                                        {!member.is_deceased && (
+                                            <Button
+                                                onClick={handleDownloadIdCard}
+                                                className="btn-action gap-2 shadow-lg h-11 px-6 font-semibold"
+                                            >
+                                                <Download className="w-4 h-4" />
+                                                Download Official ID Card
+                                            </Button>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
 
                         <TabsContent value="attendance" className="mt-6">
                             <Card>
@@ -740,9 +900,19 @@ const MemberProfile = () => {
                 />
             )}
 
-            {/* Hidden Printable Card */}
+            {/* Offscreen Printable Card mounted for pristine HTML-to-image download */}
             {member && !member.is_deceased && (
-                <div style={{ position: "absolute", top: "-9999px", left: "-9999px" }}>
+                <div 
+                    aria-hidden="true"
+                    style={{ 
+                        position: "fixed", 
+                        left: "-9999px", 
+                        top: 0, 
+                        width: "820px",
+                        pointerEvents: "none", 
+                        zIndex: -9999 
+                    }}
+                >
                     <PrintableIDCard ref={idCardRef} member={member as any} />
                 </div>
             )}

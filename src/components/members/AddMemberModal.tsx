@@ -14,6 +14,7 @@ import {
 } from "@/hooks/useVoterRegistry";
 import { localVoterService } from "@/services/LocalVoterService";
 import { useOrganizations } from "@/hooks/useOrganizations";
+import { useSupportGroups, getLocalSupportGroups } from "@/hooks/useSupportGroups";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserOrganization } from "@/hooks/useUserOrganization";
 import { useCouncillor } from "@/hooks/useCouncillors";
@@ -152,6 +153,44 @@ const KOGI_SECONDARY_SCHOOLS = [
 ];
 const KATSINA_SECONDARY_SCHOOLS = KOGI_SECONDARY_SCHOOLS;
 
+
+
+const resolveCanonicalLga = (rawLga?: string | null): string => {
+  if (!rawLga) return "";
+  const norm = rawLga.toLowerCase().replace(/[^a-z]/g, "");
+  const match = KATSINA_LGAS.find(l => {
+    const lNorm = l.toLowerCase().replace(/[^a-z]/g, "");
+    return lNorm === norm || lNorm.includes(norm) || norm.includes(lNorm);
+  });
+  return match || rawLga;
+};
+
+const resolveCanonicalWard = (lga: string, rawWard?: string | null): string => {
+  if (!rawWard || !lga) return "";
+  const wards = getWardsForLga(lga);
+  const norm = rawWard.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const match = wards.find(w => {
+    const wNorm = w.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return wNorm === norm || wNorm.includes(norm) || norm.includes(wNorm);
+  });
+  return match || rawWard;
+};
+
+const resolveCanonicalPu = (lga: string, ward: string, rawPu?: string | null, puCode?: string | null): string => {
+  if (!lga || !ward) return rawPu || "";
+  const pus = getPollingUnitObjects(lga, ward);
+  if (puCode) {
+    const matchByCode = pus.find(p => p.code.toLowerCase() === puCode.toLowerCase());
+    if (matchByCode) return matchByCode.name;
+  }
+  if (!rawPu) return "";
+  const norm = rawPu.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const matchByName = pus.find(p => {
+    const pNorm = p.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    return pNorm === norm || pNorm.includes(norm) || norm.includes(pNorm);
+  });
+  return matchByName?.name || rawPu;
+};
 
 export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModalProps) => {
   const router = useRouter();
@@ -343,6 +382,8 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
   const [lookupError, setLookupError] = useState<string | null>(null);
 
   const createMember = useCreateMember();
+  const { data: rawSupportGroups = [] } = useSupportGroups();
+  const allSupportGroups = rawSupportGroups.length > 0 ? rawSupportGroups : getLocalSupportGroups();
   const { data: organizations = [] } = useOrganizations();
   const wards = formData.lga ? getWardsForLga(formData.lga) : [];
   const farmWards = formData.farmerLga ? getWardsForLga(formData.farmerLga) : [];
@@ -377,17 +418,24 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
     setMatchedVoter(voter);
     setLookupError(null);
     setNameResults([]);
-    setFormData((prev) => ({
-      ...prev,
-      firstName,
-      lastName,
-      gender: mapVoterGender(voter.gender) || prev.gender,
-      dateOfBirth: voterDobToDate(voter.dob_year) || prev.dateOfBirth,
-      votersCardId: voter.vin,
-      ...(voter.lga ? { lga: voter.lga } : {}),
-      ...(voter.ward ? { ward: voter.ward } : {}),
-      ...(voter.polling_unit_name ? { polling_unit: voter.polling_unit_name } : {}),
-    }));
+    setFormData((prev) => {
+      // PRESERVE user selected LGA, Ward, Polling Unit! Never overwrite with raw database uppercase strings!
+      const finalLga = prev.lga || resolveCanonicalLga(voter.lga);
+      const finalWard = prev.ward || resolveCanonicalWard(finalLga, voter.ward);
+      const finalPu = prev.polling_unit || resolveCanonicalPu(finalLga, finalWard, voter.polling_unit_name, voter.polling_unit_code);
+
+      return {
+        ...prev,
+        firstName,
+        lastName,
+        gender: mapVoterGender(voter.gender) || prev.gender,
+        dateOfBirth: voterDobToDate(voter.dob_year) || prev.dateOfBirth,
+        votersCardId: voter.vin,
+        lga: finalLga,
+        ward: finalWard,
+        polling_unit: finalPu,
+      };
+    });
     toast.success(`Registered voter found: ${voter.full_name}`);
   };
 
@@ -548,7 +596,7 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
 
     const fileExt = votersCardFile.name.split(".").pop();
     const fileName = `${memberId}.${fileExt}`;
-    const filePath = `${formData.organizationId}/${fileName}`;
+    const filePath = `${formData.organizationId || "general"}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("voter-cards")
@@ -576,50 +624,21 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
       let finalPollingUnitName: string | null = formData.polling_unit || null;
 
       if (formData.lga && formData.ward && formData.polling_unit) {
-        let dbCode: string | null = null;
-        if (matchedVoter?.polling_unit_code) {
-          const codeParts = matchedVoter.polling_unit_code.split("-");
-          if (codeParts.length >= 4) {
-            const wardNum = codeParts[2];
-            const puNum = codeParts[3];
-            dbCode = `W${wardNum}-${puNum}`;
-          }
-        }
+        // Instant local resolution (0ms, 100% offline & online)
+        const selectedPuObj = getPollingUnitObjects(formData.lga, formData.ward)
+          .find(pu => pu.name === formData.polling_unit || pu.code === formData.polling_unit);
 
-        if (!dbCode) {
-          const selectedPuObj = getPollingUnitObjects(formData.lga, formData.ward)
-            .find(pu => pu.name === formData.polling_unit);
-          dbCode = selectedPuObj?.code || null;
-        }
+        const norm = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const normName = norm(formData.polling_unit);
+        const staticPu = ALL_POLLING_UNITS.find(pu => 
+          (selectedPuObj && (pu.code === selectedPuObj.code || pu.id === selectedPuObj.id)) ||
+          norm(pu.name) === normName
+        );
 
-        if (dbCode) {
-          const { data: puData, error: puError } = await supabase
-            .from("polling_units")
-            .select("id, name")
-            .eq("lga_name", formData.lga)
-            .eq("ward_name", formData.ward)
-            .eq("code", dbCode)
-            .maybeSingle();
-
-          if (!puError && puData) {
-            resolvedPollingUnitId = puData.id;
-            finalPollingUnitName = puData.name;
-          }
-        }
-        if (!resolvedPollingUnitId && formData.polling_unit) {
-          const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-          const normName = norm(formData.polling_unit);
-          const staticPu = ALL_POLLING_UNITS.find(pu => 
-            norm(pu.name) === normName ||
-            norm(pu.name).includes(normName) ||
-            normName.includes(norm(pu.name))
-          );
-          if (staticPu) {
-            resolvedPollingUnitId = staticPu.id;
-            finalPollingUnitName = staticPu.name;
-          } else if (isPUAgent && puAgent?.polling_unit_id) {
-            resolvedPollingUnitId = puAgent.polling_unit_id;
-          }
+        resolvedPollingUnitId = staticPu?.id || selectedPuObj?.id || selectedPuObj?.code || null;
+        finalPollingUnitName = staticPu?.name || selectedPuObj?.name || formData.polling_unit;
+        if (!resolvedPollingUnitId && isPUAgent && puAgent?.polling_unit_id) {
+          resolvedPollingUnitId = puAgent.polling_unit_id;
         }
       }
 
@@ -678,6 +697,7 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
         phone: formData.phone || null,
         role: formData.role || null,
         organization_id: formData.organizationId || null,
+        support_group_id: formData.organizationId || null,
         state: "Kogi",
         lga: formData.lga || null,
         ward: formData.ward || null,
@@ -1547,32 +1567,21 @@ export const AddMemberModal = ({ isOpen, onClose, isStudentOnly }: AddMemberModa
                 </div>
               </div>
 
-              {canSelectOrg ? (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Support Group (Optional)</label>
-                  <select
-                    className="input-premium w-full"
-                    value={formData.organizationId}
-                    onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
-                  >
-                    <option value="">No Support Group</option>
-                    {organizations.map((org) => (
-                      <option key={org.id} value={org.id}>
-                        {org.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Organization</label>
-                  <input
-                    className="input-premium w-full bg-muted"
-                    value={userOrg?.name || "Loading..."}
-                    disabled
-                  />
-                </div>
-              )}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Support Group (Optional)</label>
+                <select
+                  className="input-premium w-full"
+                  value={formData.organizationId}
+                  onChange={(e) => setFormData({ ...formData, organizationId: e.target.value })}
+                >
+                  <option value="">No Support Group (General Campaign)</option>
+                  {allSupportGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Role</label>

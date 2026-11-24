@@ -226,6 +226,15 @@ const PollingUnitCells = () => {
       });
     }
 
+    // Deduplicate cells by id and pu_code to ensure strictly unique items
+    const seenPus = new Set<string>();
+    list = list.filter((cell) => {
+      const puKey = `${cell.id || ""}-${cell.pu_code || ""}`;
+      if (seenPus.has(puKey)) return false;
+      seenPus.add(puKey);
+      return true;
+    });
+
     if (!searchQuery.trim()) return list;
 
     const query = searchQuery.toLowerCase().trim();
@@ -579,7 +588,7 @@ const PollingUnitCells = () => {
                     ? "text-amber-600"
                     : "text-muted-foreground";
 
-                const uniqueKey = `${cell.id || index}-${cell.pu_code || index}`;
+                const uniqueKey = `${cell.id || "pu"}-${cell.pu_code || "code"}-${index}`;
 
                 return (
                   <Card

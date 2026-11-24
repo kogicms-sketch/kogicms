@@ -293,7 +293,7 @@ const ChairmanPollingUnits = () => {
 
                             return (
                                 <Card
-                                    key={pu.id}
+                                    key={`${pu.id}-${index}`}
                                     className="group hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 border border-gray-100 hover:border-apc-green/30 overflow-hidden"
                                 >
                                     {/* Top accent bar */}

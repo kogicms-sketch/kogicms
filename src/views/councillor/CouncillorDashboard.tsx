@@ -746,7 +746,7 @@ export default function CouncillorDashboard() {
 
                           return (
                             <TableRow
-                              key={pu.id}
+                              key={`${pu.id}-${index}`}
                               className="hover:bg-emerald-50/20 transition-colors border-b border-gray-100"
                             >
                               <TableCell className="pl-4 sm:pl-6 py-3 font-semibold text-xs sm:text-sm text-gray-800">

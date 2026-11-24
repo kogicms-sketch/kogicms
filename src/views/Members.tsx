@@ -155,6 +155,15 @@ const Members = () => {
   const { party } = useParty();
   const router = useRouter();
   const navigate = (path: string | number) => { if (path === -1) router.back(); else router.push(path as string); };
+  const handleOpenMemberDetail = (m: any) => {
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem("active_member_detail", JSON.stringify(m));
+        localStorage.setItem("last_viewed_member_id", m.id);
+      } catch (_) {}
+    }
+    navigate(`/members/detail?id=${m.id}`);
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOccupation, setSelectedOccupation] = useState<string | null>(null);
   const [selectedSubOccupation, setSelectedSubOccupation] = useState<string | null>(null);
@@ -722,7 +731,7 @@ const Members = () => {
                   <MemberCard
                     key={member.id}
                     member={member}
-                    onClick={() => navigate(`/members/detail?id=${member.id}`)}
+                    onClick={() => handleOpenMemberDetail(member)}
                   />
                 ))}
               </div>
@@ -748,7 +757,7 @@ const Members = () => {
                       <tr
                         key={member.id}
                         className="group cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => navigate(`/members/detail?id=${member.id}`)}
+                        onClick={() => handleOpenMemberDetail(member)}
                       >
                         <td>
                           <div className="flex items-center gap-3">
