@@ -416,9 +416,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         const rawMock = localStorage.getItem("mock_users");
         let mockUsers: any[] = rawMock ? JSON.parse(rawMock) : [];
-        const currentEmails = new Set(mockUsers.map((u: any) => u.email?.toLowerCase().trim()));
         for (const mu of MOCK_USERS) {
-          if (!currentEmails.has(mu.email.toLowerCase().trim())) {
+          const idx = mockUsers.findIndex((u: any) => u.email?.toLowerCase().trim() === mu.email.toLowerCase().trim());
+          if (idx >= 0) {
+            mockUsers[idx] = { ...mockUsers[idx], ...mu };
+          } else {
             mockUsers.push(mu);
           }
         }
@@ -487,6 +489,83 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               must_change_password: found.must_change_password !== false,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
+            }));
+          }
+
+          if (found.role === "lga_chairman") {
+            const chairProf = {
+              id: found.id,
+              user_id: found.id,
+              lga: found.lga || "Lokoja",
+              chairman_name: found.full_name || found.name,
+              phone: found.phoneNumber || found.phone || null,
+              email: found.email,
+              party: "APM",
+              election_date: null,
+              sworn_in_date: null,
+              must_change_password: false,
+              last_password_change: null,
+              is_active: true,
+              photo_url: found.avatarUrl || null,
+              bio: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            localStorage.setItem("chairman_profile", JSON.stringify(chairProf));
+            localStorage.setItem("chairman_lga", found.lga || "Lokoja");
+          }
+
+          if (found.role === "councillor" || found.role === "ward_chairman" || found.role === "ward_leader") {
+            const counProf = {
+              id: found.id,
+              user_id: found.id,
+              lga: found.lga || "Lokoja",
+              ward: found.ward || "Eggan",
+              councillor_name: found.full_name || found.name,
+              phone: found.phoneNumber || found.phone || null,
+              email: found.email,
+              party: "APM",
+              must_change_password: false,
+              last_password_change: null,
+              is_active: true,
+              photo_url: found.avatarUrl || null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            localStorage.setItem("councillor_profile", JSON.stringify(counProf));
+            localStorage.setItem("councillor_lga", found.lga || "Lokoja");
+            localStorage.setItem("councillor_ward", found.ward || "Eggan");
+          }
+
+          if (found.role === "house_assembly_member") {
+            const assemblyProf = {
+              id: found.id,
+              user_id: found.id,
+              constituency_name: found.constituency_name || "Lokoja I State Constituency",
+              lga: found.lga || "Lokoja",
+              member_name: found.full_name || found.name,
+              phone: found.phoneNumber || found.phone || null,
+              email: found.email,
+              party: "APM",
+              must_change_password: false,
+              is_active: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            };
+            localStorage.setItem("house_assembly_profile", JSON.stringify(assemblyProf));
+          }
+
+          if (found.role === "polling_unit_agent") {
+            localStorage.setItem("pu_agent_profile", JSON.stringify({
+              id: found.id,
+              user_id: found.id,
+              agent_name: found.full_name || found.name,
+              email: found.email,
+              phone: found.phoneNumber || found.phone || null,
+              lga: found.lga || "Lokoja",
+              ward: found.ward || "Eggan",
+              polling_unit_id: found.polling_unit_id || "LOKOJA-W10-PU001",
+              polling_unit_name: found.polling_unit_name || found.pollingUnit || "Eggan Tifain Area LGEA Sch Eggan",
             }));
           }
 
