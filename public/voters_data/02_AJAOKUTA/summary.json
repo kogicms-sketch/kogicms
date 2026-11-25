@@ -1,0 +1,127 @@
+{
+  "lga": "AJAOKUTA",
+  "lga_code": "02",
+  "state": "Kogi",
+  "total_wards": 14,
+  "total_polling_units": 151,
+  "total_voters_extracted": 96449,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_EBIYA_NORTH",
+      "ward_name": "EBIYA NORTH",
+      "polling_units_count": 8,
+      "total_voters": 4600,
+      "file_path": "voters_data/02_AJAOKUTA/wards/01_EBIYA_NORTH.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_EBIYA_SOUTH",
+      "ward_name": "EBIYA SOUTH",
+      "polling_units_count": 6,
+      "total_voters": 3620,
+      "file_path": "voters_data/02_AJAOKUTA/wards/02_EBIYA_SOUTH.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_ABODI_PATESI",
+      "ward_name": "ABODI/PATESI",
+      "polling_units_count": 5,
+      "total_voters": 3307,
+      "file_path": "voters_data/02_AJAOKUTA/wards/03_ABODI_PATESI.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_ICHUWA_UPAJA",
+      "ward_name": "ICHUWA/UPAJA",
+      "polling_units_count": 4,
+      "total_voters": 2891,
+      "file_path": "voters_data/02_AJAOKUTA/wards/04_ICHUWA_UPAJA.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_BADOKO",
+      "ward_name": "BADOKO",
+      "polling_units_count": 5,
+      "total_voters": 3668,
+      "file_path": "voters_data/02_AJAOKUTA/wards/05_BADOKO.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_OGIGIRI",
+      "ward_name": "OGIGIRI",
+      "polling_units_count": 5,
+      "total_voters": 3057,
+      "file_path": "voters_data/02_AJAOKUTA/wards/06_OGIGIRI.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_ADOGO",
+      "ward_name": "ADOGO",
+      "polling_units_count": 5,
+      "total_voters": 3640,
+      "file_path": "voters_data/02_AJAOKUTA/wards/07_ADOGO.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_ACHAGANA",
+      "ward_name": "ACHAGANA",
+      "polling_units_count": 6,
+      "total_voters": 4302,
+      "file_path": "voters_data/02_AJAOKUTA/wards/08_ACHAGANA.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_ODONU_UNOSI",
+      "ward_name": "ODONU/UNOSI",
+      "polling_units_count": 4,
+      "total_voters": 2575,
+      "file_path": "voters_data/02_AJAOKUTA/wards/09_ODONU_UNOSI.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_OMGBO",
+      "ward_name": "OMGBO",
+      "polling_units_count": 3,
+      "total_voters": 2080,
+      "file_path": "voters_data/02_AJAOKUTA/wards/10_OMGBO.json"
+    },
+    {
+      "ward_code": "W11",
+      "ward_folder": "11_ADOGU_APAMIRA_OGODO_UHUOVENE",
+      "ward_name": "ADOGU/APAMIRA/OGODO UHUOVENE",
+      "polling_units_count": 7,
+      "total_voters": 3463,
+      "file_path": "voters_data/02_AJAOKUTA/wards/11_ADOGU_APAMIRA_OGODO_UHUOVENE.json"
+    },
+    {
+      "ward_code": "W12",
+      "ward_folder": "12_OBANGEDE_OHUNENE_UKOKO_INYE_RE",
+      "ward_name": "OBANGEDE OHUNENE UKOKO INYE RE",
+      "polling_units_count": 5,
+      "total_voters": 2354,
+      "file_path": "voters_data/02_AJAOKUTA/wards/12_OBANGEDE_OHUNENE_UKOKO_INYE_RE.json"
+    },
+    {
+      "ward_code": "W13",
+      "ward_folder": "13_OLD_AJAOKUTA",
+      "ward_name": "OLD AJAOKUTA",
+      "polling_units_count": 8,
+      "total_voters": 4797,
+      "file_path": "voters_data/02_AJAOKUTA/wards/13_OLD_AJAOKUTA.json"
+    },
+    {
+      "ward_code": "W14",
+      "ward_folder": "14_GANAGA_TOWNSHIP",
+      "ward_name": "GANAGA/TOWNSHIP",
+      "polling_units_count": 80,
+      "total_voters": 52095,
+      "file_path": "voters_data/02_AJAOKUTA/wards/14_GANAGA_TOWNSHIP.json"
+    }
+  ],
+  "extracted_at": "2026-11-20T23:18:36.564Z",
+  "male_voters": 48533,
+  "male_pct": "50.3%",
+  "female_voters": 47916,
+  "female_pct": "49.7%"
+}

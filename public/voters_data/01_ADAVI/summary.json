@@ -1,0 +1,103 @@
+{
+  "lga": "Adavi",
+  "lga_code": "01",
+  "state": "Kogi",
+  "total_wards": 11,
+  "total_polling_units": 216,
+  "total_voters_extracted": 113338,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_OKUNCHI_OZURI_ONIEKA",
+      "ward_name": "OKUNCHI/OZURI/ONIEKA",
+      "polling_units_count": 23,
+      "total_voters": 10670,
+      "file_path": "voters_data/01_ADAVI/wards/01_OKUNCHI_OZURI_ONIEKA.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_OGAMINANA",
+      "ward_name": "OGAMINANA",
+      "polling_units_count": 22,
+      "total_voters": 13250,
+      "file_path": "voters_data/01_ADAVI/wards/02_OGAMINANA.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_IRUVUCHEBA",
+      "ward_name": "IRUVUCHEBA",
+      "polling_units_count": 13,
+      "total_voters": 7658,
+      "file_path": "voters_data/01_ADAVI/wards/03_IRUVUCHEBA.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_IDANUHUA",
+      "ward_name": "IDANUHUA",
+      "polling_units_count": 11,
+      "total_voters": 5980,
+      "file_path": "voters_data/01_ADAVI/wards/04_IDANUHUA.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_ADAVI_EBA",
+      "ward_name": "ADAVI-EBA",
+      "polling_units_count": 15,
+      "total_voters": 9395,
+      "file_path": "voters_data/01_ADAVI/wards/05_ADAVI_EBA.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_KUROKO_I",
+      "ward_name": "KUROKO I",
+      "polling_units_count": 18,
+      "total_voters": 7145,
+      "file_path": "voters_data/01_ADAVI/wards/06_KUROKO_I.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_KUROKO_II",
+      "ward_name": "KUROKO II",
+      "polling_units_count": 23,
+      "total_voters": 9258,
+      "file_path": "voters_data/01_ADAVI/wards/07_KUROKO_II.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_INO_ZIOMI_IPAKU_OSISI",
+      "ward_name": "INO ZIOMI/IPAKU/OSISI",
+      "polling_units_count": 23,
+      "total_voters": 11552,
+      "file_path": "voters_data/01_ADAVI/wards/08_INO_ZIOMI_IPAKU_OSISI.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_IKARAWORO_IDOBANYERE",
+      "ward_name": "IKARAWORO/IDOBANYERE",
+      "polling_units_count": 17,
+      "total_voters": 10496,
+      "file_path": "voters_data/01_ADAVI/wards/09_IKARAWORO_IDOBANYERE.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_NAGAZI_FARM_CENTRE",
+      "ward_name": "NAGAZI FARM CENTRE",
+      "polling_units_count": 44,
+      "total_voters": 25241,
+      "file_path": "voters_data/01_ADAVI/wards/10_NAGAZI_FARM_CENTRE.json"
+    },
+    {
+      "ward_code": "W11",
+      "ward_folder": "11_EGE_IRUVOCHINOMI",
+      "ward_name": "EGE/IRUVOCHINOMI",
+      "polling_units_count": 7,
+      "total_voters": 2693,
+      "file_path": "voters_data/01_ADAVI/wards/11_EGE_IRUVOCHINOMI.json"
+    }
+  ],
+  "extracted_at": "2026-11-20T22:28:36.888Z",
+  "male_voters": 50519,
+  "male_pct": "44.6%",
+  "female_voters": 62819,
+  "female_pct": "55.4%"
+}

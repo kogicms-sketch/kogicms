@@ -1,0 +1,95 @@
+{
+  "lga": "OGORI MANGOGO",
+  "lga_code": "15",
+  "state": "Kogi",
+  "total_wards": 10,
+  "total_polling_units": 67,
+  "total_voters_extracted": 17687,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_ENI",
+      "ward_name": "ENI",
+      "polling_units_count": 11,
+      "total_voters": 2334,
+      "file_path": "voters_data/15_OGORI_MANGOGO/wards/01_ENI.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_OSHOBANE",
+      "ward_name": "OSHOBANE",
+      "polling_units_count": 8,
+      "total_voters": 2264,
+      "file_path": "voters_data/15_OGORI_MANGOGO/wards/02_OSHOBANE.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_OKIBO",
+      "ward_name": "OKIBO",
+      "polling_units_count": 5,
+      "total_voters": 1358,
+      "file_path": "voters_data/15_OGORI_MANGOGO/wards/03_OKIBO.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_OKESI",
+      "ward_name": "OKESI",
+      "polling_units_count": 5,
+      "total_voters": 1149,
+      "file_path": "voters_data/15_OGORI_MANGOGO/wards/04_OKESI.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_ILETEJU",
+      "ward_name": "ILETEJU",
+      "polling_units_count": 4,
+      "total_voters": 1225,
+      "file_path": "voters_data/15_OGORI_MANGOGO/wards/05_ILETEJU.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_AIYEROMI",
+      "ward_name": "AIYEROMI",
+      "polling_units_count": 5,
+      "total_voters": 1309,
+      "file_path": "voters_data/15_OGORI_MANGOGO/wards/06_AIYEROMI.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_UGUGU",
+      "ward_name": "UGUGU",
+      "polling_units_count": 9,
+      "total_voters": 2143,
+      "file_path": "voters_data/15_OGORI_MANGOGO/wards/07_UGUGU.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_OBINOYIN",
+      "ward_name": "OBINOYIN",
+      "polling_units_count": 9,
+      "total_voters": 2250,
+      "file_path": "voters_data/15_OGORI_MANGOGO/wards/08_OBINOYIN.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_OBATGBEN",
+      "ward_name": "OBATGBEN",
+      "polling_units_count": 6,
+      "total_voters": 1485,
+      "file_path": "voters_data/15_OGORI_MANGOGO/wards/09_OBATGBEN.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_OTURU_OPOWUROYE",
+      "ward_name": "OTURU OPOWUROYE",
+      "polling_units_count": 5,
+      "total_voters": 2170,
+      "file_path": "voters_data/15_OGORI_MANGOGO/wards/10_OTURU_OPOWUROYE.json"
+    }
+  ],
+  "extracted_at": "2026-11-21T14:23:23.654Z",
+  "male_voters": 9543,
+  "male_pct": "54.0%",
+  "female_voters": 8144,
+  "female_pct": "46.0%"
+}

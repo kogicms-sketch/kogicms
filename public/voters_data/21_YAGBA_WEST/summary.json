@@ -1,0 +1,127 @@
+{
+  "lga": "YAGBA WEST",
+  "lga_code": "21",
+  "state": "Kogi",
+  "total_wards": 14,
+  "total_polling_units": 102,
+  "total_voters_extracted": 51234,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_EJIBA",
+      "ward_name": "EJIBA",
+      "polling_units_count": 8,
+      "total_voters": 4547,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/01_EJIBA.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_ODO_ERI_OKOTO",
+      "ward_name": "ODO ERI OKOTO",
+      "polling_units_count": 9,
+      "total_voters": 3389,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/02_ODO_ERI_OKOTO.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_ODO_ERE_OKE_ERE",
+      "ward_name": "ODO ERE OKE ERE",
+      "polling_units_count": 14,
+      "total_voters": 6923,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/03_ODO_ERE_OKE_ERE.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_ISAULU_ESA_OKOLOKE_OKUNRAN",
+      "ward_name": "ISAULU ESA/OKOLOKE/OKUNRAN",
+      "polling_units_count": 5,
+      "total_voters": 4277,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/04_ISAULU_ESA_OKOLOKE_OKUNRAN.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_IYAMERIN_IGBARUKU",
+      "ward_name": "IYAMERIN/IGBARUKU",
+      "polling_units_count": 7,
+      "total_voters": 2208,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/05_IYAMERIN_IGBARUKU.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_ODO_ARA_OMI_OGGA",
+      "ward_name": "ODO ARA OMI OGGA",
+      "polling_units_count": 7,
+      "total_voters": 3445,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/06_ODO_ARA_OMI_OGGA.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_OGBE",
+      "ward_name": "OGBE",
+      "polling_units_count": 5,
+      "total_voters": 3107,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/07_OGBE.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_OKE_EGBE_I",
+      "ward_name": "OKE EGBE I",
+      "polling_units_count": 8,
+      "total_voters": 3833,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/08_OKE_EGBE_I.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_OKE_EGBE_II",
+      "ward_name": "OKE EGBE II",
+      "polling_units_count": 7,
+      "total_voters": 3717,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/09_OKE_EGBE_II.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_OKE_EGBE_III",
+      "ward_name": "OKE EGBE III",
+      "polling_units_count": 5,
+      "total_voters": 2891,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/10_OKE_EGBE_III.json"
+    },
+    {
+      "ward_code": "W11",
+      "ward_folder": "11_OKE_EGBE_IV",
+      "ward_name": "OKE EGBE IV",
+      "polling_units_count": 5,
+      "total_voters": 2963,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/11_OKE_EGBE_IV.json"
+    },
+    {
+      "ward_code": "W12",
+      "ward_folder": "12_ODO_EGBE_I",
+      "ward_name": "ODO EGBE I",
+      "polling_units_count": 6,
+      "total_voters": 3047,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/12_ODO_EGBE_I.json"
+    },
+    {
+      "ward_code": "W13",
+      "ward_folder": "13_ODO_EGBE_II",
+      "ward_name": "ODO EGBE II",
+      "polling_units_count": 8,
+      "total_voters": 3795,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/13_ODO_EGBE_II.json"
+    },
+    {
+      "ward_code": "W14",
+      "ward_folder": "14_ODO_EGBE",
+      "ward_name": "ODO EGBE",
+      "polling_units_count": 8,
+      "total_voters": 3092,
+      "file_path": "voters_data/21_YAGBA_WEST/wards/14_ODO_EGBE.json"
+    }
+  ],
+  "extracted_at": "2026-11-21T14:30:46.111Z",
+  "male_voters": 26770,
+  "male_pct": "52.3%",
+  "female_voters": 24464,
+  "female_pct": "47.7%"
+}

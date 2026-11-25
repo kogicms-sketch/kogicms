@@ -1,0 +1,95 @@
+{
+  "lga": "LOKOJA",
+  "lga_code": "12",
+  "state": "Kogi",
+  "total_wards": 10,
+  "total_polling_units": 273,
+  "total_voters_extracted": 157243,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_LOKOJA_A",
+      "ward_name": "LOKOJA - A",
+      "polling_units_count": 100,
+      "total_voters": 53737,
+      "file_path": "voters_data/12_LOKOJA/wards/01_LOKOJA_A.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_LOKOJA_B",
+      "ward_name": "LOKOJA - B",
+      "polling_units_count": 20,
+      "total_voters": 10458,
+      "file_path": "voters_data/12_LOKOJA/wards/02_LOKOJA_B.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_LOKOJA_C",
+      "ward_name": "LOKOJA - C",
+      "polling_units_count": 13,
+      "total_voters": 7320,
+      "file_path": "voters_data/12_LOKOJA/wards/03_LOKOJA_C.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_LOKOJA_D",
+      "ward_name": "LOKOJA - D",
+      "polling_units_count": 17,
+      "total_voters": 9301,
+      "file_path": "voters_data/12_LOKOJA/wards/04_LOKOJA_D.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_LOKOJA_E",
+      "ward_name": "LOKOJA - E",
+      "polling_units_count": 24,
+      "total_voters": 13862,
+      "file_path": "voters_data/12_LOKOJA/wards/05_LOKOJA_E.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_KUPA_NORTH_EAST",
+      "ward_name": "KUPA NORTH EAST",
+      "polling_units_count": 10,
+      "total_voters": 6742,
+      "file_path": "voters_data/12_LOKOJA/wards/06_KUPA_NORTH_EAST.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_KUPA_SOUTH_WEST",
+      "ward_name": "KUPA SOUTH WEST",
+      "polling_units_count": 17,
+      "total_voters": 10211,
+      "file_path": "voters_data/12_LOKOJA/wards/07_KUPA_SOUTH_WEST.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_OWORO",
+      "ward_name": "OWORO",
+      "polling_units_count": 49,
+      "total_voters": 32235,
+      "file_path": "voters_data/12_LOKOJA/wards/08_OWORO.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_KAKANDA",
+      "ward_name": "KAKANDA",
+      "polling_units_count": 17,
+      "total_voters": 10083,
+      "file_path": "voters_data/12_LOKOJA/wards/09_KAKANDA.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_EGGAN",
+      "ward_name": "EGGAN",
+      "polling_units_count": 6,
+      "total_voters": 3294,
+      "file_path": "voters_data/12_LOKOJA/wards/10_EGGAN.json"
+    }
+  ],
+  "extracted_at": "2026-11-21T11:52:49.657Z",
+  "male_voters": 84789,
+  "male_pct": "53.9%",
+  "female_voters": 72454,
+  "female_pct": "46.1%"
+}

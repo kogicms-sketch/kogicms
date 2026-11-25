@@ -1,0 +1,95 @@
+{
+  "lga": "IDAH",
+  "lga_code": "07",
+  "state": "Kogi",
+  "total_wards": 10,
+  "total_polling_units": 120,
+  "total_voters_extracted": 64519,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_IGALAOGBA",
+      "ward_name": "IGALAOGBA",
+      "polling_units_count": 18,
+      "total_voters": 11234,
+      "file_path": "voters_data/07_IDAH/wards/01_IGALAOGBA.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_OWOLI_APA",
+      "ward_name": "OWOLI APA",
+      "polling_units_count": 9,
+      "total_voters": 5334,
+      "file_path": "voters_data/07_IDAH/wards/02_OWOLI_APA.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_IGECHEBA",
+      "ward_name": "IGECHEBA",
+      "polling_units_count": 9,
+      "total_voters": 4347,
+      "file_path": "voters_data/07_IDAH/wards/03_IGECHEBA.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_UKWAJA",
+      "ward_name": "UKWAJA",
+      "polling_units_count": 17,
+      "total_voters": 10758,
+      "file_path": "voters_data/07_IDAH/wards/04_UKWAJA.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_OGEGELE",
+      "ward_name": "OGEGELE",
+      "polling_units_count": 6,
+      "total_voters": 2688,
+      "file_path": "voters_data/07_IDAH/wards/05_OGEGELE.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_EDE",
+      "ward_name": "EDE",
+      "polling_units_count": 10,
+      "total_voters": 5718,
+      "file_path": "voters_data/07_IDAH/wards/06_EDE.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_SABON_GARI",
+      "ward_name": "SABON GARI",
+      "polling_units_count": 12,
+      "total_voters": 6653,
+      "file_path": "voters_data/07_IDAH/wards/07_SABON_GARI.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_EGA",
+      "ward_name": "EGA",
+      "polling_units_count": 14,
+      "total_voters": 8712,
+      "file_path": "voters_data/07_IDAH/wards/08_EGA.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_UGWODA",
+      "ward_name": "UGWODA",
+      "polling_units_count": 15,
+      "total_voters": 5417,
+      "file_path": "voters_data/07_IDAH/wards/09_UGWODA.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_ICHALA",
+      "ward_name": "ICHALA",
+      "polling_units_count": 10,
+      "total_voters": 3658,
+      "file_path": "voters_data/07_IDAH/wards/10_ICHALA.json"
+    }
+  ],
+  "extracted_at": "2026-11-20T23:28:59.119Z",
+  "male_voters": 31217,
+  "male_pct": "48.4%",
+  "female_voters": 33302,
+  "female_pct": "51.6%"
+}

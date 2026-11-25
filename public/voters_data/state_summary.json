@@ -1,0 +1,179 @@
+{
+  "state": "Kogi",
+  "state_code": "22",
+  "total_lgas": 21,
+  "total_wards": 239,
+  "total_polling_units": 3512,
+  "total_registered_voters": 1929884,
+  "lgas": [
+    {
+      "lga": "Adavi",
+      "lga_code": "01",
+      "lga_folder": "01_ADAVI",
+      "total_wards": 11,
+      "total_polling_units": 216,
+      "total_voters": 113338
+    },
+    {
+      "lga": "AJAOKUTA",
+      "lga_code": "02",
+      "lga_folder": "02_AJAOKUTA",
+      "total_wards": 14,
+      "total_polling_units": 151,
+      "total_voters": 96449
+    },
+    {
+      "lga": "ANKPA",
+      "lga_code": "03",
+      "lga_folder": "03_ANKPA",
+      "total_wards": 13,
+      "total_polling_units": 292,
+      "total_voters": 180094
+    },
+    {
+      "lga": "BASSA",
+      "lga_code": "04",
+      "lga_folder": "04_BASSA",
+      "total_wards": 10,
+      "total_polling_units": 130,
+      "total_voters": 69376
+    },
+    {
+      "lga": "DEKINA",
+      "lga_code": "05",
+      "lga_folder": "05_DEKINA",
+      "total_wards": 12,
+      "total_polling_units": 352,
+      "total_voters": 187880
+    },
+    {
+      "lga": "IBAJI",
+      "lga_code": "06",
+      "lga_folder": "06_IBAJI",
+      "total_wards": 10,
+      "total_polling_units": 174,
+      "total_voters": 89594
+    },
+    {
+      "lga": "IDAH",
+      "lga_code": "07",
+      "lga_folder": "07_IDAH",
+      "total_wards": 10,
+      "total_polling_units": 120,
+      "total_voters": 64519
+    },
+    {
+      "lga": "IGALAMELA ODOLU",
+      "lga_code": "08",
+      "lga_folder": "08_IGALAMELA_ODOLU",
+      "total_wards": 10,
+      "total_polling_units": 140,
+      "total_voters": 77576
+    },
+    {
+      "lga": "IJUMU",
+      "lga_code": "09",
+      "lga_folder": "09_IJUMU",
+      "total_wards": 15,
+      "total_polling_units": 121,
+      "total_voters": 66482
+    },
+    {
+      "lga": "KABBA BUNU",
+      "lga_code": "10",
+      "lga_folder": "10_KABBA_BUNU",
+      "total_wards": 15,
+      "total_polling_units": 156,
+      "total_voters": 86745
+    },
+    {
+      "lga": "KOGI K K",
+      "lga_code": "11",
+      "lga_folder": "11_KOGI_K_K",
+      "total_wards": 11,
+      "total_polling_units": 105,
+      "total_voters": 63341
+    },
+    {
+      "lga": "LOKOJA",
+      "lga_code": "12",
+      "lga_folder": "12_LOKOJA",
+      "total_wards": 10,
+      "total_polling_units": 273,
+      "total_voters": 157243
+    },
+    {
+      "lga": "MOPA MORO",
+      "lga_code": "13",
+      "lga_folder": "13_MOPA_MORO",
+      "total_wards": 10,
+      "total_polling_units": 53,
+      "total_voters": 26827
+    },
+    {
+      "lga": "OFU",
+      "lga_code": "14",
+      "lga_folder": "14_OFU",
+      "total_wards": 11,
+      "total_polling_units": 184,
+      "total_voters": 101964
+    },
+    {
+      "lga": "OGORI MANGOGO",
+      "lga_code": "15",
+      "lga_folder": "15_OGORI_MANGOGO",
+      "total_wards": 10,
+      "total_polling_units": 67,
+      "total_voters": 17687
+    },
+    {
+      "lga": "OKEHI",
+      "lga_code": "16",
+      "lga_folder": "16_OKEHI",
+      "total_wards": 11,
+      "total_polling_units": 188,
+      "total_voters": 94456
+    },
+    {
+      "lga": "OKENE",
+      "lga_code": "17",
+      "lga_folder": "17_OKENE",
+      "total_wards": 11,
+      "total_polling_units": 284,
+      "total_voters": 151243
+    },
+    {
+      "lga": "OLAMABORO",
+      "lga_code": "18",
+      "lga_folder": "18_OLAMABORO",
+      "total_wards": 10,
+      "total_polling_units": 174,
+      "total_voters": 105864
+    },
+    {
+      "lga": "OMALA",
+      "lga_code": "19",
+      "lga_folder": "19_OMALA",
+      "total_wards": 11,
+      "total_polling_units": 148,
+      "total_voters": 74537
+    },
+    {
+      "lga": "YAGBA EAST",
+      "lga_code": "20",
+      "lga_folder": "20_YAGBA_EAST",
+      "total_wards": 10,
+      "total_polling_units": 82,
+      "total_voters": 53435
+    },
+    {
+      "lga": "YAGBA WEST",
+      "lga_code": "21",
+      "lga_folder": "21_YAGBA_WEST",
+      "total_wards": 14,
+      "total_polling_units": 102,
+      "total_voters": 51234
+    }
+  ],
+  "updated_at": "2026-11-21T14:31:14.062Z"
+}

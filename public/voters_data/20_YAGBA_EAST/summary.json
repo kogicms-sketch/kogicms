@@ -1,0 +1,95 @@
+{
+  "lga": "YAGBA EAST",
+  "lga_code": "20",
+  "state": "Kogi",
+  "total_wards": 10,
+  "total_polling_units": 82,
+  "total_voters_extracted": 53435,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_IFE_OLUKOTUN_I",
+      "ward_name": "IFE OLUKOTUN I",
+      "polling_units_count": 6,
+      "total_voters": 3431,
+      "file_path": "voters_data/20_YAGBA_EAST/wards/01_IFE_OLUKOTUN_I.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_IFE_OLUKOTUN_II",
+      "ward_name": "IFE OLUKOTUN II",
+      "polling_units_count": 6,
+      "total_voters": 3891,
+      "file_path": "voters_data/20_YAGBA_EAST/wards/02_IFE_OLUKOTUN_II.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_PONYAN",
+      "ward_name": "PONYAN",
+      "polling_units_count": 7,
+      "total_voters": 4500,
+      "file_path": "voters_data/20_YAGBA_EAST/wards/03_PONYAN.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_ALU_IGBAGUN_ORANRE",
+      "ward_name": "ALU/IGBAGUN/ORANRE",
+      "polling_units_count": 9,
+      "total_voters": 7746,
+      "file_path": "voters_data/20_YAGBA_EAST/wards/04_ALU_IGBAGUN_ORANRE.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_EJUKU",
+      "ward_name": "EJUKU",
+      "polling_units_count": 5,
+      "total_voters": 3796,
+      "file_path": "voters_data/20_YAGBA_EAST/wards/05_EJUKU.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_JEGE_OKE_AGI_OGBOM_ISAO",
+      "ward_name": "JEGE/OKE/AGI OGBOM/ISAO",
+      "polling_units_count": 8,
+      "total_voters": 5048,
+      "file_path": "voters_data/20_YAGBA_EAST/wards/06_JEGE_OKE_AGI_OGBOM_ISAO.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_MAKUTU_I",
+      "ward_name": "MAKUTU I",
+      "polling_units_count": 6,
+      "total_voters": 3968,
+      "file_path": "voters_data/20_YAGBA_EAST/wards/07_MAKUTU_I.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_MAKUTU_II",
+      "ward_name": "MAKUTU II",
+      "polling_units_count": 9,
+      "total_voters": 5092,
+      "file_path": "voters_data/20_YAGBA_EAST/wards/08_MAKUTU_II.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_ITEDO",
+      "ward_name": "ITEDO",
+      "polling_units_count": 17,
+      "total_voters": 11394,
+      "file_path": "voters_data/20_YAGBA_EAST/wards/09_ITEDO.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_ILAFIN_IDOFIN_ODO_OGBA",
+      "ward_name": "ILAFIN/IDOFIN/ODO - OGBA",
+      "polling_units_count": 9,
+      "total_voters": 4569,
+      "file_path": "voters_data/20_YAGBA_EAST/wards/10_ILAFIN_IDOFIN_ODO_OGBA.json"
+    }
+  ],
+  "extracted_at": "2026-11-21T14:29:59.341Z",
+  "male_voters": 27380,
+  "male_pct": "51.2%",
+  "female_voters": 26055,
+  "female_pct": "48.8%"
+}

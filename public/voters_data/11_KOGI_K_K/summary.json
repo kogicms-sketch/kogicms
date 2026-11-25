@@ -1,0 +1,103 @@
+{
+  "lga": "KOGI K K",
+  "lga_code": "11",
+  "state": "Kogi",
+  "total_wards": 11,
+  "total_polling_units": 105,
+  "total_voters_extracted": 63341,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_UKWO_KOTON_KARFE",
+      "ward_name": "UKWO-KOTON KARFE",
+      "polling_units_count": 8,
+      "total_voters": 4775,
+      "file_path": "voters_data/11_KOGI_K_K/wards/01_UKWO_KOTON_KARFE.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_ODAKI_KOTON_KARFE",
+      "ward_name": "ODAKI-KOTON KARFE",
+      "polling_units_count": 8,
+      "total_voters": 4542,
+      "file_path": "voters_data/11_KOGI_K_K/wards/02_ODAKI_KOTON_KARFE.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_KOTONKARFE_SOUTH_EAST",
+      "ward_name": "KOTONKARFE SOUTH EAST",
+      "polling_units_count": 16,
+      "total_voters": 9563,
+      "file_path": "voters_data/11_KOGI_K_K/wards/03_KOTONKARFE_SOUTH_EAST.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_GIRINYA",
+      "ward_name": "GIRINYA",
+      "polling_units_count": 14,
+      "total_voters": 8781,
+      "file_path": "voters_data/11_KOGI_K_K/wards/04_GIRINYA.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_IRENODU",
+      "ward_name": "IRENODU",
+      "polling_units_count": 9,
+      "total_voters": 5346,
+      "file_path": "voters_data/11_KOGI_K_K/wards/05_IRENODU.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_AKPASU",
+      "ward_name": "AKPASU",
+      "polling_units_count": 12,
+      "total_voters": 6520,
+      "file_path": "voters_data/11_KOGI_K_K/wards/06_AKPASU.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_TAWARI",
+      "ward_name": "TAWARI",
+      "polling_units_count": 9,
+      "total_voters": 5479,
+      "file_path": "voters_data/11_KOGI_K_K/wards/07_TAWARI.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_GEGU_BEKI_NORTH",
+      "ward_name": "GEGU-BEKI NORTH",
+      "polling_units_count": 7,
+      "total_voters": 4423,
+      "file_path": "voters_data/11_KOGI_K_K/wards/08_GEGU_BEKI_NORTH.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_GEGU_BEKI_SOUTH",
+      "ward_name": "GEGU-BEKI SOUTH",
+      "polling_units_count": 11,
+      "total_voters": 6999,
+      "file_path": "voters_data/11_KOGI_K_K/wards/09_GEGU_BEKI_SOUTH.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_CHIKARA_NORTH",
+      "ward_name": "CHIKARA NORTH",
+      "polling_units_count": 5,
+      "total_voters": 3149,
+      "file_path": "voters_data/11_KOGI_K_K/wards/10_CHIKARA_NORTH.json"
+    },
+    {
+      "ward_code": "W11",
+      "ward_folder": "11_CHIKARA_SOUTH",
+      "ward_name": "CHIKARA SOUTH",
+      "polling_units_count": 6,
+      "total_voters": 3764,
+      "file_path": "voters_data/11_KOGI_K_K/wards/11_CHIKARA_SOUTH.json"
+    }
+  ],
+  "extracted_at": "2026-11-21T11:49:43.023Z",
+  "male_voters": 32193,
+  "male_pct": "50.8%",
+  "female_voters": 31148,
+  "female_pct": "49.2%"
+}

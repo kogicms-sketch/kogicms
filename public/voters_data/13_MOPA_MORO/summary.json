@@ -1,0 +1,95 @@
+{
+  "lga": "MOPA MORO",
+  "lga_code": "13",
+  "state": "Kogi",
+  "total_wards": 10,
+  "total_polling_units": 53,
+  "total_voters_extracted": 26827,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_ODOLE_1",
+      "ward_name": "ODOLE - 1",
+      "polling_units_count": 4,
+      "total_voters": 2286,
+      "file_path": "voters_data/13_MOPA_MORO/wards/01_ODOLE_1.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_ODOLE_2",
+      "ward_name": "ODOLE - 2",
+      "polling_units_count": 4,
+      "total_voters": 1790,
+      "file_path": "voters_data/13_MOPA_MORO/wards/02_ODOLE_2.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_ILETEJU_1",
+      "ward_name": "ILETEJU - 1",
+      "polling_units_count": 8,
+      "total_voters": 4462,
+      "file_path": "voters_data/13_MOPA_MORO/wards/03_ILETEJU_1.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_ILLETEJU_2",
+      "ward_name": "ILLETEJU - 2",
+      "polling_units_count": 5,
+      "total_voters": 2721,
+      "file_path": "voters_data/13_MOPA_MORO/wards/04_ILLETEJU_2.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_OKEAGI_ILAI",
+      "ward_name": "OKEAGI/ILAI",
+      "polling_units_count": 6,
+      "total_voters": 2789,
+      "file_path": "voters_data/13_MOPA_MORO/wards/05_OKEAGI_ILAI.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_OROKERE",
+      "ward_name": "OROKERE",
+      "polling_units_count": 8,
+      "total_voters": 3790,
+      "file_path": "voters_data/13_MOPA_MORO/wards/06_OROKERE.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_TAKETE_IDDE_OTAFUN",
+      "ward_name": "TAKETE IDDE/OTAFUN",
+      "polling_units_count": 5,
+      "total_voters": 2852,
+      "file_path": "voters_data/13_MOPA_MORO/wards/07_TAKETE_IDDE_OTAFUN.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_AIYEDAYO_AIYEDARO",
+      "ward_name": "AIYEDAYO/AIYEDARO",
+      "polling_units_count": 4,
+      "total_voters": 1570,
+      "file_path": "voters_data/13_MOPA_MORO/wards/08_AIYEDAYO_AIYEDARO.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_AGBAFOGUN",
+      "ward_name": "AGBAFOGUN",
+      "polling_units_count": 5,
+      "total_voters": 2178,
+      "file_path": "voters_data/13_MOPA_MORO/wards/09_AGBAFOGUN.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_AIYEDE_OKAGI",
+      "ward_name": "AIYEDE/OKAGI",
+      "polling_units_count": 4,
+      "total_voters": 2389,
+      "file_path": "voters_data/13_MOPA_MORO/wards/10_AIYEDE_OKAGI.json"
+    }
+  ],
+  "extracted_at": "2026-11-21T11:53:20.124Z",
+  "male_voters": 13783,
+  "male_pct": "51.4%",
+  "female_voters": 13044,
+  "female_pct": "48.6%"
+}

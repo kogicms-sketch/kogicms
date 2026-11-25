@@ -1,0 +1,95 @@
+{
+  "lga": "IBAJI",
+  "lga_code": "06",
+  "state": "Kogi",
+  "total_wards": 10,
+  "total_polling_units": 174,
+  "total_voters_extracted": 89594,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_ODEKE",
+      "ward_name": "ODEKE",
+      "polling_units_count": 18,
+      "total_voters": 8558,
+      "file_path": "voters_data/06_IBAJI/wards/01_ODEKE.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_UJEH",
+      "ward_name": "UJEH",
+      "polling_units_count": 17,
+      "total_voters": 8865,
+      "file_path": "voters_data/06_IBAJI/wards/02_UJEH.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_IYANO",
+      "ward_name": "IYANO",
+      "polling_units_count": 15,
+      "total_voters": 7044,
+      "file_path": "voters_data/06_IBAJI/wards/03_IYANO.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_AKPANYO",
+      "ward_name": "AKPANYO",
+      "polling_units_count": 17,
+      "total_voters": 9124,
+      "file_path": "voters_data/06_IBAJI/wards/04_AKPANYO.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_UNALE",
+      "ward_name": "UNALE",
+      "polling_units_count": 12,
+      "total_voters": 6881,
+      "file_path": "voters_data/06_IBAJI/wards/05_UNALE.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_OJILA",
+      "ward_name": "OJILA",
+      "polling_units_count": 20,
+      "total_voters": 10285,
+      "file_path": "voters_data/06_IBAJI/wards/06_OJILA.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_EJULE",
+      "ward_name": "EJULE",
+      "polling_units_count": 24,
+      "total_voters": 13899,
+      "file_path": "voters_data/06_IBAJI/wards/07_EJULE.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_AYAH",
+      "ward_name": "AYAH",
+      "polling_units_count": 19,
+      "total_voters": 9695,
+      "file_path": "voters_data/06_IBAJI/wards/08_AYAH.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_ANALO",
+      "ward_name": "ANALO",
+      "polling_units_count": 16,
+      "total_voters": 6970,
+      "file_path": "voters_data/06_IBAJI/wards/09_ANALO.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_ONYEDEGA",
+      "ward_name": "ONYEDEGA",
+      "polling_units_count": 16,
+      "total_voters": 8273,
+      "file_path": "voters_data/06_IBAJI/wards/10_ONYEDEGA.json"
+    }
+  ],
+  "extracted_at": "2026-11-20T23:27:47.124Z",
+  "male_voters": 44511,
+  "male_pct": "49.7%",
+  "female_voters": 45083,
+  "female_pct": "50.3%"
+}

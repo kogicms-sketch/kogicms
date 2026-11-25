@@ -1,0 +1,135 @@
+{
+  "lga": "KABBA BUNU",
+  "lga_code": "10",
+  "state": "Kogi",
+  "total_wards": 15,
+  "total_polling_units": 156,
+  "total_voters_extracted": 86745,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_ASUTA",
+      "ward_name": "ASUTA",
+      "polling_units_count": 12,
+      "total_voters": 7466,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/01_ASUTA.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_ODO_AKETE",
+      "ward_name": "ODO-AKETE",
+      "polling_units_count": 7,
+      "total_voters": 3909,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/02_ODO_AKETE.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_OKEKOKO",
+      "ward_name": "OKEKOKO",
+      "polling_units_count": 13,
+      "total_voters": 6896,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/03_OKEKOKO.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_ODOLU",
+      "ward_name": "ODOLU",
+      "polling_units_count": 13,
+      "total_voters": 7507,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/04_ODOLU.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_AIYEWA",
+      "ward_name": "AIYEWA",
+      "polling_units_count": 10,
+      "total_voters": 5630,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/05_AIYEWA.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_AIYETEJU",
+      "ward_name": "AIYETEJU",
+      "polling_units_count": 12,
+      "total_voters": 6603,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/06_AIYETEJU.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_OTU",
+      "ward_name": "OTU",
+      "polling_units_count": 10,
+      "total_voters": 5699,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/07_OTU.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_EGBEDA",
+      "ward_name": "EGBEDA",
+      "polling_units_count": 8,
+      "total_voters": 4441,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/08_EGBEDA.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_OKEDAYO",
+      "ward_name": "OKEDAYO",
+      "polling_units_count": 8,
+      "total_voters": 3376,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/09_OKEDAYO.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_AKUTUPA_KIRI",
+      "ward_name": "AKUTUPA-KIRI",
+      "polling_units_count": 9,
+      "total_voters": 4628,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/10_AKUTUPA_KIRI.json"
+    },
+    {
+      "ward_code": "W11",
+      "ward_folder": "11_AIYETORO_KIRI",
+      "ward_name": "AIYETORO-KIRI",
+      "polling_units_count": 12,
+      "total_voters": 6001,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/11_AIYETORO_KIRI.json"
+    },
+    {
+      "ward_code": "W12",
+      "ward_folder": "12_ILUKE",
+      "ward_name": "ILUKE",
+      "polling_units_count": 9,
+      "total_voters": 4274,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/12_ILUKE.json"
+    },
+    {
+      "ward_code": "W13",
+      "ward_folder": "13_OLLE_OKE_OFIN",
+      "ward_name": "OLLE/OKE-OFIN",
+      "polling_units_count": 11,
+      "total_voters": 6418,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/13_OLLE_OKE_OFIN.json"
+    },
+    {
+      "ward_code": "W14",
+      "ward_folder": "14_ODO_APE",
+      "ward_name": "ODO-APE",
+      "polling_units_count": 12,
+      "total_voters": 7866,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/14_ODO_APE.json"
+    },
+    {
+      "ward_code": "W15",
+      "ward_folder": "15_OKEBUKUN",
+      "ward_name": "OKEBUKUN",
+      "polling_units_count": 10,
+      "total_voters": 6031,
+      "file_path": "voters_data/10_KABBA_BUNU/wards/15_OKEBUKUN.json"
+    }
+  ],
+  "extracted_at": "2026-11-20T23:33:34.102Z",
+  "male_voters": 45977,
+  "male_pct": "53.0%",
+  "female_voters": 40768,
+  "female_pct": "47.0%"
+}

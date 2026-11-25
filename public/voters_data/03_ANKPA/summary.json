@@ -1,0 +1,119 @@
+{
+  "lga": "ANKPA",
+  "lga_code": "03",
+  "state": "Kogi",
+  "total_wards": 13,
+  "total_polling_units": 292,
+  "total_voters_extracted": 180094,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_ANKPA_TOWNSHIP",
+      "ward_name": "ANKPA TOWNSHIP",
+      "polling_units_count": 49,
+      "total_voters": 30227,
+      "file_path": "voters_data/03_ANKPA/wards/01_ANKPA_TOWNSHIP.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_ANKPA_SUBURB_I",
+      "ward_name": "ANKPA SUBURB I",
+      "polling_units_count": 25,
+      "total_voters": 14696,
+      "file_path": "voters_data/03_ANKPA/wards/02_ANKPA_SUBURB_I.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_ANKPA_SUBURB_II",
+      "ward_name": "ANKPA SUBURB II",
+      "polling_units_count": 26,
+      "total_voters": 13673,
+      "file_path": "voters_data/03_ANKPA/wards/03_ANKPA_SUBURB_II.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_ANKPA_I",
+      "ward_name": "ANKPA I",
+      "polling_units_count": 26,
+      "total_voters": 17192,
+      "file_path": "voters_data/03_ANKPA/wards/04_ANKPA_I.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_ANKPA_II",
+      "ward_name": "ANKPA II",
+      "polling_units_count": 20,
+      "total_voters": 12898,
+      "file_path": "voters_data/03_ANKPA/wards/05_ANKPA_II.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_ENJEMA_I",
+      "ward_name": "ENJEMA I",
+      "polling_units_count": 31,
+      "total_voters": 19333,
+      "file_path": "voters_data/03_ANKPA/wards/06_ENJEMA_I.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_ENJEMA_II",
+      "ward_name": "ENJEMA II",
+      "polling_units_count": 19,
+      "total_voters": 11110,
+      "file_path": "voters_data/03_ANKPA/wards/07_ENJEMA_II.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_ENJEMA_III",
+      "ward_name": "ENJEMA III",
+      "polling_units_count": 23,
+      "total_voters": 14345,
+      "file_path": "voters_data/03_ANKPA/wards/08_ENJEMA_III.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_ENJEMA_IV",
+      "ward_name": "ENJEMA IV",
+      "polling_units_count": 19,
+      "total_voters": 13308,
+      "file_path": "voters_data/03_ANKPA/wards/09_ENJEMA_IV.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_OJOKU_I",
+      "ward_name": "OJOKU I",
+      "polling_units_count": 16,
+      "total_voters": 9723,
+      "file_path": "voters_data/03_ANKPA/wards/10_OJOKU_I.json"
+    },
+    {
+      "ward_code": "W11",
+      "ward_folder": "11_OJOKU_II",
+      "ward_name": "OJOKU II",
+      "polling_units_count": 16,
+      "total_voters": 9300,
+      "file_path": "voters_data/03_ANKPA/wards/11_OJOKU_II.json"
+    },
+    {
+      "ward_code": "W12",
+      "ward_folder": "12_OJOKU_III",
+      "ward_name": "OJOKU III",
+      "polling_units_count": 12,
+      "total_voters": 8592,
+      "file_path": "voters_data/03_ANKPA/wards/12_OJOKU_III.json"
+    },
+    {
+      "ward_code": "W13",
+      "ward_folder": "13_OJOKU_IV",
+      "ward_name": "OJOKU IV",
+      "polling_units_count": 10,
+      "total_voters": 5697,
+      "file_path": "voters_data/03_ANKPA/wards/13_OJOKU_IV.json"
+    }
+  ],
+  "extracted_at": "2026-11-20T23:21:57.983Z",
+  "male_voters": 87119,
+  "male_pct": "48.4%",
+  "female_voters": 92975,
+  "female_pct": "51.6%"
+}

@@ -1,0 +1,95 @@
+{
+  "lga": "OLAMABORO",
+  "lga_code": "18",
+  "state": "Kogi",
+  "total_wards": 10,
+  "total_polling_units": 174,
+  "total_voters_extracted": 105864,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_IMANE_I",
+      "ward_name": "IMANE I",
+      "polling_units_count": 25,
+      "total_voters": 16142,
+      "file_path": "voters_data/18_OLAMABORO/wards/01_IMANE_I.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_IMANE_II",
+      "ward_name": "IMANE II",
+      "polling_units_count": 19,
+      "total_voters": 10180,
+      "file_path": "voters_data/18_OLAMABORO/wards/02_IMANE_II.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_OGUGU_I",
+      "ward_name": "OGUGU I",
+      "polling_units_count": 15,
+      "total_voters": 9718,
+      "file_path": "voters_data/18_OLAMABORO/wards/03_OGUGU_I.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_OGUGU_II",
+      "ward_name": "OGUGU II",
+      "polling_units_count": 16,
+      "total_voters": 9882,
+      "file_path": "voters_data/18_OLAMABORO/wards/04_OGUGU_II.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_OGUGU_III",
+      "ward_name": "OGUGU III",
+      "polling_units_count": 22,
+      "total_voters": 15474,
+      "file_path": "voters_data/18_OLAMABORO/wards/05_OGUGU_III.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_OLAMABORO_I",
+      "ward_name": "OLAMABORO I",
+      "polling_units_count": 14,
+      "total_voters": 7564,
+      "file_path": "voters_data/18_OLAMABORO/wards/06_OLAMABORO_I.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_OLAMABORO_II",
+      "ward_name": "OLAMABORO II",
+      "polling_units_count": 18,
+      "total_voters": 10109,
+      "file_path": "voters_data/18_OLAMABORO/wards/07_OLAMABORO_II.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_OLAMABORO_III",
+      "ward_name": "OLAMABORO III",
+      "polling_units_count": 23,
+      "total_voters": 14153,
+      "file_path": "voters_data/18_OLAMABORO/wards/08_OLAMABORO_III.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_OLAMABORO_IV",
+      "ward_name": "OLAMABORO IV",
+      "polling_units_count": 15,
+      "total_voters": 9491,
+      "file_path": "voters_data/18_OLAMABORO/wards/09_OLAMABORO_IV.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_OLAMABORO_V",
+      "ward_name": "OLAMABORO V",
+      "polling_units_count": 7,
+      "total_voters": 3151,
+      "file_path": "voters_data/18_OLAMABORO/wards/10_OLAMABORO_V.json"
+    }
+  ],
+  "extracted_at": "2026-11-21T14:28:02.350Z",
+  "male_voters": 48872,
+  "male_pct": "46.2%",
+  "female_voters": 56992,
+  "female_pct": "53.8%"
+}

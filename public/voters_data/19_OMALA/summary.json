@@ -1,0 +1,103 @@
+{
+  "lga": "OMALA",
+  "lga_code": "19",
+  "state": "Kogi",
+  "total_wards": 11,
+  "total_polling_units": 148,
+  "total_voters_extracted": 74537,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_ABEJUKOLO_I",
+      "ward_name": "ABEJUKOLO I",
+      "polling_units_count": 25,
+      "total_voters": 14263,
+      "file_path": "voters_data/19_OMALA/wards/01_ABEJUKOLO_I.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_ABEJUKOLO_II",
+      "ward_name": "ABEJUKOLO II",
+      "polling_units_count": 8,
+      "total_voters": 4583,
+      "file_path": "voters_data/19_OMALA/wards/02_ABEJUKOLO_II.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_OPODA_OFEJIJI",
+      "ward_name": "OPODA/OFEJIJI",
+      "polling_units_count": 13,
+      "total_voters": 6036,
+      "file_path": "voters_data/19_OMALA/wards/03_OPODA_OFEJIJI.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_BAGANA",
+      "ward_name": "BAGANA",
+      "polling_units_count": 14,
+      "total_voters": 6565,
+      "file_path": "voters_data/19_OMALA/wards/04_BAGANA.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_OKPATALA",
+      "ward_name": "OKPATALA",
+      "polling_units_count": 11,
+      "total_voters": 3671,
+      "file_path": "voters_data/19_OMALA/wards/05_OKPATALA.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_AKPACHA",
+      "ward_name": "AKPACHA",
+      "polling_units_count": 14,
+      "total_voters": 7847,
+      "file_path": "voters_data/19_OMALA/wards/06_AKPACHA.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_BAGAJI",
+      "ward_name": "BAGAJI",
+      "polling_units_count": 14,
+      "total_voters": 4977,
+      "file_path": "voters_data/19_OMALA/wards/07_BAGAJI.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_ICHEKE_AJOPACHI",
+      "ward_name": "ICHEKE AJOPACHI",
+      "polling_units_count": 17,
+      "total_voters": 9154,
+      "file_path": "voters_data/19_OMALA/wards/08_ICHEKE_AJOPACHI.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_OGODU",
+      "ward_name": "OGODU",
+      "polling_units_count": 13,
+      "total_voters": 7353,
+      "file_path": "voters_data/19_OMALA/wards/09_OGODU.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_OJI_AJI",
+      "ward_name": "OJI-AJI",
+      "polling_units_count": 10,
+      "total_voters": 5174,
+      "file_path": "voters_data/19_OMALA/wards/10_OJI_AJI.json"
+    },
+    {
+      "ward_code": "W11",
+      "ward_folder": "11_OLLA",
+      "ward_name": "OLLA",
+      "polling_units_count": 9,
+      "total_voters": 4914,
+      "file_path": "voters_data/19_OMALA/wards/11_OLLA.json"
+    }
+  ],
+  "extracted_at": "2026-11-21T14:29:03.878Z",
+  "male_voters": 38341,
+  "male_pct": "51.4%",
+  "female_voters": 36196,
+  "female_pct": "48.6%"
+}

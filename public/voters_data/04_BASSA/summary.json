@@ -1,0 +1,95 @@
+{
+  "lga": "BASSA",
+  "lga_code": "04",
+  "state": "Kogi",
+  "total_wards": 10,
+  "total_polling_units": 130,
+  "total_voters_extracted": 69376,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_AKUBA_I",
+      "ward_name": "AKUBA I",
+      "polling_units_count": 19,
+      "total_voters": 10924,
+      "file_path": "voters_data/04_BASSA/wards/01_AKUBA_I.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_AKUBA_II",
+      "ward_name": "AKUBA II",
+      "polling_units_count": 19,
+      "total_voters": 11143,
+      "file_path": "voters_data/04_BASSA/wards/02_AKUBA_II.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_AYEDE_AKAKANA",
+      "ward_name": "AYEDE/AKAKANA",
+      "polling_units_count": 17,
+      "total_voters": 8892,
+      "file_path": "voters_data/04_BASSA/wards/03_AYEDE_AKAKANA.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_OZONGULO_KPANCHE",
+      "ward_name": "OZONGULO/KPANCHE",
+      "polling_units_count": 7,
+      "total_voters": 3929,
+      "file_path": "voters_data/04_BASSA/wards/04_OZONGULO_KPANCHE.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_IKENDE",
+      "ward_name": "IKENDE",
+      "polling_units_count": 13,
+      "total_voters": 6002,
+      "file_path": "voters_data/04_BASSA/wards/05_IKENDE.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_GBOLOKO",
+      "ward_name": "GBOLOKO",
+      "polling_units_count": 19,
+      "total_voters": 8835,
+      "file_path": "voters_data/04_BASSA/wards/06_GBOLOKO.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_KPATA",
+      "ward_name": "KPATA",
+      "polling_units_count": 13,
+      "total_voters": 6702,
+      "file_path": "voters_data/04_BASSA/wards/07_KPATA.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_EFORO",
+      "ward_name": "EFORO",
+      "polling_units_count": 9,
+      "total_voters": 5184,
+      "file_path": "voters_data/04_BASSA/wards/08_EFORO.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_MOZUM",
+      "ward_name": "MOZUM",
+      "polling_units_count": 8,
+      "total_voters": 4552,
+      "file_path": "voters_data/04_BASSA/wards/09_MOZUM.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_OZUGBE",
+      "ward_name": "OZUGBE",
+      "polling_units_count": 6,
+      "total_voters": 3213,
+      "file_path": "voters_data/04_BASSA/wards/10_OZUGBE.json"
+    }
+  ],
+  "extracted_at": "2026-11-20T23:23:10.456Z",
+  "male_voters": 33729,
+  "male_pct": "48.6%",
+  "female_voters": 35647,
+  "female_pct": "51.4%"
+}

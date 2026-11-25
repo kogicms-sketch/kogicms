@@ -1,0 +1,95 @@
+{
+  "lga": "IGALAMELA ODOLU",
+  "lga_code": "08",
+  "state": "Kogi",
+  "total_wards": 10,
+  "total_polling_units": 140,
+  "total_voters_extracted": 77576,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_AVRUGO",
+      "ward_name": "AVRUGO",
+      "polling_units_count": 7,
+      "total_voters": 2597,
+      "file_path": "voters_data/08_IGALAMELA_ODOLU/wards/01_AVRUGO.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_EKWULOKO",
+      "ward_name": "EKWULOKO",
+      "polling_units_count": 8,
+      "total_voters": 2696,
+      "file_path": "voters_data/08_IGALAMELA_ODOLU/wards/02_EKWULOKO.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_ODOLU",
+      "ward_name": "ODOLU",
+      "polling_units_count": 12,
+      "total_voters": 6340,
+      "file_path": "voters_data/08_IGALAMELA_ODOLU/wards/03_ODOLU.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_OJI_AJI",
+      "ward_name": "OJI-AJI",
+      "polling_units_count": 5,
+      "total_voters": 2376,
+      "file_path": "voters_data/08_IGALAMELA_ODOLU/wards/04_OJI_AJI.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_AKPANYA",
+      "ward_name": "AKPANYA",
+      "polling_units_count": 16,
+      "total_voters": 8535,
+      "file_path": "voters_data/08_IGALAMELA_ODOLU/wards/05_AKPANYA.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_UBELE",
+      "ward_name": "UBELE",
+      "polling_units_count": 7,
+      "total_voters": 5077,
+      "file_path": "voters_data/08_IGALAMELA_ODOLU/wards/06_UBELE.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_AJAKA_I",
+      "ward_name": "AJAKA I",
+      "polling_units_count": 36,
+      "total_voters": 21745,
+      "file_path": "voters_data/08_IGALAMELA_ODOLU/wards/07_AJAKA_I.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_AJAKA_II",
+      "ward_name": "AJAKA II",
+      "polling_units_count": 21,
+      "total_voters": 11970,
+      "file_path": "voters_data/08_IGALAMELA_ODOLU/wards/08_AJAKA_II.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_OFORACHI_I",
+      "ward_name": "OFORACHI I",
+      "polling_units_count": 14,
+      "total_voters": 8644,
+      "file_path": "voters_data/08_IGALAMELA_ODOLU/wards/09_OFORACHI_I.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_OFORACHI_II",
+      "ward_name": "OFORACHI II",
+      "polling_units_count": 14,
+      "total_voters": 7596,
+      "file_path": "voters_data/08_IGALAMELA_ODOLU/wards/10_OFORACHI_II.json"
+    }
+  ],
+  "extracted_at": "2026-11-20T23:30:30.135Z",
+  "male_voters": 38125,
+  "male_pct": "49.1%",
+  "female_voters": 39451,
+  "female_pct": "50.9%"
+}

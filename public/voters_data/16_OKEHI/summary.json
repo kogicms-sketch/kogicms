@@ -1,0 +1,103 @@
+{
+  "lga": "OKEHI",
+  "lga_code": "16",
+  "state": "Kogi",
+  "total_wards": 11,
+  "total_polling_units": 188,
+  "total_voters_extracted": 94456,
+  "wards": [
+    {
+      "ward_code": "W01",
+      "ward_folder": "01_OBEIBA_I",
+      "ward_name": "OBEIBA I",
+      "polling_units_count": 22,
+      "total_voters": 9776,
+      "file_path": "voters_data/16_OKEHI/wards/01_OBEIBA_I.json"
+    },
+    {
+      "ward_code": "W02",
+      "ward_folder": "02_OBEIBA_II",
+      "ward_name": "OBEIBA II",
+      "polling_units_count": 15,
+      "total_voters": 7189,
+      "file_path": "voters_data/16_OKEHI/wards/02_OBEIBA_II.json"
+    },
+    {
+      "ward_code": "W03",
+      "ward_folder": "03_IKUEHI",
+      "ward_name": "IKUEHI",
+      "polling_units_count": 21,
+      "total_voters": 9080,
+      "file_path": "voters_data/16_OKEHI/wards/03_IKUEHI.json"
+    },
+    {
+      "ward_code": "W04",
+      "ward_folder": "04_OHUETA",
+      "ward_name": "OHUETA",
+      "polling_units_count": 13,
+      "total_voters": 5647,
+      "file_path": "voters_data/16_OKEHI/wards/04_OHUETA.json"
+    },
+    {
+      "ward_code": "W05",
+      "ward_folder": "05_OBOROKE_EBA",
+      "ward_name": "OBOROKE EBA",
+      "polling_units_count": 20,
+      "total_voters": 10192,
+      "file_path": "voters_data/16_OKEHI/wards/05_OBOROKE_EBA.json"
+    },
+    {
+      "ward_code": "W06",
+      "ward_folder": "06_OBOROKE_UVETE_I",
+      "ward_name": "OBOROKE UVETE I",
+      "polling_units_count": 14,
+      "total_voters": 6402,
+      "file_path": "voters_data/16_OKEHI/wards/06_OBOROKE_UVETE_I.json"
+    },
+    {
+      "ward_code": "W07",
+      "ward_folder": "07_EIKA_OHIZENYI",
+      "ward_name": "EIKA / OHIZENYI",
+      "polling_units_count": 23,
+      "total_voters": 13443,
+      "file_path": "voters_data/16_OKEHI/wards/07_EIKA_OHIZENYI.json"
+    },
+    {
+      "ward_code": "W08",
+      "ward_folder": "08_OKAITO_USUNGWEN",
+      "ward_name": "OKAITO / USUNGWEN",
+      "polling_units_count": 14,
+      "total_voters": 8011,
+      "file_path": "voters_data/16_OKEHI/wards/08_OKAITO_USUNGWEN.json"
+    },
+    {
+      "ward_code": "W09",
+      "ward_folder": "09_OHUEPE_OMAVI_UBORO",
+      "ward_name": "OHUEPE / OMAVI UBORO",
+      "polling_units_count": 10,
+      "total_voters": 3715,
+      "file_path": "voters_data/16_OKEHI/wards/09_OHUEPE_OMAVI_UBORO.json"
+    },
+    {
+      "ward_code": "W10",
+      "ward_folder": "10_OBANGEDE_UHUODO",
+      "ward_name": "OBANGEDE / UHUODO",
+      "polling_units_count": 24,
+      "total_voters": 14983,
+      "file_path": "voters_data/16_OKEHI/wards/10_OBANGEDE_UHUODO.json"
+    },
+    {
+      "ward_code": "W11",
+      "ward_folder": "11_OBOROKE_UVETE_II",
+      "ward_name": "OBOROKE UVETE - II",
+      "polling_units_count": 12,
+      "total_voters": 6018,
+      "file_path": "voters_data/16_OKEHI/wards/11_OBOROKE_UVETE_II.json"
+    }
+  ],
+  "extracted_at": "2026-11-21T14:24:27.684Z",
+  "male_voters": 43172,
+  "male_pct": "45.7%",
+  "female_voters": 51284,
+  "female_pct": "54.3%"
+}
