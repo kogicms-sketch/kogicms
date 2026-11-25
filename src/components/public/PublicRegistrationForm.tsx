@@ -860,7 +860,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                 account_number: form.accountNumber || null,
                 status: "pending",
                 is_verified: false,
-                created_by: agentProfile?.user_id || null,
+                created_by: puAgent?.user_id || null,
               }),
             8000,
             { data: null, error: new Error("Network request timed out. Please try again.") }
