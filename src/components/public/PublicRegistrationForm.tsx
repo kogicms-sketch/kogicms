@@ -2,6 +2,9 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePUAgent } from "@/hooks/usePUAgent";
+import { useAuth } from "@/contexts/AuthContext";
+import { MOCK_USERS } from "@/data/mock_users";
+import { toast } from "sonner";
 import { localVoterService } from "@/services/LocalVoterService";
 import { localRepository } from "@/services/LocalRepository";
 import {
@@ -370,7 +373,29 @@ function RadioGroup({ name, options, value, onChange }: {
 function PublicRegistrationFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: puAgent } = usePUAgent();
+  const { user, role, signIn, signOut } = useAuth();
+  const { data: puAgentQuery } = usePUAgent();
+
+  // Network and offline sync state
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncToastMessage, setSyncToastMessage] = useState<string | null>(null);
+
+  // Polling Unit Agent login credentials state
+  const [agentLoginEmail, setAgentLoginEmail] = useState("");
+  const [agentLoginPassword, setAgentLoginPassword] = useState("");
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [localAgentProfile, setLocalAgentProfile] = useState<any>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("pu_agent_profile");
+        if (stored) return JSON.parse(stored);
+      } catch (_) {}
+    }
+    return null;
+  });
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
@@ -391,37 +416,162 @@ function PublicRegistrationFormContent() {
   const [submitting, setSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState("");
 
-  // ── Exact Polling Unit Auto-Detection ──
-  // Reads exact polling unit from logged-in agent (usePUAgent / localStorage) or URL search params
+  // Determine effective agent from various sources
+  const effectiveAgent = puAgentQuery || localAgentProfile || (user?.user_metadata?.polling_unit_name ? {
+    agent_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Field Agent",
+    email: user.email || "",
+    phone: user.user_metadata?.phone || null,
+    lga: user.user_metadata?.lga || "Lokoja",
+    ward: user.user_metadata?.ward || "Eggan",
+    polling_unit_name: user.user_metadata?.polling_unit_name,
+    polling_unit_id: user.user_metadata?.polling_unit_id || null,
+    user_id: user.id
+  } : null);
+
+  const isAgentAuthenticated = Boolean(
+    effectiveAgent?.polling_unit_name ||
+    role === "polling_unit_agent" ||
+    role === "super_admin" ||
+    role === "councillor" ||
+    role === "lga_chairman"
+  );
+
+  // Check pending offline registrations
+  const refreshPendingCount = async () => {
+    try {
+      const queue = await localRepository.getSyncQueue();
+      const memberQueue = queue.filter(item => item.table_name === "members");
+      let localPending = 0;
+      if (typeof window !== "undefined") {
+        const stored = JSON.parse(localStorage.getItem("offline_pending_registrations") || "[]");
+        localPending = Array.isArray(stored) ? stored.length : 0;
+      }
+      setPendingSyncCount(Math.max(memberQueue.length, localPending));
+    } catch (_) {}
+  };
+
+  // Sync engine for pending offline registrations
+  const handleSyncPending = async () => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      toast.error("Babu network a yanzu. Da zaran an shiga inda akwai network za a tura su kai tsaye.");
+      return;
+    }
+    if (isSyncing) return;
+
+    setIsSyncing(true);
+    setSyncToastMessage("Ana tura rajistar da aka yi a offline zuwa tsarin APM...");
+    try {
+      let syncedCount = 0;
+
+      // 1. Process localStorage queue
+      let storedList: any[] = [];
+      if (typeof window !== "undefined") {
+        try {
+          storedList = JSON.parse(localStorage.getItem("offline_pending_registrations") || "[]");
+        } catch (_) {}
+      }
+
+      const remainingStored: any[] = [];
+      for (const member of storedList) {
+        try {
+          const { error } = await publicSupabase
+            .from("members")
+            .upsert(member, { onConflict: "membership_id" });
+          if (!error) {
+            syncedCount++;
+          } else {
+            remainingStored.push(member);
+          }
+        } catch (e) {
+          remainingStored.push(member);
+        }
+      }
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("offline_pending_registrations", JSON.stringify(remainingStored));
+      }
+
+      // 2. Process Dexie sync queue
+      try {
+        const queue = await localRepository.getSyncQueue();
+        for (const item of queue) {
+          if (item.table_name === "members") {
+            try {
+              const payload = JSON.parse(item.payload);
+              const { error } = await publicSupabase
+                .from("members")
+                .upsert(payload, { onConflict: "membership_id" });
+              if (!error) {
+                await localRepository.dequeueAction(item.id);
+                syncedCount++;
+              }
+            } catch (_) {}
+          }
+        }
+      } catch (_) {}
+
+      await refreshPendingCount();
+
+      if (syncedCount > 0) {
+        const msg = `🎉 An yi nasarar tura rajista ${syncedCount} da aka yi a offline zuwa babban database!`;
+        setSyncToastMessage(msg);
+        toast.success(msg);
+        setTimeout(() => setSyncToastMessage(null), 6000);
+      } else {
+        setSyncToastMessage(null);
+      }
+    } catch (err) {
+      console.error("Sync error:", err);
+      setSyncToastMessage(null);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Monitor network status and trigger background auto-sync
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      toast.success("An sake samun network (Connected)! Ana tura rajistar da ke jiran aiki...");
+      handleSyncPending();
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      toast.warning("Babu network a yanzu (Offline Mode). Duk rajistar da ka yi za ta ajiye a wayarka.");
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    refreshPendingCount();
+
+    if (typeof navigator !== "undefined" && navigator.onLine) {
+      handleSyncPending();
+    }
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  // ── Exact Polling Unit Auto-Detection & Locking ──
   useEffect(() => {
     const urlLga = searchParams?.get("lga") || searchParams?.get("lga_name") || "";
     const urlWard = searchParams?.get("ward") || searchParams?.get("ward_name") || "";
     const urlPu = searchParams?.get("pu") || searchParams?.get("polling_unit") || searchParams?.get("pollingUnit") || "";
     const urlPuId = searchParams?.get("puId") || searchParams?.get("polling_unit_id") || "";
 
-    let agentLga = puAgent?.lga || "";
-    let agentWard = puAgent?.ward || "";
-    let agentPu = puAgent?.polling_unit_name || "";
-    let agentPuId = puAgent?.polling_unit_id || "";
+    const agentLga = effectiveAgent?.lga || "";
+    const agentWard = effectiveAgent?.ward || "";
+    const agentPu = effectiveAgent?.polling_unit_name || "";
+    const agentPuId = effectiveAgent?.polling_unit_id || "";
 
-    if (!agentPu && typeof window !== "undefined") {
-      try {
-        const assigned = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
-        const list = Object.values(assigned) as any[];
-        if (list.length > 0) {
-          const first = list[0];
-          agentLga = agentLga || first.lga || "";
-          agentWard = agentWard || first.ward || "";
-          agentPu = agentPu || first.pu_name || "";
-          agentPuId = agentPuId || first.pu_id || "";
-        }
-      } catch (_) {}
-    }
-
-    const resolvedLga = urlLga || agentLga;
-    const resolvedWard = urlWard || agentWard;
-    const resolvedPu = urlPu || agentPu;
-    const resolvedPuId = urlPuId || agentPuId;
+    // If agent is authenticated, STRICTLY lock to their assigned polling unit
+    const resolvedLga = agentLga || urlLga;
+    const resolvedWard = agentWard || urlWard;
+    const resolvedPu = agentPu || urlPu;
+    const resolvedPuId = agentPuId || urlPuId;
 
     if (resolvedLga) {
       const wardsList = getWardsForLga(resolvedLga);
@@ -441,7 +591,110 @@ function PublicRegistrationFormContent() {
         pollingUnitId: resolvedPuId || pusList.find(p => p.name === resolvedPu)?.id || f.pollingUnitId,
       }));
     }
-  }, [searchParams, puAgent]);
+  }, [searchParams, effectiveAgent]);
+
+  // Agent Login Handler (supports online & offline authentication)
+  const handleAgentLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setIsAuthenticating(true);
+
+    const normEmail = agentLoginEmail.trim().toLowerCase();
+    const pass = agentLoginPassword.trim();
+
+    try {
+      let matchedAgent: any = null;
+
+      // 1. Check MOCK_USERS (always available offline)
+      const mockMatch = MOCK_USERS.find(
+        (u) =>
+          (u.email?.toLowerCase().trim() === normEmail || (u.phoneNumber && u.phoneNumber.trim() === normEmail)) &&
+          u.password === pass
+      );
+      if (mockMatch) {
+        matchedAgent = {
+          id: mockMatch.id,
+          user_id: mockMatch.id,
+          agent_name: mockMatch.full_name || mockMatch.name,
+          email: mockMatch.email,
+          phone: mockMatch.phoneNumber || mockMatch.phone || null,
+          lga: mockMatch.lga || "Lokoja",
+          ward: mockMatch.ward || "Eggan",
+          polling_unit_name: mockMatch.polling_unit_name || mockMatch.pollingUnit || "Eggan Tifain Area LGEA Sch Eggan",
+          polling_unit_id: mockMatch.polling_unit_id || "LOKOJA-W10-PU001",
+          role: mockMatch.role,
+        };
+      }
+
+      // 2. Check assigned_pu_agents in localStorage
+      if (!matchedAgent && typeof window !== "undefined") {
+        try {
+          const assigned = JSON.parse(localStorage.getItem("assigned_pu_agents") || "{}");
+          for (const [, a] of Object.entries(assigned) as [string, any][]) {
+            if (
+              (a.email?.toLowerCase().trim() === normEmail || a.phone === normEmail) &&
+              (a.password === pass || !a.password)
+            ) {
+              matchedAgent = {
+                id: a.id || a.user_id,
+                user_id: a.user_id || a.id,
+                agent_name: a.agent_name || a.name || "Field Agent",
+                email: a.email || "",
+                phone: a.phone || null,
+                lga: a.lga,
+                ward: a.ward,
+                polling_unit_name: a.pu_name || a.polling_unit_name,
+                polling_unit_id: a.pu_id || a.polling_unit_id,
+                role: "polling_unit_agent",
+              };
+              break;
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 3. If online and not matched locally, authenticate via Supabase
+      if (!matchedAgent && navigator.onLine) {
+        const res = await signIn(normEmail, pass);
+        if (res.error) {
+          throw new Error("Email ko kalmar sirri ba daidai ba ne. (Invalid email or password)");
+        }
+        setIsAuthenticating(false);
+        return;
+      }
+
+      if (matchedAgent) {
+        if (!matchedAgent.polling_unit_name && matchedAgent.role !== "super_admin") {
+          throw new Error("Wannan asusun ba shi da rumfar zabe da aka tura shi (No polling unit assigned).");
+        }
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem("pu_agent_profile", JSON.stringify(matchedAgent));
+          localStorage.setItem("auth_role", "polling_unit_agent");
+          localStorage.setItem("auth_email", matchedAgent.email);
+        }
+        setLocalAgentProfile(matchedAgent);
+        toast.success(`Barka da zuwa, ${matchedAgent.agent_name}! An buɗe rumfarku.`);
+      } else {
+        throw new Error("Ba a sami jami'in rumfa mai waɗannan bayanan ba. Da fatan a sake dubawa.");
+      }
+    } catch (err: any) {
+      setAuthError(err.message || "An sami matsala wajen tantancewa.");
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleAgentLogout = async () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("pu_agent_profile");
+    }
+    setLocalAgentProfile(null);
+    try {
+      await signOut();
+    } catch (_) {}
+    toast.info("An fita daga tashar jami'in rumfa.");
+  };
 
   // LGA, Ward, Polling Unit dropdown selection handlers
   const handleLgaSelect = (lga: string) => {
@@ -815,60 +1068,102 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
         );
       }
 
-      setSubmitStatus("3. Saving member record to database...");
+      setSubmitStatus("3. Shirya bayanan rajista...");
       let finalMembershipId = membershipId;
-      // Ensure initial finalMembershipId is 100% unique from first attempt
       const uniqueRandomSalt = Math.random().toString(36).substring(2, 6).toUpperCase();
       if (!finalMembershipId || !finalMembershipId.includes("-")) {
-        const lgaAbbr = (form.lga || "KAT").toUpperCase().slice(0, 3);
-        const wardAbbr = (form.ward || "WAK").toUpperCase().slice(0, 3);
-        finalMembershipId = `${lgaAbbr}-${wardAbbr}-001-${uniqueRandomSalt}`;
+        const lgaAbbr = (form.lga || "KGI").toUpperCase().slice(0, 3);
+        const wardAbbr = (form.ward || "WRD").toUpperCase().slice(0, 3);
+        finalMembershipId = `APM-${lgaAbbr}-${wardAbbr}-001-${uniqueRandomSalt}`;
       } else if (!finalMembershipId.match(/-[A-Z0-9]{4,}$/)) {
         finalMembershipId = `${finalMembershipId}-${uniqueRandomSalt}`;
       }
-      
+
+      const memberPayload: any = {
+        id: generateUUID(),
+        full_name: fullName,
+        membership_id: finalMembershipId,
+        phone: form.phone || null,
+        email: form.email || null,
+        social_media_handle: form.socialMediaHandle || null,
+        gender: form.gender || null,
+        date_of_birth: form.dateOfBirth || null,
+        voters_card_id: vinToUse,
+        pvc_status: form.pvcStatus || 'collected',
+        state: "Kogi",
+        lga: form.lga || null,
+        ward: form.ward || null,
+        polling_unit: finalPollingUnitName,
+        polling_unit_id: resolvedPollingUnitId,
+        marital_status: form.maritalStatus || null,
+        occupation: finalOccupation,
+        school_name: finalSchoolName,
+        school_level: finalSchoolLevel,
+        bank_name: form.bankName || null,
+        account_number: form.accountNumber || null,
+        status: "pending",
+        is_verified: false,
+        created_by: effectiveAgent?.user_id || user?.id || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Helper function to save record offline in IndexedDB and localStorage
+      const saveOfflineAndRedirect = async () => {
+        setSubmitStatus("Yanayin Ba Network: Ana ajiye rajistar a wayarka...");
+        try {
+          await localRepository.saveMember(memberPayload);
+          await localRepository.enqueueAction("members", "INSERT", memberPayload.id, memberPayload);
+
+          if (typeof window !== "undefined") {
+            const stored = JSON.parse(localStorage.getItem("offline_pending_registrations") || "[]");
+            stored.push(memberPayload);
+            localStorage.setItem("offline_pending_registrations", JSON.stringify(stored));
+          }
+          await refreshPendingCount();
+        } catch (storageErr) {
+          console.warn("Offline local storage note:", storageErr);
+        }
+
+        setSubmitStatus("An adana a waya! Ana buɗe katin rajista...");
+        router.push(
+          `/register/success?id=${finalMembershipId}&name=${encodeURIComponent(fullName)}&pu=${encodeURIComponent(form.pollingUnit)}&offline=true`
+        );
+      };
+
+      // 1. If user is currently offline, store locally and immediately succeed
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await saveOfflineAndRedirect();
+        return;
+      }
+
+      // 2. If online, attempt insert into Supabase with duplicate key protection & timeout
+      setSubmitStatus("3. Ana tura bayanan mamba zuwa database...");
       let insertSuccess = false;
       let attempts = 0;
       let lastError: any = null;
 
-      while (!insertSuccess && attempts < 5) {
+      while (!insertSuccess && attempts < 4) {
         attempts++;
         try {
           const insertResult: any = await withTimeout(
-            (publicSupabase as any)
+            publicSupabase
               .from("members")
-              .insert({
-                full_name: fullName,
-                membership_id: finalMembershipId,
-                phone: form.phone || null,
-                email: form.email || null,
-                social_media_handle: form.socialMediaHandle || null,
-                gender: form.gender || null,
-                date_of_birth: form.dateOfBirth || null,
-                voters_card_id: vinToUse,
-                pvc_status: form.pvcStatus || 'collected',
-                state: "Kogi",
-                lga: form.lga || null,
-                ward: form.ward || null,
-                polling_unit: finalPollingUnitName,
-                polling_unit_id: resolvedPollingUnitId,
-                marital_status: form.maritalStatus || null,
-                occupation: finalOccupation,
-                school_name: finalSchoolName,
-                school_level: finalSchoolLevel,
-                bank_name: form.bankName || null,
-                account_number: form.accountNumber || null,
-                status: "pending",
-                is_verified: false,
-                created_by: puAgent?.user_id || null,
-              }),
-            8000,
-            { data: null, error: new Error("Network request timed out. Please try again.") }
+              .insert(memberPayload),
+            6500,
+            { data: null, error: new Error("Network request timed out. Saving offline.") }
           );
 
           const err = insertResult?.error;
           if (err) {
             const errMsg = (err.message || JSON.stringify(err)).toLowerCase();
+            const isTimeout = errMsg.includes("timed out") || errMsg.includes("network") || errMsg.includes("failed to fetch");
+            if (isTimeout) {
+              console.warn("Network timeout during online insert. Falling back to offline queue.");
+              await saveOfflineAndRedirect();
+              return;
+            }
+
             const errCode = (err.code || "").toString();
             const isDupKey =
               errCode === "23505" ||
@@ -877,14 +1172,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
               errMsg.includes("members_membership_id_key");
 
             if (isDupKey) {
-              console.warn(`Duplicate membership_id detected (Attempt ${attempts}/5). Generating fresh unique ALPHANUMERIC ID...`);
               const alphaChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
               let alphaSalt = "";
               for (let i = 0; i < 4; i++) {
                 alphaSalt += alphaChars.charAt(Math.floor(Math.random() * alphaChars.length));
               }
-              const basePrefix = membershipId.split("-").slice(0, 3).join("-");
+              const basePrefix = finalMembershipId.split("-").slice(0, 3).join("-");
               finalMembershipId = `${basePrefix}-${alphaSalt}`;
+              memberPayload.membership_id = finalMembershipId;
               lastError = err;
               continue;
             } else {
@@ -894,49 +1189,41 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
 
           insertSuccess = true;
         } catch (err: any) {
-          const errMsg = (err?.message || JSON.stringify(err)).toLowerCase();
-          const errCode = (err?.code || "").toString();
-          const isDupKey =
-            errCode === "23505" ||
-            errMsg.includes("duplicate key") ||
-            errMsg.includes("unique constraint") ||
-            errMsg.includes("members_membership_id_key");
-
-          if (isDupKey && attempts < 5) {
-            console.warn(`Duplicate key exception caught (Attempt ${attempts}/5). Retrying with fresh ALPHANUMERIC ID...`);
-            const alphaChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-            let alphaSalt = "";
-            for (let i = 0; i < 4; i++) {
-              alphaSalt += alphaChars.charAt(Math.floor(Math.random() * alphaChars.length));
-            }
-            const basePrefix = membershipId.split("-").slice(0, 3).join("-");
-            finalMembershipId = `${basePrefix}-${alphaSalt}`;
-            lastError = err;
-          } else {
-            throw err;
+          const errMsg = (err?.message || "").toLowerCase();
+          if (errMsg.includes("timed out") || errMsg.includes("fetch") || errMsg.includes("network")) {
+            console.warn("Network error during submission. Falling back to offline queue.");
+            await saveOfflineAndRedirect();
+            return;
           }
+          lastError = err;
         }
       }
 
-      if (!insertSuccess && lastError) {
-        throw lastError;
+      if (!insertSuccess) {
+        console.warn("Online insert unsuccessful. Storing offline for background sync:", lastError);
+        await saveOfflineAndRedirect();
+        return;
       }
 
-      setSubmitStatus("4. Dispatching notification to Polling Unit Agent...");
-      // Notify PU agent (non-blocking, wrapped so it cannot block redirection)
+      // Also save locally for instant offline voter visibility
+      try {
+        await localRepository.saveMember(memberPayload);
+      } catch (_) {}
+
+      setSubmitStatus("4. Ana aika sanarwa...");
       try {
         notifyPUAgent(
           finalPollingUnitName,
           form.lga,
           form.ward,
           fullName,
-          finalMembershipId,
+          finalMembershipId
         );
       } catch (notifyErr) {
         console.error("Non-blocking notification trigger error:", notifyErr);
       }
 
-      setSubmitStatus("5. Completed! Redirecting to success card...");
+      setSubmitStatus("5. An kammala! Ana buɗe katin rajista...");
       router.push(`/register/success?id=${finalMembershipId}&name=${encodeURIComponent(fullName)}&pu=${encodeURIComponent(form.pollingUnit)}`);
     } catch (err: any) {
       setSubmitStatus("");
@@ -989,267 +1276,430 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
       {/* Card */}
       <div style={{ width: "100%", maxWidth: 560, background: "#fff", borderRadius: 16, boxShadow: "0 8px 40px rgba(0,0,0,0.10)", padding: "32px 28px", boxSizing: "border-box" }}>
 
-        {puAgent && (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, padding: "12px 16px", background: "#f0faf2", border: "1.5px solid #86efac", borderRadius: 10 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "left" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#009A44" }} />
-                <span style={{ fontSize: 13, color: "#009A44", fontWeight: 800 }}>
-                  Agent Cell: {puAgent.polling_unit_name}
-                </span>
-              </div>
-              <span style={{ fontSize: 11, color: "#4b5563", fontWeight: 600 }}>
-                Officer: {puAgent.agent_name} · {puAgent.ward}, {puAgent.lga}
+        {!isAgentAuthenticated ? (
+          <div style={{ textAlign: "center", padding: "10px 0" }}>
+            <div style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              background: "#f0faf2",
+              border: "2px solid #009A44",
+              fontSize: 28,
+              marginBottom: 16,
+              boxShadow: "0 4px 14px rgba(0,154,68,0.2)"
+            }}>
+              🔒
+            </div>
+
+            <h2 style={{ fontSize: 20, fontWeight: 900, color: "#111", margin: "0 0 4px" }}>
+              Tabbatar da Jami'in Rumfa
+            </h2>
+            <p style={{ fontSize: 12, color: "#009A44", fontWeight: 800, margin: "0 0 14px", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Polling Unit Agent Authentication
+            </p>
+            <p style={{ fontSize: 13, color: "#4b5563", margin: "0 0 20px", lineHeight: 1.5, textAlign: "left" }}>
+              Wannan shafin rajistar an kulle shi ne don <strong>Jami'an Rumfunan Zaɓe (Polling Unit Agents)</strong> na APM kaɗai. Da fatan za ka shiga da Email/Phone da Password don buɗe tashar rajistar rumfarku.
+            </p>
+
+            {/* Network status pill inside login */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px 14px",
+              background: isOnline ? "#f0faf2" : "#fff7ed",
+              border: `1.5px solid ${isOnline ? "#86efac" : "#fed7aa"}`,
+              borderRadius: 10,
+              marginBottom: 18,
+              textAlign: "left"
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: isOnline ? "#15803d" : "#c2410c", display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: isOnline ? "#16a34a" : "#ea580c" }} />
+                {isOnline ? "🟢 Cibiyar Sadarwa (Online)" : "🟠 Yanayin Ba Network (Offline Support Active)"}
+              </span>
+              <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>
+                {isOnline ? "Server Auth" : "Offline Cache Auth"}
               </span>
             </div>
-            <span style={{ fontSize: 11, background: "#009A44", color: "#fff", padding: "4px 10px", borderRadius: 20, fontWeight: 700 }}>
-              AUTO-SELECTED
-            </span>
-          </div>
-        )}
 
-        <StepIndicator current={step} />
-
-            {/* ── STEP 0: Location & Polling Unit ── */}
-            {step === 0 && (
-              <div>
-                <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111", marginBottom: 20 }}>Location &amp; Polling Unit</h2>
-                <Field label="Local Government Area (LGA)" required error={errors.lga}>
-                  <select style={selectStyle} value={form.lga} onChange={e => handleLgaSelect(e.target.value)}>
-                    <option value="">-- Select LGA --</option>
-                    {KATSINA_LGAS.map(l => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </Field>
-                <Field label="Ward" required error={errors.ward}>
-                  <select style={selectStyle} value={form.ward} onChange={e => handleWardSelect(e.target.value)} disabled={!form.lga}>
-                    <option value="">{form.lga ? "-- Select Ward --" : "Select LGA first"}</option>
-                    {form.ward && <option value={form.ward}>{form.ward}</option>}
-                    {wards.map(w => <option key={w} value={w}>{w}</option>)}
-                  </select>
-                </Field>
-                <Field label="Polling Unit" required error={errors.pollingUnit}>
-                  <select
-                    style={selectStyle}
-                    value={form.pollingUnit}
-                    onChange={e => {
-                      const pu = pollingUnits.find(p => p.name === e.target.value);
-                      setForm(f => ({ ...f, pollingUnit: e.target.value, pollingUnitId: (pu as any)?.id || "" }));
-                      setMatchedVoter(null);
-                      setShowManualPvcOption(false);
-                    }}
-                    disabled={!form.ward}
-                  >
-                    <option value="">{form.ward ? "-- Select Polling Unit --" : "Select Ward first"}</option>
-                    {form.pollingUnit && <option value={form.pollingUnit}>{form.pollingUnit}</option>}
-                    {pollingUnits.map(pu => <option key={pu.name} value={pu.name}>{pu.name}</option>)}
-                  </select>
-                </Field>
-
-            {/* Polling Unit Voters */}
-            {form.pollingUnit && (
-              <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: 16, marginTop: 12 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>Polling Unit Voters</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, background: "#e8f5e9", color: "#1a5c2a", padding: "2px 8px", borderRadius: 12 }}>
-                    {puVotersLoading ? "Loading..." : `${puVoters.length} Voters`}
-                  </span>
-                </div>
-
-                {puVotersLoading ? (
-                  <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
-                    <div className="animate-spin" style={{ width: 20, height: 20, border: "2px solid #1a5c2a", borderTopColor: "transparent", borderRadius: "50%" }} />
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <input
-                      style={{ ...inputStyle, height: 36, fontSize: 12, marginBottom: 8 }}
-                      placeholder="Filter PU voters by name..."
-                      value={puVoterSearch}
-                      onChange={(e) => setPuVoterSearch(e.target.value)}
-                    />
-
-                    <div style={{ maxHeight: 150, overflowY: "auto", border: "1.5px solid #e5e7eb", borderRadius: 6, background: "#fff" }}>
-                      {puVoters
-                        .filter(v => 
-                          !puVoterSearch ||
-                          v.full_name.toLowerCase().includes(puVoterSearch.toLowerCase()) ||
-                          v.vin.toLowerCase().includes(puVoterSearch.toLowerCase())
-                        )
-                        .map(voter => (
-                          <div
-                            key={voter.id || voter.vin}
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              padding: "8px 12px",
-                              borderBottom: "1px solid #f3f4f6",
-                              background: matchedVoter?.vin === voter.vin ? "#f0faf2" : "transparent"
-                            }}
-                          >
-                            <div style={{ textAlign: "left" }}>
-                              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#111" }}>{voter.full_name}</p>
-                              <p style={{ margin: 0, fontSize: 10, color: "#6b7280" }}>VIN: {voter.vin}</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                applyVoter(voter);
-                                setShowManualPvcOption(false);
-                              }}
-                              style={{
-                                padding: "4px 8px",
-                                borderRadius: 4,
-                                border: matchedVoter?.vin === voter.vin ? "none" : "1px solid #d1d5db",
-                                background: matchedVoter?.vin === voter.vin ? "#1a5c2a" : "#fff",
-                                color: matchedVoter?.vin === voter.vin ? "#fff" : "#374151",
-                                fontSize: 10,
-                                fontWeight: 700,
-                                cursor: "pointer"
-                              }}
-                            >
-                              {matchedVoter?.vin === voter.vin ? "Selected" : "Select"}
-                            </button>
-                          </div>
-                        ))}
-                      {puVoters.length === 0 && (
-                        <div style={{ padding: 12, textAlign: "center", fontSize: 12, color: "#9ca3af" }}>
-                          No registered voters found in this Polling Unit.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+            {authError && (
+              <div style={{ padding: "10px 12px", background: "#fef2f2", border: "1.5px solid #fecaca", borderRadius: 8, color: "#b91c1c", fontSize: 12, textAlign: "left", marginBottom: 16 }}>
+                ⚠️ {authError}
               </div>
             )}
 
-            {/* Ward Search */}
-            {form.ward && (
-              <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: 16, marginTop: 12 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#111", display: "block", marginBottom: 8, textAlign: "left" }}>
-                  Search Ward Registry
-                </span>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    style={{ ...inputStyle, height: 36, fontSize: 12 }}
-                    placeholder="Search by name in ward..."
-                    value={nameQuery}
-                    onChange={(e) => setNameQuery(e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleNameSearch}
-                    disabled={searching || nameQuery.trim().length < 2}
-                    style={{
-                      height: 36,
-                      padding: "0 12px",
-                      background: "#1a5c2a",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: 8,
-                      fontWeight: 700,
-                      fontSize: 12,
-                      cursor: "pointer"
-                    }}
-                  >
-                    {searching ? "..." : "Search"}
-                  </button>
-                </div>
-                {nameResults.length > 0 && (
-                  <div style={{ maxHeight: 120, overflowY: "auto", border: "1.5px solid #e5e7eb", borderRadius: 6, background: "#fff", marginTop: 8 }}>
-                    {nameResults.map(voter => (
-                      <div
-                        key={voter.id || voter.vin}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          padding: "8px 12px",
-                          borderBottom: "1px solid #f3f4f6"
-                        }}
-                      >
-                        <div style={{ textAlign: "left" }}>
-                          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#111" }}>{voter.full_name}</p>
-                          <p style={{ margin: 0, fontSize: 10, color: "#6b7280" }}>VIN: {voter.vin} • PU: {voter.polling_unit_name}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            applyVoter(voter);
-                            setShowManualPvcOption(false);
-                          }}
-                          style={{
-                            padding: "4px 8px",
-                            borderRadius: 4,
-                            border: matchedVoter?.vin === voter.vin ? "none" : "1px solid #d1d5db",
-                            background: matchedVoter?.vin === voter.vin ? "#1a5c2a" : "#fff",
-                            color: matchedVoter?.vin === voter.vin ? "#fff" : "#374151",
-                            fontSize: 10,
-                            fontWeight: 700,
-                            cursor: "pointer"
-                          }}
-                        >
-                          {matchedVoter?.vin === voter.vin ? "Selected" : "Select"}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {lookupError && (
-                  <p style={{ fontSize: 11, color: "#dc2626", marginTop: 6, textAlign: "left" }}>{lookupError}</p>
-                )}
+            <form onSubmit={handleAgentLogin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ textAlign: "left" }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                  Email ko Lambar Waya (Agent ID / Email)
+                </label>
+                <input
+                  type="text"
+                  style={{ ...inputStyle, marginTop: 4 }}
+                  placeholder="e.g. agent.pu001@kogicms.ng"
+                  value={agentLoginEmail}
+                  onChange={(e) => setAgentLoginEmail(e.target.value)}
+                  required
+                />
               </div>
-            )}
 
-            {/* Manual entry option */}
-            {form.pollingUnit && (
-              <div style={{ marginTop: 12 }}>
+              <div style={{ textAlign: "left" }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: 0.4 }}>
+                  Kalmar Sirri (Password)
+                </label>
+                <input
+                  type="password"
+                  style={{ ...inputStyle, marginTop: 4 }}
+                  placeholder="Shigar da kalmar sirri"
+                  value={agentLoginPassword}
+                  onChange={(e) => setAgentLoginPassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isAuthenticating}
+                style={{
+                  width: "100%",
+                  height: 48,
+                  borderRadius: 10,
+                  border: "none",
+                  background: isAuthenticating ? "#9ca3af" : "linear-gradient(135deg, #009A44, #007534)",
+                  color: "#fff",
+                  fontWeight: 800,
+                  fontSize: 14,
+                  cursor: isAuthenticating ? "not-allowed" : "pointer",
+                  boxShadow: "0 4px 14px rgba(0,154,68,0.25)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  marginTop: 6
+                }}
+              >
+                {isAuthenticating ? "Ana Tantancewa..." : "🔓 Buɗe Tashar Rajistar Rumfa"}
+              </button>
+            </form>
+
+            {/* Quick Demo Switcher for fast testing in field */}
+            <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px dashed #e5e7eb", textAlign: "left" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 8 }}>
+                Gwada da Asusun Jami'an Rumfa (Quick Select):
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <button
                   type="button"
                   onClick={() => {
-                    setShowManualPvcOption(true);
-                    setMatchedVoter(null);
-                    setForm(prev => ({
-                      ...prev,
-                      pvcStatus: "not collected",
-                      firstName: "",
-                      lastName: "",
-                      votersCardId: "",
-                    }));
+                    setAgentLoginEmail("agent.pu001@kogicms.ng");
+                    setAgentLoginPassword("password123");
                   }}
                   style={{
-                    width: "100%",
-                    height: 38,
-                    borderRadius: 8,
-                    border: "1.5px dashed #1a5c2a",
-                    background: showManualPvcOption ? "#f0faf2" : "#fff",
-                    color: "#1a5c2a",
-                    fontWeight: 700,
-                    fontSize: 12,
+                    padding: "8px 12px",
+                    background: "#f9fafb",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 6,
+                    fontSize: 11,
+                    textAlign: "left",
                     cursor: "pointer",
-                    transition: "all 0.2s"
+                    display: "flex",
+                    justifyContent: "space-between"
                   }}
                 >
-                  ➕ Person not in list / PVC not collected (Add manually)
+                  <span><strong>Grace Onoja</strong> (Lokoja / Eggan)</span>
+                  <span style={{ color: "#009A44", fontWeight: 700 }}>Select</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAgentLoginEmail("agent.pu002@kogicms.ng");
+                    setAgentLoginPassword("password123");
+                  }}
+                  style={{
+                    padding: "8px 12px",
+                    background: "#f9fafb",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 6,
+                    fontSize: 11,
+                    textAlign: "left",
+                    cursor: "pointer",
+                    display: "flex",
+                    justifyContent: "space-between"
+                  }}
+                >
+                  <span><strong>Suleiman Ibrahim</strong> (Adavi / Adavi-Eba)</span>
+                  <span style={{ color: "#009A44", fontWeight: 700 }}>Select</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Top Network & Sync Status Bar */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 8,
+              padding: "8px 12px",
+              background: isOnline ? "#f0faf2" : "#fff7ed",
+              border: `1.5px solid ${isOnline ? "#86efac" : "#fed7aa"}`,
+              borderRadius: 8,
+              marginBottom: 16
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: isOnline ? "#16a34a" : "#ea580c" }} />
+                <span style={{ fontSize: 11, fontWeight: 800, color: isOnline ? "#15803d" : "#c2410c" }}>
+                  {isOnline ? "🟢 Online (Akwai Network)" : "🟠 Offline (Babu Network - Ajiye a Waya)"}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {pendingSyncCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleSyncPending}
+                    disabled={isSyncing || !isOnline}
+                    style={{
+                      background: isOnline ? "#009A44" : "#9ca3af",
+                      color: "#fff",
+                      border: "none",
+                      padding: "4px 10px",
+                      borderRadius: 14,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: isOnline && !isSyncing ? "pointer" : "default",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4
+                    }}
+                  >
+                    <span>🔄</span>
+                    <span>{isSyncing ? "Ana Turawa..." : `Tura ${pendingSyncCount} (Sync Now)`}</span>
+                  </button>
+                ) : (
+                  <span style={{ fontSize: 10, color: "#15803d", fontWeight: 700 }}>
+                    ✓ Duka sun shiga
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Sync Notification Toast Banner */}
+            {syncToastMessage && (
+              <div style={{
+                padding: "8px 12px",
+                background: "#f0fdf4",
+                border: "1.5px solid #86efac",
+                borderRadius: 8,
+                fontSize: 12,
+                color: "#166534",
+                fontWeight: 700,
+                textAlign: "left",
+                marginBottom: 16
+              }}>
+                {syncToastMessage}
+              </div>
+            )}
+
+            {/* Authenticated PU Agent Identity Card */}
+            {effectiveAgent && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, padding: "12px 14px", background: "#f0faf2", border: "1.5px solid #86efac", borderRadius: 10 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, textAlign: "left", maxWidth: "75%" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 12 }}>🔒</span>
+                    <span style={{ fontSize: 13, color: "#009A44", fontWeight: 800 }}>
+                      Rumfa: {effectiveAgent.polling_unit_name || form.pollingUnit}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 11, color: "#4b5563", fontWeight: 600 }}>
+                    Jami'i: {effectiveAgent.agent_name} · {effectiveAgent.ward || form.ward}, {effectiveAgent.lga || form.lga}
+                  </span>
+                  <span style={{ fontSize: 10, color: "#15803d", fontWeight: 700 }}>
+                    ✓ An kulle rajista don wannan rumfar kaɗai (Voters for this PU only)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAgentLogout}
+                  style={{
+                    fontSize: 10,
+                    background: "#fff",
+                    color: "#dc2626",
+                    border: "1px solid #fecaca",
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    fontWeight: 700,
+                    cursor: "pointer"
+                  }}
+                >
+                  Fita / Sauya
                 </button>
               </div>
             )}
 
-            {errors.pollingUnit && (
-              <p style={{ fontSize: 11, color: "#dc2626", marginTop: 8, textAlign: "left" }}>{errors.pollingUnit}</p>
-            )}
+            <StepIndicator current={step} />
+{/* ── STEP 0: Location & Polling Unit ── */}
+            {step === 0 && (
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111", margin: 0 }}>Location &amp; Polling Unit</h2>
+                  <span style={{ fontSize: 11, color: "#15803d", background: "#f0faf2", border: "1px solid #86efac", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
+                    🔒 Kulle a Rumfarku
+                  </span>
+                </div>
 
-            {(matchedVoter || showManualPvcOption) && (
-              <div style={{ background: "#f0faf2", border: "1.5px solid #86efac", borderRadius: 8, padding: "10px 14px", marginTop: 16, textAlign: "left" }}>
-                <p style={{ margin: 0, fontSize: 12, color: "#15803d", fontWeight: 700 }}>
-                  {matchedVoter ? `✅ Selected: ${matchedVoter.full_name} (VIN: ${matchedVoter.vin})` : "✅ Ready to enter details manually"}
-                </p>
+                <Field label="Local Government Area (LGA)" required error={errors.lga}>
+                  <select style={{ ...selectStyle, background: "#f9fafb", cursor: "not-allowed" }} value={form.lga} disabled>
+                    <option value={form.lga}>{form.lga || "Lokoja"}</option>
+                  </select>
+                </Field>
+
+                <Field label="Ward" required error={errors.ward}>
+                  <select style={{ ...selectStyle, background: "#f9fafb", cursor: "not-allowed" }} value={form.ward} disabled>
+                    <option value={form.ward}>{form.ward || "Ward"}</option>
+                  </select>
+                </Field>
+
+                <Field label="Polling Unit" required error={errors.pollingUnit}>
+                  <select style={{ ...selectStyle, background: "#f9fafb", cursor: "not-allowed" }} value={form.pollingUnit} disabled>
+                    <option value={form.pollingUnit}>{form.pollingUnit || "Polling Unit"}</option>
+                  </select>
+                </Field>
+
+                {/* Polling Unit Voters - STRICTLY SCOPED TO THIS POLLING UNIT */}
+                {form.pollingUnit && (
+                  <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: 16, marginTop: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#111", display: "block" }}>Voters na Wannan Rumfar</span>
+                        <span style={{ fontSize: 10, color: "#6b7280" }}>Masu zabe da ke rijista a {form.pollingUnit}</span>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, background: "#e8f5e9", color: "#1a5c2a", padding: "3px 8px", borderRadius: 12 }}>
+                        {puVotersLoading ? "Loading..." : `${puVoters.length} Voters`}
+                      </span>
+                    </div>
+
+                    {puVotersLoading ? (
+                      <div style={{ display: "flex", justifyContent: "center", padding: "16px 0" }}>
+                        <div className="animate-spin" style={{ width: 20, height: 20, border: "2px solid #1a5c2a", borderTopColor: "transparent", borderRadius: "50%" }} />
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <input
+                          style={{ ...inputStyle, height: 36, fontSize: 12, marginBottom: 8 }}
+                          placeholder="Bincika sunan mai zabe a wannan rumfa..."
+                          value={puVoterSearch}
+                          onChange={(e) => setPuVoterSearch(e.target.value)}
+                        />
+
+                        <div style={{ maxHeight: 180, overflowY: "auto", border: "1.5px solid #e5e7eb", borderRadius: 6, background: "#fff" }}>
+                          {puVoters
+                            .filter(v => 
+                              !puVoterSearch ||
+                              (v.full_name && v.full_name.toLowerCase().includes(puVoterSearch.toLowerCase())) ||
+                              (v.vin && v.vin.toLowerCase().includes(puVoterSearch.toLowerCase()))
+                            )
+                            .map(voter => (
+                              <div
+                                key={voter.id || voter.vin}
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  padding: "8px 12px",
+                                  borderBottom: "1px solid #f3f4f6",
+                                  background: matchedVoter?.vin === voter.vin ? "#f0faf2" : "transparent"
+                                }}
+                              >
+                                <div style={{ textAlign: "left" }}>
+                                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#111" }}>{voter.full_name}</p>
+                                  <p style={{ margin: 0, fontSize: 10, color: "#6b7280" }}>VIN: {voter.vin}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    applyVoter(voter);
+                                    setShowManualPvcOption(false);
+                                  }}
+                                  style={{
+                                    padding: "4px 8px",
+                                    borderRadius: 4,
+                                    border: matchedVoter?.vin === voter.vin ? "none" : "1px solid #d1d5db",
+                                    background: matchedVoter?.vin === voter.vin ? "#1a5c2a" : "#fff",
+                                    color: matchedVoter?.vin === voter.vin ? "#fff" : "#374151",
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  {matchedVoter?.vin === voter.vin ? "Selected" : "Select"}
+                                </button>
+                              </div>
+                            ))}
+                          {puVoters.length === 0 && (
+                            <div style={{ padding: 12, textAlign: "center", fontSize: 12, color: "#9ca3af" }}>
+                              Ba a sami bayanan masu zaben wannan rumfa ba tukuna.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Manual entry option */}
+                {form.pollingUnit && (
+                  <div style={{ marginTop: 12 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowManualPvcOption(true);
+                        setMatchedVoter(null);
+                        setForm(prev => ({
+                          ...prev,
+                          pvcStatus: "not collected",
+                          firstName: "",
+                          lastName: "",
+                          votersCardId: "",
+                        }));
+                      }}
+                      style={{
+                        width: "100%",
+                        height: 38,
+                        borderRadius: 8,
+                        border: "1.5px dashed #1a5c2a",
+                        background: showManualPvcOption ? "#f0faf2" : "#fff",
+                        color: "#1a5c2a",
+                        fontWeight: 700,
+                        fontSize: 12,
+                        cursor: "pointer",
+                        transition: "all 0.2s"
+                      }}
+                    >
+                      ➕ Person not in list / PVC not collected (Add manually)
+                    </button>
+                  </div>
+                )}
+
+                {errors.pollingUnit && (
+                  <p style={{ fontSize: 11, color: "#dc2626", marginTop: 8, textAlign: "left" }}>{errors.pollingUnit}</p>
+                )}
+
+                {(matchedVoter || showManualPvcOption) && (
+                  <div style={{ background: "#f0faf2", border: "1.5px solid #86efac", borderRadius: 8, padding: "10px 14px", marginTop: 16, textAlign: "left" }}>
+                    <p style={{ margin: 0, fontSize: 12, color: "#15803d", fontWeight: 700 }}>
+                      {matchedVoter ? `✅ Selected: ${matchedVoter.full_name} (VIN: ${matchedVoter.vin})` : "✅ Ready to enter details manually"}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
-
-        {/* ── STEP 1: Personal Information ── */}
+{/* ── STEP 1: Personal Information ── */}
         {step === 1 && (
           <div>
             <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111", marginBottom: 20 }}>Personal Information</h2>
@@ -1651,6 +2101,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
         <p style={{ textAlign: "center", fontSize: 11, color: "#9ca3af", marginTop: 16 }}>
           Step {step + 1} of {STEPS.length} · Your data is encrypted and secure
         </p>
+                </>
+        )}
       </div>
 
       {/* Footer */}

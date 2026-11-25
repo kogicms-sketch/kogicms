@@ -204,7 +204,9 @@ const Login = () => {
             transition={{ duration: 0.5 }}
             className="flex items-center gap-4"
           >
-            <APCFlag size="md" variant="icon" />
+            <div className="w-10 h-10 rounded-xl bg-white/20 p-1.5 flex items-center justify-center overflow-hidden border border-white/30 shadow-xs">
+              <img src={party.logo} alt={party.shortName} className="w-full h-full object-contain" />
+            </div>
             <div>
               <h1 className="text-2xl font-bold text-white tracking-tight">
                 Kogi State {party.shortName}

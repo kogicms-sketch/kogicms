@@ -7,19 +7,19 @@ import { Users, MapPin, Plus, Building2, UserCheck, Globe, TrendingUp, Shield, C
 import { Button } from "@/components/ui/button";
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { APCBanner } from "@/components/branding/APCBanner";
 import { useState } from "react";
 import { ChangePasswordModal } from "@/components/auth/ChangePasswordModal";
 import { KeyRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { APCFlag } from "@/components/branding/APCFlag";
+import { useParty } from "@/contexts/PartyContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CandidateSupportGroupsTab } from "@/components/support-groups/CandidateSupportGroupsTab";
 
 const ChairmanDashboard = () => {
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const router = useRouter();
-  const navigate = (path, options) => { if (path === -1) router.back(); else router.push(path); };
+    const { party } = useParty();
+    const navigate = (path: any) => { if (path === -1) router.back(); else router.push(path); };
     const { data: chairman, isLoading: chairmanLoading } = useChairman();
     const { data: stats, isLoading: statsLoading } = useChairmanDashboardStats();
 
@@ -29,9 +29,9 @@ const ChairmanDashboard = () => {
                 <div className="flex items-center justify-center min-h-[60vh]">
                     <div className="text-center space-y-4">
                         <div className="relative mx-auto w-16 h-16">
-                            <div className="animate-spin rounded-full h-16 w-16 border-4 border-apc-green/20 border-t-apc-green" />
+                            <div className="animate-spin rounded-full h-16 w-16 border-4 border-emerald-500/20 border-t-emerald-600" />
                             <div className="absolute inset-0 flex items-center justify-center">
-                                <Shield className="h-6 w-6 text-apc-green" />
+                                <Shield className="h-6 w-6 text-emerald-600" />
                             </div>
                         </div>
                         <p className="text-muted-foreground font-medium">Loading dashboard...</p>
@@ -68,11 +68,11 @@ const ChairmanDashboard = () => {
             sub: "Electoral wards",
             icon: MapPin,
             color: "green",
-            bg: "from-apc-green/10 to-white",
-            border: "border-l-apc-green",
-            iconBg: "bg-apc-green/10",
-            iconColor: "text-apc-green",
-            valColor: "text-apc-green",
+            bg: "from-emerald-50 to-white",
+            border: "border-l-emerald-600",
+            iconBg: "bg-emerald-50",
+            iconColor: "text-emerald-700",
+            valColor: "text-emerald-700",
         },
         {
             label: "Polling Units",
@@ -116,11 +116,11 @@ const ChairmanDashboard = () => {
             sub: "Field verified",
             icon: ShieldCheck,
             color: "green",
-            bg: "from-apc-green/5 to-white",
-            border: "border-l-apc-green",
-            iconBg: "bg-apc-green/10",
-            iconColor: "text-apc-green",
-            valColor: "text-apc-green",
+            bg: "from-emerald-50/50 to-white",
+            border: "border-l-emerald-600",
+            iconBg: "bg-emerald-50",
+            iconColor: "text-emerald-700",
+            valColor: "text-emerald-700",
         },
         {
             label: "Pending Verification",
@@ -142,10 +142,10 @@ const ChairmanDashboard = () => {
             icon: UserCheck,
             color: "red",
             bg: "from-red-50 to-white",
-            border: "border-l-apc-red",
+            border: "border-l-rose-500",
             iconBg: "bg-red-100",
-            iconColor: "text-apc-red",
-            valColor: "text-apc-red",
+            iconColor: "text-rose-600",
+            valColor: "text-rose-600",
         },
         {
             label: "Support Groups",
@@ -163,37 +163,37 @@ const ChairmanDashboard = () => {
 
     const quickActions = [
         {
-            label: "View Wards",
-            icon: MapPin,
-            route: "/chairman/wards",
-            bg: "bg-apc-green hover:bg-apc-green-dark",
-            text: "text-white",
-        },
-        {
             label: "Polling Units",
             icon: Building2,
             route: "/chairman/polling-units",
+            bg: "bg-emerald-600 hover:bg-emerald-700",
+            text: "text-white",
+        },
+        {
+            label: "Voter Register",
+            icon: Vote,
+            route: "/voters",
             bg: "bg-blue-600 hover:bg-blue-700",
             text: "text-white",
         },
         {
-            label: "Councillors",
+            label: "Ward Councillors",
             icon: UserCheck,
             route: "/chairman/councillors",
-            bg: "bg-red-600 hover:bg-red-700",
+            bg: "bg-teal-600 hover:bg-teal-700",
             text: "text-white",
         },
         {
             label: "Support Groups",
             icon: Globe,
             route: "/support-groups",
-            bg: "bg-teal-600 hover:bg-teal-700",
+            bg: "bg-indigo-600 hover:bg-indigo-700",
             text: "text-white",
         },
         {
-            label: "Agent Reports",
-            icon: Navigation,
-            route: "/polling-units-reports",
+            label: "Members",
+            icon: Users,
+            route: "/members",
             bg: "bg-purple-600 hover:bg-purple-700",
             text: "text-white",
         },
@@ -203,56 +203,58 @@ const ChairmanDashboard = () => {
         <DashboardLayout>
             <div className="space-y-4 sm:space-y-6 animate-fade-in">
 
-                {/* ── APC HERO BANNER ── */}
+                {/* ── APM HERO BANNER ── */}
                 <div className="relative overflow-hidden rounded-xl sm:rounded-2xl shadow-xl">
-                    {/* APC tri-color top stripe */}
                     <div className="flex h-2 sm:h-3">
-                        <div className="flex-1 bg-apc-green" />
+                        <div className="flex-1 bg-emerald-600" />
                         <div className="flex-1 bg-white border-y border-gray-200" />
-                        <div className="flex-1 bg-apc-red" />
+                        <div className="flex-1 bg-emerald-700" />
                     </div>
 
                     {/* Main banner body */}
-                    <div className="bg-gradient-to-br from-apc-green via-[#006600] to-[#004d00] p-5 sm:p-7 lg:p-10 relative">
+                    <div className="bg-gradient-to-br from-emerald-800 via-emerald-900 to-slate-950 p-5 sm:p-7 lg:p-10 relative">
                         {/* Decorative circles */}
                         <div className="absolute -top-10 -right-10 w-48 h-48 sm:w-72 sm:h-72 rounded-full bg-white/5 pointer-events-none" />
                         <div className="absolute -bottom-8 -left-8 w-40 h-40 rounded-full bg-white/5 pointer-events-none" />
 
                         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
-                            <div className="flex items-center gap-4">
-                                <div className="flex-shrink-0 hidden sm:block">
-                                    <div className="w-16 h-16 lg:w-20 lg:h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center border-2 border-white/20 shadow-lg">
-                                        <APCFlag size="sm" variant="full" />
+                            <div className="flex items-center gap-3 sm:gap-4">
+                                <div className="flex-shrink-0">
+                                    <div className="w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center border-2 border-white/20 shadow-lg p-2 overflow-hidden">
+                                        <img
+                                            src={party.logo}
+                                            alt={`${party.name} logo`}
+                                            className="w-full h-full object-contain"
+                                        />
                                     </div>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight tracking-tight">
+                                    <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight tracking-tight">
                                         {chairman.lga} LGA
                                     </h1>
-                                    <p className="text-xs sm:text-sm text-white/80 font-medium mt-0.5">
+                                    <p className="text-xs sm:text-sm text-white/80 font-medium mt-0.5 truncate">
                                         {chairman.chairman_name} • {chairman.email}
                                     </p>
                                 </div>
                             </div>
 
-                            <div>
+                            <div className="self-start sm:self-auto">
                                 <Button
                                     onClick={() => setIsPasswordModalOpen(true)}
                                     variant="outline"
-                                    className="bg-white/15 hover:bg-white/25 text-white border-white/30 text-xs sm:text-sm gap-2 backdrop-blur shadow-sm"
+                                    className="bg-white/15 hover:bg-white/25 text-white border-white/30 text-xs sm:text-sm gap-2 backdrop-blur shadow-xs"
                                 >
-                                    <KeyRound className="w-4 h-4 text-emerald-300" />
+                                    <KeyRound className="w-3.5 h-3.5 text-emerald-300" />
                                     Change Password
                                 </Button>
                             </div>
                         </div>
                     </div>
 
-                    {/* APC tri-color bottom stripe */}
                     <div className="flex h-2 sm:h-3">
-                        <div className="flex-1 bg-apc-green" />
+                        <div className="flex-1 bg-emerald-600" />
                         <div className="flex-1 bg-white border-y border-gray-200" />
-                        <div className="flex-1 bg-apc-red" />
+                        <div className="flex-1 bg-emerald-700" />
                     </div>
                 </div>
 
@@ -284,20 +286,20 @@ const ChairmanDashboard = () => {
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4 pt-1">
-                            <div className="grid grid-cols-3 gap-3 text-center">
-                                <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-2xs">
+                            <div className="grid grid-cols-3 gap-1.5 sm:gap-3 text-center">
+                                <div className="bg-white p-2 sm:p-3 rounded-xl border border-gray-100 shadow-2xs">
                                     <span className="text-[11px] text-gray-500 font-medium block">INEC Registered</span>
                                     <strong className="text-lg sm:text-xl font-extrabold text-gray-800">
                                         {stats?.totalRegisteredVoters?.toLocaleString() || 0}
                                     </strong>
                                 </div>
-                                <div className="bg-emerald-50/60 p-3 rounded-xl border border-emerald-100 shadow-2xs">
+                                <div className="bg-emerald-50/60 p-2 sm:p-3 rounded-xl border border-emerald-100 shadow-2xs">
                                     <span className="text-[11px] text-emerald-700 font-medium block">Campaign Members</span>
                                     <strong className="text-lg sm:text-xl font-extrabold text-emerald-700">
                                         {stats?.totalMembers?.toLocaleString() || 0}
                                     </strong>
                                 </div>
-                                <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-100 shadow-2xs">
+                                <div className="bg-amber-50/60 p-2 sm:p-3 rounded-xl border border-amber-100 shadow-2xs">
                                     <span className="text-[11px] text-amber-700 font-medium block">Remaining Voters</span>
                                     <strong className="text-lg sm:text-xl font-extrabold text-amber-800">
                                         {stats?.remainingVoters?.toLocaleString() || 0}
@@ -431,10 +433,10 @@ const ChairmanDashboard = () => {
 
                 {/* ── QUICK ACTIONS ── */}
                 <Card className="border-0 shadow-md overflow-hidden">
-                    <div className="h-1 bg-gradient-to-r from-apc-green via-white to-apc-red" />
+                    <div className="h-1 bg-gradient-to-r from-emerald-600 via-amber-400 to-emerald-800" />
                     <CardHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100">
                         <div className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-apc-green" />
+                            <TrendingUp className="h-5 w-5 text-emerald-700" />
                             <div>
                                 <CardTitle className="text-base sm:text-lg font-bold">Quick Actions</CardTitle>
                                 <p className="text-xs text-muted-foreground mt-0.5">Manage your LGA operations</p>
@@ -442,17 +444,17 @@ const ChairmanDashboard = () => {
                         </div>
                     </CardHeader>
                     <CardContent className="p-4 sm:p-6">
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
                             {quickActions.map(({ label, icon: Icon, route, bg, text }) => (
                                 <button
                                     key={label}
                                     onClick={() => navigate(route)}
                                     className={`
                                         group flex flex-col items-center justify-center gap-2.5 rounded-xl 
-                                        py-4 sm:py-5 px-3 ${bg} ${text}
+                                        py-3.5 sm:py-5 px-2.5 sm:px-3 ${bg} ${text} last:col-span-2 sm:last:col-span-1
                                         shadow-sm hover:shadow-lg transition-all duration-200 
                                         hover:-translate-y-0.5 active:translate-y-0 active:scale-95
-                                        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-apc-green
+                                        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-600
                                     `}
                                 >
                                     <div className="rounded-full bg-white/20 p-2.5 sm:p-3 group-hover:scale-110 transition-transform">
@@ -481,10 +483,10 @@ const ChairmanDashboard = () => {
 
                         {/* ── WARD PERFORMANCE ── */}
                         <Card className="border-0 shadow-md overflow-hidden">
-                            <div className="h-1 bg-gradient-to-r from-apc-green via-white to-apc-red" />
+                            <div className="h-1 bg-gradient-to-r from-emerald-600 via-amber-400 to-emerald-800" />
                             <CardHeader className="p-4 sm:p-6 pb-3 border-b border-gray-100">
                                 <div className="flex items-center gap-2">
-                                    <MapPin className="h-5 w-5 text-apc-green" />
+                                    <MapPin className="h-5 w-5 text-emerald-700" />
                                     <div>
                                         <CardTitle className="text-base sm:text-lg font-bold">Ward Performance Overview</CardTitle>
                                         <p className="text-xs text-muted-foreground mt-0.5">
@@ -507,7 +509,7 @@ const ChairmanDashboard = () => {
                                             return (
                                                 <div
                                                     key={ward.ward}
-                                                    className="group bg-white rounded-xl border border-gray-100 hover:border-apc-green/30 p-4 shadow-sm hover:shadow-md transition-all duration-200"
+                                                    className="group bg-white rounded-xl border border-gray-100 hover:border-emerald-500/30 p-4 shadow-sm hover:shadow-md transition-all duration-200"
                                                 >
                                                     {/* Ward header */}
                                                     <div className="flex items-start justify-between mb-3">
@@ -515,12 +517,12 @@ const ChairmanDashboard = () => {
                                                             <h3 className="font-bold text-sm sm:text-base text-gray-800 leading-snug">
                                                                 {ward.ward}
                                                             </h3>
-                                                            <span className="text-[10px] text-apc-green font-semibold uppercase tracking-wide">
+                                                            <span className="text-[10px] text-emerald-700 font-semibold uppercase tracking-wide">
                                                                 Electoral Ward
                                                             </span>
                                                         </div>
-                                                        <div className="rounded-full bg-apc-green/10 p-1.5 group-hover:bg-apc-green/20 transition-colors">
-                                                            <MapPin className="h-4 w-4 text-apc-green" />
+                                                        <div className="rounded-full bg-apc-green/10 p-1.5 group-hover:bg-emerald-100 transition-colors">
+                                                            <MapPin className="h-4 w-4 text-emerald-700" />
                                                         </div>
                                                     </div>
 
@@ -547,8 +549,8 @@ const ChairmanDashboard = () => {
                                                             <div className="text-[10px] text-blue-500 font-medium">Polling Units</div>
                                                         </div>
                                                         <div className="bg-apc-green/10 rounded-lg p-2.5 text-center">
-                                                            <div className="text-lg font-extrabold text-apc-green">{ward.members}</div>
-                                                            <div className="text-[10px] text-apc-green font-medium">Members</div>
+                                                            <div className="text-lg font-extrabold text-emerald-700">{ward.members}</div>
+                                                            <div className="text-[10px] text-emerald-700 font-medium">Members</div>
                                                         </div>
                                                     </div>
 
@@ -560,7 +562,7 @@ const ChairmanDashboard = () => {
                                                         </div>
                                                         <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                                                             <div
-                                                                className="h-full rounded-full bg-gradient-to-r from-apc-green to-green-400 transition-all duration-500"
+                                                                className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-500"
                                                                 style={{ width: `${progress}%` }}
                                                             />
                                                         </div>

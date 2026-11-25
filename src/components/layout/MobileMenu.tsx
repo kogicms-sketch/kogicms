@@ -81,13 +81,15 @@ const MobileMenu = ({ onClose }: MobileMenuProps) => {
 
   const dashboardPath = getRoleDashboardPath(role);
 
-  // Exclude items already placed on mobile bottom bar
+  // Dynamic exclusion of items that are already in the mobile bottom bar for this role
   const bottomNavPaths = [
     dashboardPath,
     "/dashboard",
     "/members",
-    "/polling-units",
-    "/situation-room"
+    role === "lga_chairman" ? "/chairman/polling-units" : "/polling-units",
+    role === "lga_chairman" || role === "councillor" || role === "senatorial_leader" || role === "house_assembly_member" || role === "polling_unit_agent"
+      ? "/voters"
+      : (role === "federal_rep" ? "/support-groups" : (role === "student" ? "/support-groups" : "/situation-room")),
   ];
 
   const menuItems = permittedItems.filter(
