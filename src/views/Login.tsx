@@ -9,7 +9,6 @@ import { z } from "zod";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { motion } from "framer-motion";
-import { APCFlag } from "@/components/branding/APCFlag";
 import { useParty } from "@/contexts/PartyContext";
 import { PARTIES, DEFAULT_PARTY } from "@/config/parties";
 
@@ -316,7 +315,7 @@ const Login = () => {
                     <Smartphone className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">Install DR App</p>
+                    <p className="text-sm font-semibold text-foreground">Install Kogi APM App</p>
                     <p className="text-xs text-muted-foreground">Get quick access from home screen</p>
                   </div>
                   <Button
