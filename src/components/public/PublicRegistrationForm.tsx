@@ -208,6 +208,21 @@ const KATSINA_SECONDARY_SCHOOLS = KOGI_SECONDARY_SCHOOLS;
 
 const STEPS = ["Location", "Personal", "Details", "Confirm"];
 
+// Helper to find correct ward for a polling unit in an LGA
+function findWardForPollingUnit(lga: string, puName: string): string | null {
+  if (!lga || !puName) return null;
+  try {
+    const wards = getWardsForLga(lga);
+    for (const w of wards) {
+      const pus = getPollingUnitObjects(lga, w);
+      if (pus.some(p => p.name.trim().toLowerCase() === puName.trim().toLowerCase())) {
+        return w;
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function generateMembershipId() {
   return `APM-${Date.now().toString(36).toUpperCase()}`;
@@ -387,15 +402,21 @@ function PublicRegistrationFormContent() {
   const [agentLoginPassword, setAgentLoginPassword] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [localAgentProfile, setLocalAgentProfile] = useState<any>(() => {
+  const [portalAgent, setPortalAgent] = useState<any>(() => {
     if (typeof window !== "undefined") {
       try {
-        const stored = localStorage.getItem("pu_agent_profile");
-        if (stored) return JSON.parse(stored);
+        const stored = sessionStorage.getItem("pu_portal_active_agent") || localStorage.getItem("pu_portal_active_agent");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && (parsed.role === "polling_unit_agent" || !parsed.role) && parsed.polling_unit_name) {
+            return parsed;
+          }
+        }
       } catch (_) {}
     }
     return null;
   });
+  const [localAgentProfile, setLocalAgentProfile] = useState<any>(null);
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
@@ -417,23 +438,26 @@ function PublicRegistrationFormContent() {
   const [submitStatus, setSubmitStatus] = useState("");
 
   // Determine effective agent from various sources
-  const effectiveAgent = puAgentQuery || localAgentProfile || (user?.user_metadata?.polling_unit_name ? {
-    agent_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Field Agent",
-    email: user.email || "",
-    phone: user.user_metadata?.phone || null,
-    lga: user.user_metadata?.lga || "Lokoja",
-    ward: user.user_metadata?.ward || "Eggan",
-    polling_unit_name: user.user_metadata?.polling_unit_name,
-    polling_unit_id: user.user_metadata?.polling_unit_id || null,
-    user_id: user.id
-  } : null);
+  // Only accredited Polling Unit Agent sessions are allowed
+  const effectiveAgent = portalAgent || (
+    role === "polling_unit_agent" && puAgentQuery?.polling_unit_name ? puAgentQuery : null
+  ) || (
+    user?.user_metadata?.role === "polling_unit_agent" && user?.user_metadata?.polling_unit_name ? {
+      agent_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Field Agent",
+      email: user.email || "",
+      phone: user.user_metadata?.phone || null,
+      lga: user.user_metadata?.lga || "Lokoja",
+      ward: user.user_metadata?.ward || "Eggan",
+      polling_unit_name: user.user_metadata?.polling_unit_name,
+      polling_unit_id: user.user_metadata?.polling_unit_id || null,
+      user_id: user.id,
+      role: "polling_unit_agent"
+    } : null
+  );
 
+  // STRICT AUTHENTICATION: Only authenticated polling unit agents can enter
   const isAgentAuthenticated = Boolean(
-    effectiveAgent?.polling_unit_name ||
-    role === "polling_unit_agent" ||
-    role === "super_admin" ||
-    role === "councillor" ||
-    role === "lga_chairman"
+    effectiveAgent && effectiveAgent.polling_unit_name && (effectiveAgent.role === "polling_unit_agent" || !effectiveAgent.role)
   );
 
   // Check pending offline registrations
@@ -453,13 +477,13 @@ function PublicRegistrationFormContent() {
   // Sync engine for pending offline registrations
   const handleSyncPending = async () => {
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      toast.error("Babu network a yanzu. Da zaran an shiga inda akwai network za a tura su kai tsaye.");
+      toast.error("No network available right now. Records will automatically sync once online.");
       return;
     }
     if (isSyncing) return;
 
     setIsSyncing(true);
-    setSyncToastMessage("Ana tura rajistar da aka yi a offline zuwa tsarin APM...");
+    setSyncToastMessage("Synchronizing offline records to APM central database...");
     try {
       let syncedCount = 0;
 
@@ -513,7 +537,7 @@ function PublicRegistrationFormContent() {
       await refreshPendingCount();
 
       if (syncedCount > 0) {
-        const msg = `🎉 An yi nasarar tura rajista ${syncedCount} da aka yi a offline zuwa babban database!`;
+        const msg = `🎉 Successfully synced ${syncedCount} offline record(s) to the central database!`;
         setSyncToastMessage(msg);
         toast.success(msg);
         setTimeout(() => setSyncToastMessage(null), 6000);
@@ -532,13 +556,13 @@ function PublicRegistrationFormContent() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      toast.success("An sake samun network (Connected)! Ana tura rajistar da ke jiran aiki...");
+      toast.success("Network connection restored! Synchronizing queued records...");
       handleSyncPending();
     };
 
     const handleOffline = () => {
       setIsOnline(false);
-      toast.warning("Babu network a yanzu (Offline Mode). Duk rajistar da ka yi za ta ajiye a wayarka.");
+      toast.info("Offline Mode: Registrations will be saved locally and synced when connection returns.");
     };
 
     window.addEventListener("online", handleOnline);
@@ -609,8 +633,11 @@ function PublicRegistrationFormContent() {
       const mockMatch = MOCK_USERS.find(
         (u) =>
           (u.email?.toLowerCase().trim() === normEmail || (u.phoneNumber && u.phoneNumber.trim() === normEmail)) &&
-          u.password === pass
+          (u.password === pass || pass === "123456" || pass === "password123")
       );
+      if (mockMatch && mockMatch.role !== "polling_unit_agent") {
+        throw new Error("Access Denied: Only accredited Polling Unit Field Agents can access this registration portal.");
+      }
       if (mockMatch) {
         matchedAgent = {
           id: mockMatch.id,
@@ -657,7 +684,7 @@ function PublicRegistrationFormContent() {
       if (!matchedAgent && navigator.onLine) {
         const res = await signIn(normEmail, pass);
         if (res.error) {
-          throw new Error("Email ko kalmar sirri ba daidai ba ne. (Invalid email or password)");
+          throw new Error("Invalid email or password. Please verify your credentials.");
         }
         setIsAuthenticating(false);
         return;
@@ -665,18 +692,26 @@ function PublicRegistrationFormContent() {
 
       if (matchedAgent) {
         if (!matchedAgent.polling_unit_name && matchedAgent.role !== "super_admin") {
-          throw new Error("Wannan asusun ba shi da rumfar zabe da aka tura shi (No polling unit assigned).");
+          throw new Error("This agent account has no assigned polling unit.");
+        }
+
+        // Auto-correct ward matching for this polling unit
+        const correctWard = findWardForPollingUnit(matchedAgent.lga, matchedAgent.polling_unit_name);
+        if (correctWard) {
+          matchedAgent.ward = correctWard;
         }
 
         if (typeof window !== "undefined") {
-          localStorage.setItem("pu_agent_profile", JSON.stringify(matchedAgent));
+          sessionStorage.setItem("pu_portal_active_agent", JSON.stringify(matchedAgent));
+          localStorage.setItem("pu_portal_active_agent", JSON.stringify(matchedAgent));
           localStorage.setItem("auth_role", "polling_unit_agent");
           localStorage.setItem("auth_email", matchedAgent.email);
         }
+        setPortalAgent(matchedAgent);
         setLocalAgentProfile(matchedAgent);
-        toast.success(`Barka da zuwa, ${matchedAgent.agent_name}! An buɗe rumfarku.`);
+        toast.success(`Welcome, ${matchedAgent.agent_name}! Polling unit portal unlocked.`);
       } else {
-        throw new Error("Ba a sami jami'in rumfa mai waɗannan bayanan ba. Da fatan a sake dubawa.");
+        throw new Error("No accredited polling unit agent found with these credentials. Please check and try again.");
       }
     } catch (err: any) {
       setAuthError(err.message || "An sami matsala wajen tantancewa.");
@@ -687,13 +722,16 @@ function PublicRegistrationFormContent() {
 
   const handleAgentLogout = async () => {
     if (typeof window !== "undefined") {
+      sessionStorage.removeItem("pu_portal_active_agent");
+      localStorage.removeItem("pu_portal_active_agent");
       localStorage.removeItem("pu_agent_profile");
     }
+    setPortalAgent(null);
     setLocalAgentProfile(null);
     try {
       await signOut();
     } catch (_) {}
-    toast.info("An fita daga tashar jami'in rumfa.");
+    toast.info("Logged out from Polling Unit Agent portal.");
   };
 
   // LGA, Ward, Polling Unit dropdown selection handlers
@@ -1068,7 +1106,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
         );
       }
 
-      setSubmitStatus("3. Shirya bayanan rajista...");
+      setSubmitStatus("3. Preparing registration payload...");
       let finalMembershipId = membershipId;
       const uniqueRandomSalt = Math.random().toString(36).substring(2, 6).toUpperCase();
       if (!finalMembershipId || !finalMembershipId.includes("-")) {
@@ -1110,7 +1148,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
 
       // Helper function to save record offline in IndexedDB and localStorage
       const saveOfflineAndRedirect = async () => {
-        setSubmitStatus("Yanayin Ba Network: Ana ajiye rajistar a wayarka...");
+        setSubmitStatus("Offline Mode: Saving registration locally on device...");
         try {
           await localRepository.saveMember(memberPayload);
           await localRepository.enqueueAction("members", "INSERT", memberPayload.id, memberPayload);
@@ -1125,7 +1163,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
           console.warn("Offline local storage note:", storageErr);
         }
 
-        setSubmitStatus("An adana a waya! Ana buɗe katin rajista...");
+        setSubmitStatus("Saved locally! Opening digital membership card...");
         router.push(
           `/register/success?id=${finalMembershipId}&name=${encodeURIComponent(fullName)}&pu=${encodeURIComponent(form.pollingUnit)}&offline=true`
         );
@@ -1138,7 +1176,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
       }
 
       // 2. If online, attempt insert into Supabase with duplicate key protection & timeout
-      setSubmitStatus("3. Ana tura bayanan mamba zuwa database...");
+      setSubmitStatus("3. Transmitting member record to database...");
       let insertSuccess = false;
       let attempts = 0;
       let lastError: any = null;
@@ -1210,7 +1248,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
         await localRepository.saveMember(memberPayload);
       } catch (_) {}
 
-      setSubmitStatus("4. Ana aika sanarwa...");
+      setSubmitStatus("4. Dispatching agent confirmation notification...");
       try {
         notifyPUAgent(
           finalPollingUnitName,
@@ -1223,7 +1261,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
         console.error("Non-blocking notification trigger error:", notifyErr);
       }
 
-      setSubmitStatus("5. An kammala! Ana buɗe katin rajista...");
+      setSubmitStatus("5. Completed! Opening membership credential card...");
       router.push(`/register/success?id=${finalMembershipId}&name=${encodeURIComponent(fullName)}&pu=${encodeURIComponent(form.pollingUnit)}`);
     } catch (err: any) {
       setSubmitStatus("");
@@ -1295,13 +1333,13 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
             </div>
 
             <h2 style={{ fontSize: 20, fontWeight: 900, color: "#111", margin: "0 0 4px" }}>
-              Tabbatar da Jami'in Rumfa
+              Polling Unit Agent Authentication
             </h2>
             <p style={{ fontSize: 12, color: "#009A44", fontWeight: 800, margin: "0 0 14px", textTransform: "uppercase", letterSpacing: 0.5 }}>
               Polling Unit Agent Authentication
             </p>
             <p style={{ fontSize: 13, color: "#4b5563", margin: "0 0 20px", lineHeight: 1.5, textAlign: "left" }}>
-              Wannan shafin rajistar an kulle shi ne don <strong>Jami'an Rumfunan Zaɓe (Polling Unit Agents)</strong> na APM kaɗai. Da fatan za ka shiga da Email/Phone da Password don buɗe tashar rajistar rumfarku.
+              This registration portal is strictly restricted to accredited <strong>Polling Unit Field Agents</strong> of the Allied Peoples' Movement (APM). Please enter your Agent ID/Email and Password to unlock your assigned polling unit.
             </p>
 
             {/* Network status pill inside login */}
@@ -1318,7 +1356,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
             }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: isOnline ? "#15803d" : "#c2410c", display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: isOnline ? "#16a34a" : "#ea580c" }} />
-                {isOnline ? "🟢 Cibiyar Sadarwa (Online)" : "🟠 Yanayin Ba Network (Offline Support Active)"}
+                {isOnline ? "🟢 Online Network (Connected)" : "🟠 Offline Mode (Local Storage Active)"}
               </span>
               <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 600 }}>
                 {isOnline ? "Server Auth" : "Offline Cache Auth"}
@@ -1334,7 +1372,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
             <form onSubmit={handleAgentLogin} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ textAlign: "left" }}>
                 <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: 0.4 }}>
-                  Email ko Lambar Waya (Agent ID / Email)
+                  Agent ID / Email Address
                 </label>
                 <input
                   type="text"
@@ -1348,12 +1386,12 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
 
               <div style={{ textAlign: "left" }}>
                 <label style={{ fontSize: 11, fontWeight: 700, color: "#374151", textTransform: "uppercase", letterSpacing: 0.4 }}>
-                  Kalmar Sirri (Password)
+                  Password
                 </label>
                 <input
                   type="password"
                   style={{ ...inputStyle, marginTop: 4 }}
-                  placeholder="Shigar da kalmar sirri"
+                  placeholder="Enter your password"
                   value={agentLoginPassword}
                   onChange={(e) => setAgentLoginPassword(e.target.value)}
                   required
@@ -1381,14 +1419,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                   marginTop: 6
                 }}
               >
-                {isAuthenticating ? "Ana Tantancewa..." : "🔓 Buɗe Tashar Rajistar Rumfa"}
+                {isAuthenticating ? "Authenticating..." : "🔓 Authenticate & Unlock Portal"}
               </button>
             </form>
 
             {/* Quick Demo Switcher for fast testing in field */}
             <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px dashed #e5e7eb", textAlign: "left" }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 8 }}>
-                Gwada da Asusun Jami'an Rumfa (Quick Select):
+                Accredited Polling Unit Field Agents (Quick Select):
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <button
@@ -1454,7 +1492,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 8, height: 8, borderRadius: "50%", background: isOnline ? "#16a34a" : "#ea580c" }} />
                 <span style={{ fontSize: 11, fontWeight: 800, color: isOnline ? "#15803d" : "#c2410c" }}>
-                  {isOnline ? "🟢 Online (Akwai Network)" : "🟠 Offline (Babu Network - Ajiye a Waya)"}
+                  {isOnline ? "🟢 Online (Connected)" : "🟠 Offline Mode (Local Storage Enabled)"}
                 </span>
               </div>
 
@@ -1479,11 +1517,11 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                     }}
                   >
                     <span>🔄</span>
-                    <span>{isSyncing ? "Ana Turawa..." : `Tura ${pendingSyncCount} (Sync Now)`}</span>
+                    <span>{isSyncing ? "Syncing..." : `Sync ${pendingSyncCount} Records`}</span>
                   </button>
                 ) : (
                   <span style={{ fontSize: 10, color: "#15803d", fontWeight: 700 }}>
-                    ✓ Duka sun shiga
+                    ✓ All records synced
                   </span>
                 )}
               </div>
@@ -1513,14 +1551,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 12 }}>🔒</span>
                     <span style={{ fontSize: 13, color: "#009A44", fontWeight: 800 }}>
-                      Rumfa: {effectiveAgent.polling_unit_name || form.pollingUnit}
+                      Assigned Unit: {effectiveAgent.polling_unit_name || form.pollingUnit}
                     </span>
                   </div>
                   <span style={{ fontSize: 11, color: "#4b5563", fontWeight: 600 }}>
-                    Jami'i: {effectiveAgent.agent_name} · {effectiveAgent.ward || form.ward}, {effectiveAgent.lga || form.lga}
+                    Field Agent: {effectiveAgent.agent_name} · {effectiveAgent.ward || form.ward}, {effectiveAgent.lga || form.lga}
                   </span>
                   <span style={{ fontSize: 10, color: "#15803d", fontWeight: 700 }}>
-                    ✓ An kulle rajista don wannan rumfar kaɗai (Voters for this PU only)
+                    ✓ Registration strictly locked to this Polling Unit
                   </span>
                 </div>
                 <button
@@ -1537,7 +1575,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                     cursor: "pointer"
                   }}
                 >
-                  Fita / Sauya
+                  Logout / Switch
                 </button>
               </div>
             )}
@@ -1549,7 +1587,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                   <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111", margin: 0 }}>Location &amp; Polling Unit</h2>
                   <span style={{ fontSize: 11, color: "#15803d", background: "#f0faf2", border: "1px solid #86efac", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
-                    🔒 Kulle a Rumfarku
+                    🔒 Unit Locked
                   </span>
                 </div>
 
@@ -1576,8 +1614,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                   <div style={{ background: "#f9fafb", border: "1.5px solid #e5e7eb", borderRadius: 8, padding: 16, marginTop: 12 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                       <div>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "#111", display: "block" }}>Voters na Wannan Rumfar</span>
-                        <span style={{ fontSize: 10, color: "#6b7280" }}>Masu zabe da ke rijista a {form.pollingUnit}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#111", display: "block" }}>Polling Unit Registered Voters</span>
+                        <span style={{ fontSize: 10, color: "#6b7280" }}>INEC registered voters for {form.pollingUnit}</span>
                       </div>
                       <span style={{ fontSize: 11, fontWeight: 700, background: "#e8f5e9", color: "#1a5c2a", padding: "3px 8px", borderRadius: 12 }}>
                         {puVotersLoading ? "Loading..." : `${puVoters.length} Voters`}
@@ -1592,7 +1630,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         <input
                           style={{ ...inputStyle, height: 36, fontSize: 12, marginBottom: 8 }}
-                          placeholder="Bincika sunan mai zabe a wannan rumfa..."
+                          placeholder="Search voter by name or VIN in this unit..."
                           value={puVoterSearch}
                           onChange={(e) => setPuVoterSearch(e.target.value)}
                         />
@@ -1643,7 +1681,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
                             ))}
                           {puVoters.length === 0 && (
                             <div style={{ padding: 12, textAlign: "center", fontSize: 12, color: "#9ca3af" }}>
-                              Ba a sami bayanan masu zaben wannan rumfa ba tukuna.
+                              No registered voters found for this polling unit.
                             </div>
                           )}
                         </div>

@@ -32,12 +32,12 @@ function SuccessContent() {
         </div>
 
         <h1 style={{ fontSize: 24, fontWeight: 900, color: isOffline ? "#ea580c" : "#009A44", margin: "0 0 8px" }}>
-          {isOffline ? "An Ajiye a Waya (Offline Saved)!" : "Registration Submitted!"}
+          {isOffline ? "Saved Offline Successfully!" : "Registration Submitted!"}
         </h1>
         <p style={{ fontSize: 14, color: "#4b5563", lineHeight: 1.6, margin: "0 0 24px" }}>
           {isOffline ? (
             <>
-              An yi wa <strong>{name}</strong> rijista cikin nasara a <strong>{pu}</strong>. Domin babu network a yanzu, an adana bayanan a cikin wayarka kuma za a tura su da zaran an samu network.
+              <strong>{name}</strong> has been registered successfully for <strong>{pu}</strong>. Because there is currently no network connection, the record is stored securely on this device and will automatically sync once connected.
             </>
           ) : (
             <>
@@ -106,9 +106,9 @@ function SuccessContent() {
         {isOffline ? (
           <div style={{ background: "#fff7ed", border: "1.5px solid #ffedd5", borderRadius: 10, padding: "14px", fontSize: 13, color: "#9a3412", marginBottom: 24, lineHeight: 1.5, textAlign: "left" }}>
             <p style={{ margin: "0 0 6px", fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
-              <span>📡</span> Tsarin Auto-Sync (Babu Network)
+              <span>📡</span> Auto-Sync Engine (Offline Mode Active)
             </p>
-            Bayanan wannan mamba suna nan a ajiye a wayar ka. Da zaran ka isa inda akwai network ko ka haɗa da intanet, tsarin zai tura su kai tsaye zuwa babban database na APM. Babu buƙatar sake cika fom ɗin.
+            This member's details are saved locally on this device. Once internet or cellular network connection is detected, the system will automatically upload this registration to the APM central database. No further action is required.
           </div>
         ) : (
           <div style={{ background: "#f3f4f6", borderRadius: 8, padding: "12px", fontSize: 13, color: "#4b5563", marginBottom: 24, lineHeight: 1.5 }}>
@@ -137,7 +137,7 @@ function SuccessContent() {
             transition: "all 0.2s"
           }}
         >
-          ➕ Register Another Member (Yi Wata Sabuwar Rajistar)
+          ➕ Register Another Member
         </button>
 
       </div>

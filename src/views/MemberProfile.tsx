@@ -209,7 +209,10 @@ const MemberProfile = () => {
                 const timeoutPromise = new Promise<{ data: any; error: any }>((resolve) =>
                     setTimeout(() => resolve({ data: null, error: null }), 2500)
                 );
-                const { data, error } = await Promise.race([query.maybeSingle(), timeoutPromise]);
+                const { data, error } = await Promise.race([
+                    query.maybeSingle().catch((err: any) => ({ data: null, error: err })),
+                    timeoutPromise
+                ]);
 
                 if (!error && data) {
                     await localRepository.saveMember(data);

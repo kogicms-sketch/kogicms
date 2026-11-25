@@ -71,14 +71,14 @@ export const usePUAgent = () => {
                 console.warn("Notice: polling_unit_agents query fallback:", err);
             }
 
-            // 3. Fallback to user metadata
-            if (user.user_metadata?.polling_unit_name || user.user_metadata?.ward || user.user_metadata?.role === "polling_unit_agent") {
+            // 3. Match from user metadata ONLY if user is explicitly a polling_unit_agent with an assigned polling unit
+            if (user.user_metadata?.role === "polling_unit_agent" && user.user_metadata?.polling_unit_name) {
                 return {
                     id: user.id,
                     user_id: user.id,
                     councillor_id: null,
                     polling_unit_id: user.user_metadata?.polling_unit_id || null,
-                    polling_unit_name: user.user_metadata?.polling_unit_name || "Eggan Tifain Area LGEA Sch Eggan",
+                    polling_unit_name: user.user_metadata.polling_unit_name,
                     ward: user.user_metadata?.ward || "Eggan",
                     lga: user.user_metadata?.lga || "Lokoja",
                     agent_name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Polling Unit Agent",
@@ -88,7 +88,12 @@ export const usePUAgent = () => {
                 };
             }
 
-            // 4. Default mock/fallback if user role is polling_unit_agent
+            // 4. Default mock/fallback ONLY if user is strictly a polling_unit_agent
+            const userRole = user.user_metadata?.role;
+            if (userRole && userRole !== "polling_unit_agent") {
+                return null;
+            }
+
             const cachedRole = typeof window !== "undefined" ? localStorage.getItem("auth_role") : null;
             if (cachedRole === "polling_unit_agent") {
                 return {
