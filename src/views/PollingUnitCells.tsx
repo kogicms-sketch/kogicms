@@ -38,6 +38,7 @@ import { useAuthorizedLgas } from "@/hooks/useAuthorizedLgas";
 import { useProfile } from "@/hooks/useSettings";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCouncillor } from "@/hooks/useCouncillors";
+import { useChairman } from "@/hooks/useChairmen";
 import { usePUAgent } from "@/hooks/usePUAgent";
 import { KOGI_LGAS, ALL_WARDS, ALL_POLLING_UNITS } from "@/data/aggregated_lga_data";
 import {
@@ -102,6 +103,16 @@ const PollingUnitCells = () => {
   const activeWard = queryWard || cachedWard || councillor?.ward || profile?.ward || "Eggan";
   const activeLga = queryLga || cachedLga || councillor?.lga || profile?.lga || "Lokoja";
 
+  const { data: chairman } = useChairman();
+  const cachedChairmanLga = typeof window !== "undefined" ? localStorage.getItem("chairman_lga") : null;
+  const isChairman = !isPUAgent && !isCouncillor && (
+    role === "lga_chairman" ||
+    cachedRole === "lga_chairman" ||
+    profile?.role === "lga_chairman" ||
+    (typeof window !== "undefined" && Boolean(localStorage.getItem("chairman_profile")))
+  );
+  const chairmanLga = chairman?.lga || cachedChairmanLga || profile?.lga || "Lokoja";
+
   const [filters, setFilters] = useState({
     lga: isCouncillor ? activeLga : (profile?.lga || ""),
     ward: isCouncillor ? activeWard : (profile?.ward || ""),
@@ -115,6 +126,11 @@ const PollingUnitCells = () => {
         lga: activeLga,
         ward: activeWard,
       }));
+    } else if (isChairman) {
+      setFilters(f => ({
+        ...f,
+        lga: chairmanLga,
+      }));
     } else if (profile) {
       setFilters(f => ({
         ...f,
@@ -122,11 +138,11 @@ const PollingUnitCells = () => {
         ward: f.ward || profile.ward || "",
       }));
     }
-  }, [profile, isCouncillor, activeLga, activeWard]);
+  }, [profile, isCouncillor, isChairman, activeLga, activeWard, chairmanLga]);
 
   const { data: authorizedLgas, isLoading: jurisdictionLoading } = useAuthorizedLgas();
 
-  const effectiveLga = isCouncillor ? activeLga : (filters.lga || undefined);
+  const effectiveLga = isCouncillor ? activeLga : (isChairman ? chairmanLga : (filters.lga || undefined));
   const effectiveWard = isCouncillor ? activeWard : (filters.ward || undefined);
 
   const { data: cells, isLoading: cellsLoading } = usePollingUnitCells({
@@ -217,6 +233,15 @@ const PollingUnitCells = () => {
       }));
     }
 
+    // Strict LGA boundary check for LGA chairman
+    if (isChairman && chairmanLga) {
+      const targetLgaNorm = norm(chairmanLga);
+      list = list.filter((cell) => {
+        const cellLga = norm(cell.lga);
+        return cellLga === targetLgaNorm || cellLga.includes(targetLgaNorm) || targetLgaNorm.includes(cellLga);
+      });
+    }
+
     // Strict ward boundary check for ward councillors
     if (isCouncillor && activeWard) {
       const targetNeedle = norm(activeWard);
@@ -247,7 +272,7 @@ const PollingUnitCells = () => {
         cell.pu_code?.toLowerCase().includes(query)
       );
     });
-  }, [cells, effectiveLga, effectiveWard, isCouncillor, isPUAgent, puAgent, activeWard, searchQuery]);
+  }, [cells, effectiveLga, effectiveWard, isCouncillor, isChairman, chairmanLga, isPUAgent, puAgent, activeWard, searchQuery]);
 
   const totalTarget = stats?.totalTarget || (filteredCells.length * 50) || 50;
   const totalAppMembers = stats?.totalAppMembers || 0;
@@ -299,6 +324,40 @@ const PollingUnitCells = () => {
             >
               <ChevronLeft className="w-4 h-4" />
               PU Dashboard
+            </Button>
+          </Link>
+        </div>
+      )}
+
+      {/* LGA Chairman Scope Banner */}
+      {isChairman && (
+        <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-900 to-teal-950 text-white shadow-lg border border-emerald-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0">
+              <Lock className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white tracking-wide uppercase">
+                  {chairmanLga} Local Government Polling Units
+                </span>
+                <Badge className="bg-emerald-500 text-slate-950 font-bold text-[10px] px-2 py-0.5">
+                  LGA Scoped
+                </Badge>
+              </div>
+              <p className="text-xs text-emerald-200/80 mt-0.5">
+                Strict LGA boundary active: Showing only polling units within {chairmanLga} Local Government Area.
+              </p>
+            </div>
+          </div>
+
+          <Link href="/chairman/dashboard">
+            <Button
+              size="sm"
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-semibold shrink-0 gap-1.5"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Chairman Dashboard
             </Button>
           </Link>
         </div>
@@ -453,8 +512,30 @@ const PollingUnitCells = () => {
                 </SelectContent>
               </Select>
 
-              {/* When NOT in councillor mode, allow LGA and Ward filters */}
-              {!isCouncillor && !isPUAgent && (
+              {/* For LGA Chairman: Allow filtering wards strictly in this LGA */}
+              {isChairman && (
+                <Select
+                  value={filters.ward || "all"}
+                  onValueChange={(v) => setFilters(f => ({ ...f, ward: v === "all" ? "" : v }))}
+                >
+                  <SelectTrigger className="w-[160px] h-9 text-xs">
+                    <MapPin className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />
+                    <SelectValue placeholder="All Wards" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Wards ({chairmanLga})</SelectItem>
+                    {ALL_WARDS
+                      .filter(w => norm(w.lga) === norm(chairmanLga))
+                      .map(ward => (
+                        <SelectItem key={ward.id} value={ward.name}>{ward.name}</SelectItem>
+                      ))
+                    }
+                  </SelectContent>
+                </Select>
+              )}
+
+              {/* When NOT in councillor or chairman mode, allow LGA and Ward filters */}
+              {!isCouncillor && !isPUAgent && !isChairman && (
                 <>
                   <Select
                     value={filters.lga || "all"}
