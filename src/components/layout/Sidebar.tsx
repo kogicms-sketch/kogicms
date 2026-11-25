@@ -110,6 +110,40 @@ const wardNavItems = [
   },
 ];
 
+// Dedicated navigation strictly for Federal Representatives (House of Reps)
+const federalRepNavItems = [
+  {
+    label: "Dashboard",
+    icon: LayoutDashboard,
+    path: "/federal/dashboard",
+  },
+  {
+    label: "Support Groups",
+    icon: ShieldCheck,
+    path: "/support-groups",
+  },
+  {
+    label: "Polling Unit Cells",
+    icon: Target,
+    path: "/polling-units",
+  },
+  {
+    label: "Members",
+    icon: Users,
+    path: "/members",
+  },
+  {
+    label: "Welfare & Incentives",
+    icon: Gift,
+    path: "/welfare",
+  },
+  {
+    label: "Chats",
+    icon: MessageSquare,
+    path: "/chat",
+  },
+];
+
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -123,24 +157,30 @@ const Sidebar = () => {
     party.colors.swatches[2] || party.colors.swatches[0],
   ];
 
-  // Resolve role and ward scope
+  // Resolve role and scope
   const cachedRole = typeof window !== "undefined" ? (localStorage.getItem("auth_role") as any) : null;
-  const isWardPath = pathname.startsWith("/councillor") || pathname === "/dashboard" || pathname === "/polling-units";
   const effectiveRole =
-    role || cachedRole || (pathname.startsWith("/chairman") ? "lga_chairman" : "councillor");
+    role ||
+    cachedRole ||
+    (pathname.startsWith("/chairman")
+      ? "lga_chairman"
+      : pathname.startsWith("/federal")
+      ? "federal_rep"
+      : pathname.startsWith("/senatorial")
+      ? "senatorial_leader"
+      : pathname.startsWith("/councillor")
+      ? "councillor"
+      : "super_admin");
 
   const isPUAgent = effectiveRole === "polling_unit_agent" || effectiveRole === "agent" || effectiveRole === "pu_agent";
   const isCouncillor = !isPUAgent && (effectiveRole === "councillor" || pathname.startsWith("/councillor"));
+  const isFederalRep = !isPUAgent && !isCouncillor && (effectiveRole === "federal_rep" || pathname.startsWith("/federal"));
 
   // Active ward name from localStorage cache
   const activeWard =
     typeof window !== "undefined"
       ? localStorage.getItem("councillor_ward") || "Eggan"
       : "Eggan";
-  const activeLga =
-    typeof window !== "undefined"
-      ? localStorage.getItem("councillor_lga") || "Lokoja"
-      : "Lokoja";
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -188,6 +228,13 @@ const Sidebar = () => {
                   <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950/90 border border-emerald-500/40 px-2 py-0.5 rounded-full inline-flex items-center gap-1 shadow-sm">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     {activeWard} Ward
+                  </span>
+                </div>
+              ) : isFederalRep ? (
+                <div className="mt-1">
+                  <span className="text-[10px] font-bold text-sky-300 bg-sky-950/90 border border-sky-500/40 px-2 py-0.5 rounded-full inline-flex items-center gap-1 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+                    Federal Rep Command
                   </span>
                 </div>
               ) : (
@@ -242,8 +289,27 @@ const Sidebar = () => {
               </Link>
             );
           })
+        ) : isFederalRep ? (
+          // DEDICATED FEDERAL REP NAVIGATION (Cleaned up as requested)
+          federalRepNavItems.map((item) => {
+            const isActive = pathname === item.path;
+            const Icon = item.icon;
+
+            return (
+              <Link
+                key={item.path}
+                href={item.path}
+                className={isActive ? "nav-item-active" : "nav-item"}
+              >
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                {!collapsed && (
+                  <span className="text-sm font-medium">{item.label}</span>
+                )}
+              </Link>
+            );
+          })
         ) : (
-          // Standard Navigation for other roles (Super Admin, LGA Chairman, etc.)
+          // Standard Navigation for other roles (Super Admin, LGA Chairman, Senatorial, etc.)
           navItems.map((item) => {
             if (item.roles) {
               if (!effectiveRole || !item.roles.includes(effectiveRole)) {

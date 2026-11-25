@@ -150,7 +150,6 @@ export const navItems: NavItem[] = [
     inBottomNav: true,
     roles: [
       "super_admin",
-      "lga_chairman",
       "councillor",
       "polling_unit_agent",
       "senatorial_leader",
@@ -165,7 +164,6 @@ export const navItems: NavItem[] = [
     group: "Operations",
     roles: [
       "super_admin",
-      "lga_chairman",
       "councillor",
       "senatorial_leader",
       "federal_rep",
@@ -180,7 +178,6 @@ export const navItems: NavItem[] = [
     inBottomNav: true,
     roles: [
       "super_admin",
-      "lga_chairman",
       "polling_unit_agent",
       "senatorial_leader",
       "federal_rep",
@@ -193,7 +190,24 @@ export const navItems: NavItem[] = [
     path: "/voters",
     group: "Main Menu",
     inBottomNav: true,
+    roles: [
+      "super_admin",
+      "lga_chairman",
+      "councillor",
+      "senatorial_leader",
+      "federal_rep",
+      "house_assembly_member",
+    ],
   },
+  {
+    label: "Polling Unit Cells",
+    icon: Target,
+    path: "/chairman/polling-units",
+    group: "Main Menu",
+    inBottomNav: true,
+    roles: ["lga_chairman"],
+  },
+
   {
     label: "Polling Unit Cells",
     icon: Target,
@@ -256,14 +270,14 @@ export const navItems: NavItem[] = [
     icon: CalendarDays,
     path: "/activities",
     group: "Operations",
-    roles: ["super_admin", "org_admin", "member", "lga_chairman", "councillor"],
+    roles: ["super_admin", "org_admin", "member", "councillor"],
   },
   {
     label: "Attendance",
     icon: CheckCircle,
     path: "/attendance",
     group: "Operations",
-    roles: ["super_admin", "org_admin", "member", "lga_chairman", "councillor"],
+    roles: ["super_admin", "org_admin", "member", "councillor"],
   },
   {
     label: "Reports",
@@ -281,7 +295,6 @@ export const navItems: NavItem[] = [
       "super_admin",
       "org_admin",
       "member",
-      "lga_chairman",
       "councillor",
       "polling_unit_agent",
       "senatorial_leader",
@@ -296,7 +309,6 @@ export const navItems: NavItem[] = [
     group: "Tools",
     roles: [
       "super_admin",
-      "lga_chairman",
       "councillor",
       "senatorial_leader",
       "federal_rep",

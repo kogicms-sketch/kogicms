@@ -1,7 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import Link from 'next/link';
-import { Menu, LayoutDashboard, Users, Target, Radio, CreditCard, ClipboardList } from "lucide-react";
+import { Menu, LayoutDashboard, Users, Target, Radio, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
@@ -32,30 +32,54 @@ const MobileBottomNav = () => {
   const { role } = useAuth();
 
   const dashboardPath = getRoleDashboardPath(role);
+  const isFederalRep = role === "federal_rep" || pathname.startsWith("/federal");
 
   // 4 Core primary mobile items tailored to role
-  const bottomNavItems = [
-    {
-      label: "Dashboard",
-      icon: LayoutDashboard,
-      path: dashboardPath,
-    },
-    {
-      label: "Members",
-      icon: Users,
-      path: "/members",
-    },
-    {
-      label: "Polling Units",
-      icon: Target,
-      path: "/polling-units",
-    },
-    {
-      label: "Situation",
-      icon: Radio,
-      path: "/situation-room",
-    },
-  ];
+  const bottomNavItems = isFederalRep
+    ? [
+        {
+          label: "Dashboard",
+          icon: LayoutDashboard,
+          path: "/federal/dashboard",
+        },
+        {
+          label: "Members",
+          icon: Users,
+          path: "/members",
+        },
+        {
+          label: "Polling Units",
+          icon: Target,
+          path: "/polling-units",
+        },
+        {
+          label: "Support Groups",
+          icon: ShieldCheck,
+          path: "/support-groups",
+        },
+      ]
+    : [
+        {
+          label: "Dashboard",
+          icon: LayoutDashboard,
+          path: dashboardPath,
+        },
+        {
+          label: "Members",
+          icon: Users,
+          path: "/members",
+        },
+        {
+          label: "Polling Units",
+          icon: Target,
+          path: "/polling-units",
+        },
+        {
+          label: "Situation",
+          icon: Radio,
+          path: "/situation-room",
+        },
+      ];
 
   // Check if current path is active
   const isActive = (path: string) => {
