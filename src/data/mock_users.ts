@@ -630,6 +630,23 @@ export const MOCK_USERS: User[] = [
     performanceScore: 92,
     must_change_password: false
   },
+  {
+    id: 'USR-PU-03',
+    name: 'Polling Unit Agent',
+    full_name: 'Grace Onoja (PU Field Agent)',
+    email: 'pollingunit@gmail.com',
+    password: '123456',
+    role: 'polling_unit_agent',
+    lga: 'Lokoja',
+    ward: 'Eggan',
+    polling_unit_id: 'LOKOJA-W10-PU001',
+    polling_unit_name: 'Eggan Tifain Area LGEA Sch Eggan',
+    avatarUrl: 'https://ui-avatars.com/api/?name=Polling+Unit&background=009A44&color=fff',
+    phoneNumber: '07055443322',
+    status: 'active',
+    performanceScore: 100,
+    must_change_password: false
+  },
 
   // ==========================================
   // 8. STUDENT & YOUTH MOBILIZER

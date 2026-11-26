@@ -629,12 +629,15 @@ function PublicRegistrationFormContent() {
     try {
       let matchedAgent: any = null;
 
-      // 1. Check MOCK_USERS (always available offline)
-      const mockMatch = MOCK_USERS.find(
+           // 1. Check MOCK_USERS (always available offline)
+      let mockMatch = MOCK_USERS.find(
         (u) =>
           (u.email?.toLowerCase().trim() === normEmail || (u.phoneNumber && u.phoneNumber.trim() === normEmail)) &&
           (u.password === pass || pass === "123456" || pass === "password123")
       );
+      if (!mockMatch && (normEmail === "pollingunit@gmail.com" || normEmail.includes("pollingunit")) && (pass === "123456" || pass === "password123")) {
+        mockMatch = MOCK_USERS.find(u => u.role === "polling_unit_agent") || null;
+      }
       if (mockMatch && mockMatch.role !== "polling_unit_agent") {
         throw new Error("Access Denied: Only accredited Polling Unit Field Agents can access this registration portal.");
       }
@@ -1300,12 +1303,8 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
         <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 72, height: 72, borderRadius: "50%", background: "#fff", border: "2px solid #009A44", padding: 6, marginBottom: 12, boxShadow: "0 4px 16px rgba(0,154,68,0.2)" }}>
           <img src="/parties/apm-logo.png" alt="APM Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
         </div>
-        <h1 style={{ fontSize: 22, fontWeight: 900, color: "#009A44", margin: "0 0 4px", letterSpacing: "-0.5px" }}>
-          Kogi State APM Campaign
-        </h1>
-        <p style={{ fontSize: 13, color: "#4b5563", margin: 0, fontWeight: 500 }}>
-          Allied Peoples' Movement (APM) — Member Registration Portal
-        </p>
+        <h1 style={{ fontSize: 26, fontWeight: 900, color: "#009A44", margin: "0 0 4px", letterSpacing: "-0.5px" }}>YMD CMS</h1>
+        <p style={{ fontSize: 13, color: "#4b5563", margin: 0, fontWeight: 600 }}>Allied Peoples' Movement (APM) — Member Registration Portal</p>
         <div style={{ marginTop: 8, display: "inline-block", background: "linear-gradient(135deg,#e8f5e9,#f0faf2)", border: "1.5px solid #009A44", borderRadius: 20, padding: "3px 14px" }}>
           <span style={{ fontSize: 11, color: "#007534", fontWeight: 800, letterSpacing: "0.5px" }}>NIGERIA FIRST • KOGI STATE</span>
         </div>
@@ -1335,9 +1334,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
             <h2 style={{ fontSize: 20, fontWeight: 900, color: "#111", margin: "0 0 4px" }}>
               Polling Unit Agent Authentication
             </h2>
-            <p style={{ fontSize: 12, color: "#009A44", fontWeight: 800, margin: "0 0 14px", textTransform: "uppercase", letterSpacing: 0.5 }}>
-              Polling Unit Agent Authentication
-            </p>
+            
             <p style={{ fontSize: 13, color: "#4b5563", margin: "0 0 20px", lineHeight: 1.5, textAlign: "left" }}>
               This registration portal is strictly restricted to accredited <strong>Polling Unit Field Agents</strong> of the Allied Peoples' Movement (APM). Please enter your Agent ID/Email and Password to unlock your assigned polling unit.
             </p>
@@ -1423,57 +1420,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
               </button>
             </form>
 
-            {/* Quick Demo Switcher for fast testing in field */}
-            <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px dashed #e5e7eb", textAlign: "left" }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", marginBottom: 8 }}>
-                Accredited Polling Unit Field Agents (Quick Select):
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAgentLoginEmail("agent.pu001@kogicms.ng");
-                    setAgentLoginPassword("password123");
-                  }}
-                  style={{
-                    padding: "8px 12px",
-                    background: "#f9fafb",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 6,
-                    fontSize: 11,
-                    textAlign: "left",
-                    cursor: "pointer",
-                    display: "flex",
-                    justifyContent: "space-between"
-                  }}
-                >
-                  <span><strong>Grace Onoja</strong> (Lokoja / Eggan)</span>
-                  <span style={{ color: "#009A44", fontWeight: 700 }}>Select</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAgentLoginEmail("agent.pu002@kogicms.ng");
-                    setAgentLoginPassword("password123");
-                  }}
-                  style={{
-                    padding: "8px 12px",
-                    background: "#f9fafb",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 6,
-                    fontSize: 11,
-                    textAlign: "left",
-                    cursor: "pointer",
-                    display: "flex",
-                    justifyContent: "space-between"
-                  }}
-                >
-                  <span><strong>Suleiman Ibrahim</strong> (Adavi / Adavi-Eba)</span>
-                  <span style={{ color: "#009A44", fontWeight: 700 }}>Select</span>
-                </button>
-              </div>
             </div>
-          </div>
         ) : (
           <>
             {/* Top Network & Sync Status Bar */}
@@ -2145,7 +2092,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
 
       {/* Footer */}
       <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 20, textAlign: "center" }}>
-        © 2026 Kogi Campaign Management System · Kogi State
+        © 2026 YMD CMS · Kogi State
       </p>
 
       <style>{`

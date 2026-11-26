@@ -260,7 +260,7 @@ const Login = () => {
             transition={{ duration: 0.5, delay: 0.8 }}
             className="text-sm text-white/40"
           >
-            © 2026 Kogi State APM Campaign Management System. All rights reserved.
+            © 2026 YMD CMS. All rights reserved.
           </motion.p>
         </div>
       </div>
@@ -315,7 +315,7 @@ const Login = () => {
                     <Smartphone className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">Install Kogi APM App</p>
+                    <p className="text-sm font-semibold text-foreground">Install YMD CMS App</p>
                     <p className="text-xs text-muted-foreground">Get quick access from home screen</p>
                   </div>
                   <Button
@@ -446,7 +446,7 @@ const Login = () => {
         {/* Mobile Footer - Copyright */}
         <div className="lg:hidden px-6 pb-6 safe-area-bottom">
           <p className="text-xs text-center text-muted-foreground">
-            © 2026 Kogi State APM Campaign Management System
+            © 2026 YMD CMS
           </p>
         </div>
       </div>

@@ -101,9 +101,9 @@ export const PWAInstallPrompt = () => {
               <Smartphone className="w-6 h-6 text-primary hidden" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground text-sm">Install Kogi State APM CMS</h3>
+              <h3 className="font-semibold text-foreground text-sm">Install YMD CMS</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Install as mobile APK / web app for fast offline access and real-time field sync.
+                Install YMD CMS as a mobile app for fast offline access and real-time field sync.
               </p>
             </div>
             <button
