@@ -213,7 +213,7 @@ const Sidebar = () => {
           </div>
           {!collapsed && (
             <div className="animate-fade-in min-w-0">
-              <h2 className="text-sm font-bold text-white truncate leading-tight">YMD CMS</h2>
+              <h2 className="text-sm font-bold text-white truncate leading-tight">Kogi State APM</h2>
               {isPUAgent ? (
                 <div className="mt-1">
                   <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950/90 border border-emerald-500/40 px-2 py-0.5 rounded-full inline-flex items-center gap-1 shadow-sm">

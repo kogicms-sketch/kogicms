@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">YMD CMS</string>
-    <string name="title_activity_main">YMD CMS</string>
+    <string name="app_name">Kogi State APM</string>
+    <string name="title_activity_main">Kogi State APM</string>
     <string name="package_name">com.dikkocms.app</string>
     <string name="custom_url_scheme">com.dikkocms.app</string>
 </resources>

@@ -1303,7 +1303,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
         <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 72, height: 72, borderRadius: "50%", background: "#fff", border: "2px solid #009A44", padding: 6, marginBottom: 12, boxShadow: "0 4px 16px rgba(0,154,68,0.2)" }}>
           <img src="/parties/apm-logo.png" alt="APM Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
         </div>
-        <h1 style={{ fontSize: 26, fontWeight: 900, color: "#009A44", margin: "0 0 4px", letterSpacing: "-0.5px" }}>YMD CMS</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 900, color: "#009A44", margin: "0 0 4px", letterSpacing: "-0.5px" }}>Kogi State APM CMS</h1>
         <p style={{ fontSize: 13, color: "#4b5563", margin: 0, fontWeight: 600 }}>Allied Peoples' Movement (APM) — Member Registration Portal</p>
         <div style={{ marginTop: 8, display: "inline-block", background: "linear-gradient(135deg,#e8f5e9,#f0faf2)", border: "1.5px solid #009A44", borderRadius: 20, padding: "3px 14px" }}>
           <span style={{ fontSize: 11, color: "#007534", fontWeight: 800, letterSpacing: "0.5px" }}>NIGERIA FIRST • KOGI STATE</span>
@@ -2092,7 +2092,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
 
       {/* Footer */}
       <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 20, textAlign: "center" }}>
-        © 2026 YMD CMS · Kogi State
+        © 2026 Kogi State APM · Kogi State
       </p>
 
       <style>{`

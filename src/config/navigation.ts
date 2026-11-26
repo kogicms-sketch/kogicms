@@ -150,8 +150,6 @@ export const navItems: NavItem[] = [
     inBottomNav: true,
     roles: [
       "super_admin",
-      "councillor",
-      "polling_unit_agent",
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
@@ -164,7 +162,6 @@ export const navItems: NavItem[] = [
     group: "Operations",
     roles: [
       "super_admin",
-      "councillor",
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
@@ -178,7 +175,6 @@ export const navItems: NavItem[] = [
     inBottomNav: true,
     roles: [
       "super_admin",
-      "polling_unit_agent",
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
@@ -259,6 +255,7 @@ export const navItems: NavItem[] = [
       "super_admin",
       "lga_chairman",
       "councillor",
+      "polling_unit_agent",
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
@@ -296,7 +293,6 @@ export const navItems: NavItem[] = [
       "org_admin",
       "member",
       "councillor",
-      "polling_unit_agent",
       "senatorial_leader",
       "federal_rep",
       "house_assembly_member",
@@ -320,6 +316,6 @@ export const navItems: NavItem[] = [
     icon: Bell,
     path: "/notifications",
     group: "Tools",
-    roles: ["super_admin", "org_admin", "member", "lga_chairman", "councillor"],
+    roles: ["super_admin", "org_admin", "member", "lga_chairman", "councillor", "polling_unit_agent"],
   },
 ];

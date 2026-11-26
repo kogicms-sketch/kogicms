@@ -81,7 +81,7 @@ const MobileMenu = ({ onClose }: MobileMenuProps) => {
 
   const dashboardPath = getRoleDashboardPath(role);
 
-  // Dynamic exclusion of items that are already in the mobile bottom bar for this role
+  // Dynamic exclusion of items from mobile menu
   const bottomNavPaths = [
     dashboardPath,
     "/dashboard",
@@ -90,6 +90,10 @@ const MobileMenu = ({ onClose }: MobileMenuProps) => {
     role === "lga_chairman" || role === "councillor" || role === "senatorial_leader" || role === "house_assembly_member" || role === "polling_unit_agent"
       ? "/voters"
       : (role === "federal_rep" ? "/support-groups" : (role === "student" ? "/support-groups" : "/situation-room")),
+    // Always hide operations not intended for mobile phone drawer
+    "/situation-room",
+    "/situation-room/live",
+    "/election-day",
   ];
 
   const menuItems = permittedItems.filter(
@@ -101,10 +105,12 @@ const MobileMenu = ({ onClose }: MobileMenuProps) => {
   const groups = Array.from(new Set(menuItems.map((item) => item.group)))
     .sort((a, b) => groupOrder.indexOf(a) - groupOrder.indexOf(b));
 
-  const menuSections = groups.map((groupTitle) => ({
-    title: groupTitle,
-    items: menuItems.filter((item) => item.group === groupTitle),
-  }));
+  const menuSections = groups
+    .map((groupTitle) => ({
+      title: groupTitle,
+      items: menuItems.filter((item) => item.group === groupTitle),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <div className="flex flex-col h-full pt-2 mobile-fade-in">
@@ -121,9 +127,7 @@ const MobileMenu = ({ onClose }: MobileMenuProps) => {
           />
         </div>
         <div className="min-w-0">
-          <h2 className="text-sm font-bold text-foreground truncate">
-            YMD CMS
-          </h2>
+          <h2 className="text-sm font-bold text-foreground truncate">Kogi State APM</h2>
           <p className="text-xs text-muted-foreground truncate">
             {party.fullName}
           </p>
