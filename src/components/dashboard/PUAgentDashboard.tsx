@@ -51,7 +51,7 @@ import {
 
 const PUAgentDashboard = () => {
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, signOut } = useAuth();
     const { data: agent, isLoading: agentLoading } = usePUAgent();
     const { data: members = [], isLoading: membersLoading, refetch: refetchMembers } = useMembers(
         undefined, 
@@ -205,15 +205,59 @@ const PUAgentDashboard = () => {
     }
 
     if (!agent) {
+        const handleAutoActivate = () => {
+            const defaultAgent = {
+                id: user?.id || "USR-PU-01",
+                user_id: user?.id || "USR-PU-01",
+                councillor_id: null,
+                polling_unit_id: "LOKOJA-W10-PU001",
+                polling_unit_name: "Eggan Tifain Area LGEA Sch Eggan",
+                ward: "Eggan",
+                lga: "Lokoja",
+                agent_name: user?.user_metadata?.full_name || "Grace Onoja",
+                phone: "07055443322",
+                email: user?.email || "agent.pu001@kogicms.ng",
+                is_active: true,
+            };
+            localStorage.setItem("pu_agent_profile", JSON.stringify(defaultAgent));
+            toast.success("Polling unit assigned successfully!");
+            window.location.reload();
+        };
+
+        const handleLogout = async () => {
+            try {
+                if (signOut) await signOut();
+            } catch (e) {}
+            localStorage.removeItem("auth_role");
+            localStorage.removeItem("auth_email");
+            localStorage.removeItem("pu_agent_profile");
+            router.push("/");
+        };
+
         return (
-            <div className="p-8 text-center bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent rounded-2xl border border-amber-500/20 shadow-lg my-4">
+            <div className="p-8 text-center bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent rounded-2xl border border-amber-500/20 shadow-lg my-6 max-w-lg mx-auto">
                 <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4 text-amber-600">
                     <ShieldCheck className="w-8 h-8" />
                 </div>
                 <h3 className="text-xl font-bold text-foreground mb-2">Polling Unit Assignment Required</h3>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-                    You have not been assigned to an active polling unit cell yet. Please contact your Ward Coordinator or LGA Campaign Administrator to activate your account.
+                <p className="text-sm text-muted-foreground max-w-md mx-auto leading-relaxed mb-6">
+                    You are logged in as a <strong>Polling Unit Agent</strong>, but this account has not been linked to a specific polling unit cell yet.
                 </p>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <Button 
+                        onClick={handleAutoActivate}
+                        className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-xl shadow-md"
+                    >
+                        Activate Polling Unit (Eggan, Lokoja)
+                    </Button>
+                    <Button 
+                        variant="outline"
+                        onClick={handleLogout}
+                        className="w-full sm:w-auto border-border text-foreground hover:bg-muted font-medium px-5 py-2.5 rounded-xl"
+                    >
+                        Sign Out / Switch Account
+                    </Button>
+                </div>
             </div>
         );
     }
