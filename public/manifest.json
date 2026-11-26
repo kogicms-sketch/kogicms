@@ -1,6 +1,6 @@
 {
-  "name": "Kogi State APM CMS",
-  "short_name": "APM CMS",
+  "name": "YMD CMS",
+  "short_name": "YMD CMS",
   "description": "Official YMD Campaign Management System for Allied Peoples' Movement (APM), Kogi State",
   "start_url": "/",
   "display": "standalone",

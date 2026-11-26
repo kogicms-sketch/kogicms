@@ -3,7 +3,7 @@ import { Providers } from "@/components/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Kogi State APM CMS",
+  title: "YMD CMS - Kogi State",
   description: "Official Campaign Management System for Allied Peoples' Movement (APM), Kogi State",
   icons: {
     icon: "/parties/apm-logo.png",
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Kogi State APM CMS",
+    title: "YMD CMS - Kogi State",
   },
   formatDetection: {
     telephone: false,

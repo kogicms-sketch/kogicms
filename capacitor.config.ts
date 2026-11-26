@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.dikkocms.app',
-  appName: 'Kogi State APM',
+  appName: 'YMD CMS',
   webDir: 'out'
 };
 

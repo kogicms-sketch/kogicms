@@ -127,7 +127,7 @@ const MobileMenu = ({ onClose }: MobileMenuProps) => {
           />
         </div>
         <div className="min-w-0">
-          <h2 className="text-sm font-bold text-foreground truncate">Kogi State APM</h2>
+          <h2 className="text-sm font-bold text-foreground truncate">YMD CMS</h2>
           <p className="text-xs text-muted-foreground truncate">
             {party.fullName}
           </p>

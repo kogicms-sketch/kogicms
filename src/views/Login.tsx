@@ -260,7 +260,7 @@ const Login = () => {
             transition={{ duration: 0.5, delay: 0.8 }}
             className="text-sm text-white/40"
           >
-            © 2026 Kogi State APM. All rights reserved.
+            © 2026 YMD CMS. All rights reserved.
           </motion.p>
         </div>
       </div>
@@ -446,7 +446,7 @@ const Login = () => {
         {/* Mobile Footer - Copyright */}
         <div className="lg:hidden px-6 pb-6 safe-area-bottom">
           <p className="text-xs text-center text-muted-foreground">
-            © 2026 Kogi State APM
+            © 2026 YMD CMS
           </p>
         </div>
       </div>
