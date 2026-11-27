@@ -20,7 +20,7 @@ const DashboardLayout = ({ children, title, subtitle }: DashboardLayoutProps) =>
 
       {/* Main content area */}
       <main className="transition-all duration-300 pb-28 md:pb-6 md:ml-72 overflow-x-hidden">
-        <Header title={title || "Kogi State APM Command"} subtitle={subtitle} />
+        <Header title={title || "YMD CMS Command"} subtitle={subtitle} />
         <div className="p-3 sm:p-5 lg:p-8 pt-safe max-w-full overflow-x-hidden">{children}</div>
       </main>
 

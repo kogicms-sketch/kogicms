@@ -38,6 +38,10 @@ const Header = ({ title, subtitle }: HeaderProps) => {
 
   useEffect(() => {
     if (!user) return;
+    if (user?.user_metadata?.lga) {
+      setUserLga(user.user_metadata.lga);
+      return;
+    }
     const fetchProfile = async () => {
       try {
         const { data } = await supabase
@@ -47,6 +51,9 @@ const Header = ({ title, subtitle }: HeaderProps) => {
           .maybeSingle();
         if (data?.lga) {
           setUserLga(data.lga);
+        } else if (typeof window !== "undefined") {
+          const storedLga = localStorage.getItem("chairman_lga") || localStorage.getItem("admin_selected_lga");
+          if (storedLga) setUserLga(storedLga);
         }
       } catch (err) {
         console.error("Error fetching profile in Header:", err);
@@ -102,7 +109,8 @@ const Header = ({ title, subtitle }: HeaderProps) => {
   const getUserName = () => {
     const rawName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "User";
     if (partyId === "apc") return rawName;
-    return `${userLga || "Kogi State"}`;
+    const lga = userLga || (typeof window !== "undefined" && (localStorage.getItem("chairman_lga") || localStorage.getItem("admin_selected_lga")));
+    return lga ? `${lga} LGA` : "Kogi State";
   };
 
   const getInitials = () => {

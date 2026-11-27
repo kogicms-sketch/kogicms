@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/loose-client";
 import { localVoterService } from "@/services/LocalVoterService";
-import { getWardsForLga } from "@/lib/campaign-data";
+import { getWardsForLga, KOGI_LGAS } from "@/lib/campaign-data";
 import { ALL_POLLING_UNITS } from "@/data/aggregated_lga_data";
 import { createClient } from "@supabase/supabase-js";
 import { toast } from "sonner";
@@ -168,55 +168,123 @@ export interface ChairmanDashboardStats {
     }[];
 }
 
+export const detectLgaFromUser = (email?: string | null, metadata?: any): string | null => {
+    if (metadata?.lga) return metadata.lga;
+    if (!email) return null;
+    const clean = email.toLowerCase().replace(/[^a-z0-9]/g, "");
+    for (const lga of KOGI_LGAS) {
+        const normLga = lga.toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (clean.includes(normLga)) return lga;
+    }
+    return null;
+};
+
 // Get current chairman profile
 export const useChairman = () => {
     const { role, user } = useAuth();
 
     return useQuery({
-        queryKey: ["chairman-profile", role, user?.id],
+        queryKey: ["chairman-profile", role, user?.id, user?.email],
         queryFn: async () => {
-            // 1. Check local storage cache first
+            const expectedLga = detectLgaFromUser(user?.email, user?.user_metadata);
+
+            // 1. Check local storage cache, but rigorously validate against current user
             if (typeof window !== "undefined") {
                 const cached = localStorage.getItem("chairman_profile");
                 if (cached) {
                     try {
-                        const parsed = JSON.parse(cached);
-                        if (parsed && parsed.lga) {
-                            return parsed as LGAChairman;
+                        const parsed = JSON.parse(cached) as LGAChairman;
+                        const userMatches = user
+                            ? (parsed.user_id === user.id ||
+                               (user.email && parsed.email?.toLowerCase().trim() === user.email.toLowerCase().trim()))
+                            : true;
+
+                        const lgaMatches = !expectedLga || (parsed.lga && parsed.lga.toLowerCase() === expectedLga.toLowerCase());
+
+                        if (parsed && parsed.lga && userMatches && lgaMatches) {
+                            return parsed;
+                        } else {
+                            // Stale cache from a previous or different user; clear it!
+                            localStorage.removeItem("chairman_profile");
                         }
-                    } catch {}
+                    } catch {
+                        localStorage.removeItem("chairman_profile");
+                    }
                 }
             }
 
-            // 2. If user is authenticated, check lga_chairmen table
+            // 2. If user is authenticated, query lga_chairmen table
             if (user) {
                 try {
-                    const { data, error } = await db
-                        .from("lga_chairmen")
-                        .select("*")
-                        .eq("user_id", user.id)
-                        .maybeSingle();
+                    let query = db.from("lga_chairmen").select("*");
+                    if (user.id) {
+                        query = query.or(`user_id.eq.${user.id},email.eq.${user.email}`);
+                    } else if (user.email) {
+                        query = query.eq("email", user.email);
+                    }
+                    const { data, error } = await query.maybeSingle();
 
-                    if (data && !error) {
+                    if (data && !error && data.lga) {
                         if (typeof window !== "undefined") {
                             localStorage.setItem("chairman_profile", JSON.stringify(data));
+                            localStorage.setItem("chairman_lga", data.lga);
                         }
                         return data as unknown as LGAChairman;
                     }
                 } catch (e) {
                     console.warn("Could not query lga_chairmen table:", e);
                 }
+
+                // Check profiles table
+                try {
+                    const { data: profile } = await db
+                        .from("profiles")
+                        .select("*")
+                        .eq("id", user.id)
+                        .maybeSingle();
+
+                    if (profile?.lga) {
+                        const profLga = profile.lga;
+                        const profileChairman: LGAChairman = {
+                            id: profile.id || `chair-${profLga.toLowerCase()}`,
+                            user_id: user.id,
+                            lga: profLga,
+                            chairman_name: profile.full_name || `${profLga} LGA Chairman`,
+                            phone: profile.phone || null,
+                            email: user.email || profile.email || `chairman.${profLga.toLowerCase()}@kogicms.ng`,
+                            party: "APM",
+                            election_date: null,
+                            sworn_in_date: null,
+                            must_change_password: false,
+                            last_password_change: null,
+                            is_active: true,
+                            photo_url: profile.passport_url || null,
+                            bio: null,
+                            created_at: profile.created_at || new Date().toISOString(),
+                            updated_at: profile.updated_at || new Date().toISOString()
+                        };
+                        if (typeof window !== "undefined") {
+                            localStorage.setItem("chairman_profile", JSON.stringify(profileChairman));
+                            localStorage.setItem("chairman_lga", profLga);
+                        }
+                        return profileChairman;
+                    }
+                } catch (e) {
+                    console.warn("Could not query profiles table for LGA:", e);
+                }
             }
 
-            // 3. Fallback for super_admin, org_admin, or default view
-            const fallbackLga = (typeof window !== "undefined" ? localStorage.getItem("admin_selected_lga") : null) || "Lokoja";
+            // 3. Fallback for admin or mock user
+            const adminSelected = typeof window !== "undefined" ? localStorage.getItem("admin_selected_lga") : null;
+            const targetLga = expectedLga || adminSelected || "Lokoja";
+
             const adminFallback: LGAChairman = {
-                id: "chair-admin-" + (user?.id || "default"),
-                user_id: user?.id || "super-admin",
-                lga: fallbackLga,
-                chairman_name: user?.user_metadata?.full_name || "LGA Executive Admin",
-                phone: null,
-                email: user?.email || "chairman.lokoja@apm.ng",
+                id: "chair-" + targetLga.toLowerCase().replace(/[^a-z0-9]/g, ""),
+                user_id: user?.id || `chair-${targetLga.toLowerCase().replace(/[^a-z0-9]/g, "")}`,
+                lga: targetLga,
+                chairman_name: user?.user_metadata?.full_name || `${targetLga} LGA Chairman`,
+                phone: user?.user_metadata?.phone || null,
+                email: user?.email || `chairman.${targetLga.toLowerCase().replace(/[^a-z0-9]/g, "")}@kogicms.ng`,
                 party: "APM",
                 election_date: null,
                 sworn_in_date: null,
@@ -229,8 +297,9 @@ export const useChairman = () => {
                 updated_at: new Date().toISOString()
             };
 
-            if (typeof window !== "undefined" && !localStorage.getItem("chairman_profile")) {
+            if (typeof window !== "undefined") {
                 localStorage.setItem("chairman_profile", JSON.stringify(adminFallback));
+                localStorage.setItem("chairman_lga", targetLga);
             }
             return adminFallback;
         },

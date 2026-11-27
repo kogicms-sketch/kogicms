@@ -499,6 +499,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = async (email: string, password: string) => {
     const normEmail = email.toLowerCase().trim();
 
+    // Clear stale cached profiles from previous sessions to prevent user data bleeding
+    if (typeof window !== "undefined") {
+      const staleKeys = [
+        "chairman_profile", "chairman_lga", "admin_selected_lga",
+        "senatorial_leader_profile", "federal_rep_profile",
+        "councillor_profile", "councillor_ward", "councillor_lga",
+        "house_assembly_profile", "pu_agent_profile", "pu_portal_active_agent",
+        "auth_email"
+      ];
+      staleKeys.forEach(k => { try { localStorage.removeItem(k); } catch {} });
+    }
+
     // 1. Check local mock_users & assigned_pu_agents for instant local/offline authentication
     if (typeof window !== "undefined") {
       try {
@@ -599,6 +611,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             };
             localStorage.setItem("chairman_profile", JSON.stringify(chairProf));
             localStorage.setItem("chairman_lga", found.lga || "Lokoja");
+            localStorage.setItem("admin_selected_lga", found.lga || "Lokoja");
           }
 
           if (found.role === "councillor" || found.role === "ward_chairman" || found.role === "ward_leader") {
@@ -703,6 +716,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (!error && authData?.user) {
+      localStorage.setItem("auth_email", authData.user.email || email);
+      const cleanEmail = (authData.user.email || email).toLowerCase();
+      const KOGI_LGAS = [
+        "Adavi", "Ajaokuta", "Ankpa", "Bassa", "Dekina", "Ibaji", "Idah",
+        "Igalamela-Odolu", "Ijumu", "Kabba/Bunu", "Kogi (Koton Karfe)",
+        "Lokoja", "Mopa-Muro", "Ofu", "Ogori/Magongo", "Okehi", "Okene",
+        "Olamaboro", "Omala", "Yagba East", "Yagba West"
+      ];
+      const matchedLga = authData.user.user_metadata?.lga || KOGI_LGAS.find(l => cleanEmail.includes(l.toLowerCase().replace(/[^a-z0-9]/g, "")));
+      if (matchedLga) {
+        localStorage.setItem("chairman_lga", matchedLga);
+        localStorage.setItem("admin_selected_lga", matchedLga);
+      }
       if (authData.user.user_metadata?.role) {
         const norm = authData.user.user_metadata.role.toLowerCase().trim();
         if (norm === "polling_unit_agent" || norm === "agent" || norm === "pu_agent") {
@@ -751,10 +777,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isMockRef.current = false;
     currentUserIdRef.current = null;
     hasLoadedRef.current = false;
-    localStorage.removeItem("auth_role");
-    localStorage.removeItem("auth_organization_id");
-    localStorage.removeItem("auth_account_status");
-    await supabase.auth.signOut();
+    const keysToRemove = [
+      "auth_role",
+      "auth_organization_id",
+      "auth_account_status",
+      "auth_email",
+      "chairman_profile",
+      "chairman_lga",
+      "admin_selected_lga",
+      "senatorial_leader_profile",
+      "federal_rep_profile",
+      "councillor_profile",
+      "councillor_ward",
+      "councillor_lga",
+      "house_assembly_profile",
+      "pu_agent_profile",
+      "pu_portal_active_agent",
+    ];
+    if (typeof window !== "undefined") {
+      keysToRemove.forEach((k) => {
+        try {
+          localStorage.removeItem(k);
+        } catch {}
+      });
+    }
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.warn("Sign out notice:", e);
+    }
     setUser(null);
     setSession(null);
     setRole(null);

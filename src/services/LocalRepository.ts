@@ -170,11 +170,14 @@ class LocalRepository {
 
     if (typeof window !== "undefined") {
       localStorage.removeItem("councillor_profile");
+      localStorage.removeItem("chairman_profile");
+      localStorage.removeItem("chairman_lga");
+      localStorage.removeItem("admin_selected_lga");
       
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith("ward_data_")) {
+        if (key && (key.startsWith("ward_data_") || key.startsWith("chairman_dashboard_stats_"))) {
           keysToRemove.push(key);
         }
       }

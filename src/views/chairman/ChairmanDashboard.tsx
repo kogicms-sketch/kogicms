@@ -15,14 +15,37 @@ import { useParty } from "@/contexts/PartyContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CandidateSupportGroupsTab } from "@/components/support-groups/CandidateSupportGroupsTab";
 import { APCFlag } from "@/components/branding/APCFlag";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { KOGI_LGAS } from "@/lib/campaign-data";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const ChairmanDashboard = () => {
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
     const router = useRouter();
+    const queryClient = useQueryClient();
     const { party } = useParty();
     const navigate = (path: any) => { if (path === -1) router.back(); else router.push(path); };
     const { data: chairman, isLoading: chairmanLoading } = useChairman();
     const { data: stats, isLoading: statsLoading } = useChairmanDashboardStats();
+
+    const handleLgaChange = (newLga: string) => {
+        if (typeof window !== "undefined") {
+            localStorage.setItem("admin_selected_lga", newLga);
+            localStorage.setItem("chairman_lga", newLga);
+            const updatedProfile = {
+                ...(chairman || {}),
+                id: `chair-${newLga.toLowerCase().replace(/[^a-z0-9]/g, "")}`,
+                lga: newLga,
+                chairman_name: `${newLga} LGA Chairman`,
+                email: `chairman.${newLga.toLowerCase().replace(/[^a-z0-9]/g, "")}@kogicms.ng`
+            };
+            localStorage.setItem("chairman_profile", JSON.stringify(updatedProfile));
+        }
+        queryClient.invalidateQueries({ queryKey: ["chairman-profile"] });
+        queryClient.invalidateQueries({ queryKey: ["chairman-dashboard-stats"] });
+        toast.success(`Switched dashboard to ${newLga} LGA`);
+    };
 
     if (chairmanLoading || (chairman && statsLoading)) {
         return (
@@ -201,7 +224,7 @@ const ChairmanDashboard = () => {
     ];
 
     return (
-        <DashboardLayout>
+        <DashboardLayout title={`${chairman.lga} LGA Command`} subtitle="LGA Campaign Operations, Mobilization & Live Sync">
             <div className="space-y-4 sm:space-y-6 animate-fade-in">
 
                 {/* ── APM HERO BANNER ── */}
@@ -230,9 +253,25 @@ const ChairmanDashboard = () => {
                                     </div>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight tracking-tight">
-                                        {chairman.lga} LGA
-                                    </h1>
+                                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                                        <h1 className="text-xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight tracking-tight">
+                                            {chairman.lga} LGA
+                                        </h1>
+                                        <div className="inline-flex items-center">
+                                            <Select value={chairman.lga} onValueChange={handleLgaChange}>
+                                                <SelectTrigger className="h-7 sm:h-8 text-xs font-bold border-white/30 text-white bg-white/10 hover:bg-white/20 backdrop-blur shadow-sm w-36 sm:w-44">
+                                                    <SelectValue placeholder="Switch LGA" />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-60 bg-slate-900 border-slate-700 text-white">
+                                                    {KOGI_LGAS.map((lga) => (
+                                                        <SelectItem key={lga} value={lga} className="text-xs font-medium text-white hover:bg-emerald-700/50 cursor-pointer">
+                                                            {lga} LGA
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
                                     <p className="text-xs sm:text-sm text-white/80 font-medium mt-0.5 truncate">
                                         {chairman.chairman_name} • {chairman.email}
                                     </p>
