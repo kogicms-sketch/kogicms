@@ -222,8 +222,8 @@ const ChairmanDashboard = () => {
                                 <div className="flex-shrink-0">
                                     <div className="w-14 h-14 sm:w-16 sm:h-16 lg:w-20 lg:h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center border-2 border-white/20 shadow-lg p-2 overflow-hidden">
                                         <img
-                                            src={party.logo}
-                                            alt={`${party.name} logo`}
+                                            src={party?.logo || "/parties/apm-logo.png"}
+                                            alt={`${party?.name || "Party"} logo`}
                                             className="w-full h-full object-contain"
                                         />
                                     </div>

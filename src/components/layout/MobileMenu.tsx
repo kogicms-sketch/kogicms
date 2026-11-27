@@ -121,15 +121,15 @@ const MobileMenu = ({ onClose }: MobileMenuProps) => {
       <div className="flex items-center gap-3 px-4 pb-4 mb-2 border-b border-border/40">
         <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 border border-border/50 bg-white p-1 flex items-center justify-center shadow-sm">
           <img
-            src={party.logo}
-            alt={`${party.name} logo`}
+            src={party?.logo || "/parties/apm-logo.png"}
+            alt={`${party?.name || "Party"} logo`}
             className="w-full h-full object-contain"
           />
         </div>
         <div className="min-w-0">
           <h2 className="text-sm font-bold text-foreground truncate">YMD CMS</h2>
           <p className="text-xs text-muted-foreground truncate">
-            {party.fullName}
+            {party?.fullName || "Allied Peoples' Movement"}
           </p>
         </div>
       </div>

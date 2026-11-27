@@ -14,6 +14,7 @@ const PartyContext = createContext<PartyContextValue | undefined>(undefined);
 const STORAGE_KEY = "active_party";
 
 function applyPartyToDom(party: PartyBrand) {
+    if (typeof window === "undefined" || !party || !party.colors) return;
     const root = document.documentElement;
     const c = party.colors;
 
@@ -50,26 +51,13 @@ function applyPartyToDom(party: PartyBrand) {
     // Swap favicon + apple touch icon to the active party logo
     try {
         let iconLink = document.querySelector<HTMLLinkElement>("link[rel='icon']");
-        if (!iconLink) {
-            iconLink = document.createElement("link");
-            iconLink.rel = "icon";
-            document.head.appendChild(iconLink);
+        if (iconLink && party.logo) {
+            iconLink.href = party.logo;
         }
-        iconLink.href = party.logo;
 
         let appleLink = document.querySelector<HTMLLinkElement>("link[rel='apple-touch-icon']");
-        if (!appleLink) {
-            appleLink = document.createElement("link");
-            appleLink.rel = "apple-touch-icon";
-            document.head.appendChild(appleLink);
-        }
-        appleLink.href = party.logo;
-
-        // Update document title dynamically
-        if (party.id === "apm") {
-            document.title = "Kogi State APM CMS";
-        } else {
-            document.title = `Kogi State ${party.shortName} CMS`;
+        if (appleLink && party.logo) {
+            appleLink.href = party.logo;
         }
     } catch { /* noop */ }
 }
@@ -95,37 +83,8 @@ export const PartyProvider = ({ children }: { children: ReactNode }) => {
 
     // Apply on mount and on change
     useEffect(() => {
-        const party = PARTIES[partyId];
-        applyPartyToDom(party);
-
-        if (typeof window === "undefined") return;
-
-        let observer: MutationObserver | null = null;
-        try {
-            const titleEl = document.querySelector("title");
-            if (titleEl) {
-                const expectedTitle = partyId === "apm" ? "Kogi State APM CMS" : `Kogi State ${party.shortName} CMS`;
-                if (document.title !== expectedTitle) {
-                    document.title = expectedTitle;
-                }
-
-                observer = new MutationObserver(() => {
-                    const currentExpected = partyId === "apm" ? "Kogi State APM CMS" : `Kogi State ${PARTIES[partyId].shortName} CMS`;
-                    if (document.title !== currentExpected) {
-                        document.title = currentExpected;
-                    }
-                });
-                observer.observe(titleEl, { childList: true, subtree: true, characterData: true });
-            }
-        } catch (e) {
-            console.error("Error setting up MutationObserver for title:", e);
-        }
-
-        return () => {
-            if (observer) {
-                observer.disconnect();
-            }
-        };
+        const party = PARTIES[partyId] || PARTIES[DEFAULT_PARTY];
+        if (party) applyPartyToDom(party);
     }, [partyId]);
 
     // Fetch global setting from backend (overrides local if present)

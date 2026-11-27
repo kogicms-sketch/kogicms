@@ -151,10 +151,11 @@ const Sidebar = () => {
   const router = useRouter();
   const { user, role, signOut } = useAuth();
   const { party } = useParty();
+  const swatches = party?.colors?.swatches || ["#009A44", "#002B49", "#0085CA"];
   const stripeColors = [
-    party.colors.swatches[0],
-    party.colors.swatches[1] || "#FFFFFF",
-    party.colors.swatches[2] || party.colors.swatches[0],
+    swatches[0] || "#009A44",
+    swatches[1] || "#FFFFFF",
+    swatches[2] || swatches[0] || "#009A44",
   ];
 
   // Resolve role and scope
@@ -206,8 +207,8 @@ const Sidebar = () => {
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 shadow-lg border-2 border-white/30 bg-white/10 flex items-center justify-center">
             <img
-              src={party.logo}
-              alt={`${party.name} logo`}
+              src={party?.logo || "/parties/apm-logo.png"}
+              alt={`${party?.name || "Party"} logo`}
               className="w-full h-full object-contain"
             />
           </div>

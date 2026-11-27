@@ -2,8 +2,10 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://oxpgjbynsxaabchvrrwp.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94cGdqYnluc3hhYWJjaHZycndwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg3MDI1NzgsImV4cCI6MjEwNDI3ODU3OH0.ZCv2qd8zs3gbDgPIJDLt6L3EaktppEmyET9KphD0g3w";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/loose-client";
