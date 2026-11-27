@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useParty } from "@/contexts/PartyContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CandidateSupportGroupsTab } from "@/components/support-groups/CandidateSupportGroupsTab";
+import { APCFlag } from "@/components/branding/APCFlag";
 
 const ChairmanDashboard = () => {
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
