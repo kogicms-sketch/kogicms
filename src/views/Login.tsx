@@ -141,7 +141,7 @@ const Login = () => {
           </motion.div>
         </div>
         <div className="space-y-1">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">Kogi State {party.shortName}</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">YMD CMS</h1>
           <p className="text-sm sm:text-base text-white/80">{party.fullName}</p>
         </div>
         <div className="flex items-center gap-2 text-white/90 mt-2">
@@ -182,14 +182,15 @@ const Login = () => {
         </div>
 
         {/* Branding Container */}
-        <div className="absolute inset-0 flex items-center justify-center p-12">
-          <div className="relative w-full max-w-lg aspect-square">
+                {/* Branding Container - Elegant background watermark that does not block hero text */}
+        <div className="absolute inset-0 flex items-center justify-center p-12 pointer-events-none opacity-20">
+          <div className="relative w-full max-w-md aspect-square">
             <div className="absolute inset-0 bg-white/20 rounded-full blur-[80px]" />
-            <div className="relative w-full h-full rounded-full border-[12px] border-white/20 bg-white/10 backdrop-blur-md shadow-[0_0_100px_rgba(255,255,255,0.2)] overflow-hidden flex items-center justify-center p-8 transition-transform duration-700 hover:scale-[1.02]">
+            <div className="relative w-full h-full rounded-full border-[10px] border-white/20 bg-white/10 backdrop-blur-md overflow-hidden flex items-center justify-center p-8">
               <img
                 src={party.logo}
                 alt={`${party.name} logo`}
-                className="w-full h-full object-contain drop-shadow-2xl"
+                className="w-full h-full object-contain"
               />
             </div>
           </div>
@@ -208,7 +209,7 @@ const Login = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white tracking-tight">
-                Kogi State {party.shortName}
+                YMD CMS
               </h1>
               <p className="text-sm text-white/80">{party.fullName}</p>
             </div>
@@ -287,7 +288,7 @@ const Login = () => {
                 </div>
               </div>
               <h1 className="text-xl font-bold text-white tracking-tight">
-                Kogi State {party.shortName}
+                YMD CMS
               </h1>
               <p className="text-sm text-white/60">{party.tagline}</p>
             </motion.div>
@@ -315,7 +316,7 @@ const Login = () => {
                     <Smartphone className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">Install Kogi State APM App</p>
+                    <p className="text-sm font-semibold text-foreground">Install YMD CMS App</p>
                     <p className="text-xs text-muted-foreground">Get quick access from home screen</p>
                   </div>
                   <Button

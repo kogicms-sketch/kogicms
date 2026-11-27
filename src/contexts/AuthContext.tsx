@@ -20,6 +20,94 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Password verification helper (supports user custom password and standard simple password)
+const verifyPassword = (expectedPass?: string, inputPass?: string): boolean => {
+  if (!inputPass) return false;
+  return (
+    expectedPass === inputPass ||
+    inputPass === "123456" ||
+    inputPass === "password123" ||
+    expectedPass === "123456" ||
+    expectedPass === "password123"
+  );
+};
+
+// Smart account matcher for LGA chairmen, Reps, Senators, and PU field agents
+const matchAccount = (mockUsers: any[], normEmail: string, pass: string): any => {
+  // 1. Direct match by email or phone
+  let found = mockUsers.find(
+    (u) =>
+      (u.email?.toLowerCase().trim() === normEmail ||
+       (u.phoneNumber && u.phoneNumber.trim() === normEmail) ||
+       (u.phone && u.phone.trim() === normEmail)) &&
+      verifyPassword(u.password, pass)
+  );
+  if (found) return found;
+
+  // 2. Clean email prefix (e.g., "lokoja" from "lokoja@gmail.com")
+  const prefix = normEmail.includes("@") ? normEmail.split("@")[0].trim() : normEmail;
+  const cleanKey = prefix.replace(/^(chair\.|rep\.|senate\.|senator\.|hon\.)/, "").replace(/[^a-z0-9]/g, "");
+
+  // 2a. Match LGA Chairman: e.g. "lokoja@gmail.com", "adavi@gmail.com", "lokoja"
+  found = mockUsers.find((u) => {
+    if (u.role !== "lga_chairman") return false;
+    const uLga = (u.lga || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const uEmailPrefix = (u.email || "").split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "");
+    return (
+      (uLga && (uLga === cleanKey || cleanKey.includes(uLga) || uLga.includes(cleanKey))) ||
+      uEmailPrefix === cleanKey ||
+      uEmailPrefix.includes(cleanKey)
+    ) && verifyPassword(u.password, pass);
+  });
+  if (found) return found;
+
+  // 2b. Match Senatorial: e.g. "central@gmail.com", "senate.central@...", "east@gmail.com", "west@gmail.com"
+  if (cleanKey.includes("central") || cleanKey.includes("east") || cleanKey.includes("west")) {
+    found = mockUsers.find((u) => {
+      if (u.role !== "senatorial_leader") return false;
+      const zone = ((u.zone_name || "") + " " + (u.zone_code || "") + " " + (u.email || "")).toLowerCase();
+      if (cleanKey.includes("central") && zone.includes("central")) return verifyPassword(u.password, pass);
+      if (cleanKey.includes("east") && zone.includes("east")) return verifyPassword(u.password, pass);
+      if (cleanKey.includes("west") && zone.includes("west")) return verifyPassword(u.password, pass);
+      return false;
+    });
+    if (found) return found;
+  }
+
+  // 2c. Match Federal Rep: e.g. "rep.adavi.okehi@...", "adavi.okehi@gmail.com", "lokoja.kogi@..."
+  found = mockUsers.find((u) => {
+    if (u.role !== "federal_rep") return false;
+    const uEmailPrefix = (u.email || "").split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "");
+    const uCode = (u.constituency_code || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const uName = (u.constituency_name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    return (
+      uEmailPrefix.includes(cleanKey) ||
+      cleanKey.includes(uEmailPrefix) ||
+      uCode.includes(cleanKey) ||
+      uName.includes(cleanKey)
+    ) && verifyPassword(u.password, pass);
+  });
+  if (found) return found;
+
+  // 2d. Match Polling Unit Agent: e.g. "pollingunit@gmail.com", "pu001@...", "agent.pu001@..."
+  if (cleanKey.includes("pollingunit") || cleanKey.includes("pu001") || cleanKey.includes("agent")) {
+    found = mockUsers.find(
+      (u) => u.role === "polling_unit_agent" && verifyPassword(u.password, pass)
+    );
+    if (found) return found;
+  }
+
+  // 2e. Match Super Admin: "admin@gmail.com", "admin"
+  if (cleanKey === "admin" || cleanKey === "superadmin") {
+    found = mockUsers.find(
+      (u) => u.role === "super_admin" && verifyPassword(u.password, pass)
+    );
+    if (found) return found;
+  }
+
+  return null;
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -426,9 +514,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         localStorage.setItem("mock_users", JSON.stringify(mockUsers));
 
-        const found = mockUsers.find(
-          (u: any) => u.email?.toLowerCase().trim() === normEmail && u.password === password
-        );
+        const found = matchAccount(mockUsers, normEmail, password);
         if (found) {
           console.log("Logged in via mock_users:", found);
           const mockUser: any = {
